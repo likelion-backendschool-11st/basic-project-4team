@@ -25,6 +25,21 @@ pnpm-debug.log*
 .eslintcache
 coverage/
 
+# Backend (Node.js / Express)
+build/
+uploads/
+tmp/
+*.pid
+*.seed
+*.pid.lock
+.npm/
+.nyc_output/
+*.sqlite
+*.sqlite3
+*.db
+*.pem
+*.key
+
 # Editor
 .vscode/*
 !.vscode/extensions.json
