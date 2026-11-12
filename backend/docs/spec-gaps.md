@@ -15,7 +15,7 @@
 
 | # | 영역 | requirements.md | api-spec-all.md | 결정할 것 |
 |---|---|---|---|---|
-| 1 | 토론글 제목 | 제목 없음 (REQ-BWRITE-003) | `title` 선택 1~100자, `posts.title` 컬럼 있음 | 제목 제거 or 요구사항 수정 |
+| 1 | 토론글 제목 | `title` 선택 1~100자, `posts.title` 컬럼 있음 | `title` 선택 1~100자, `posts.title` 컬럼 있음 |  |
 | 2 | 토론글 품목 | 품목 자동 지정·변경 불가 (REQ-BWRITE-001, BEDIT-001) | `itemId` 선택값, PATCH로 변경·`null` 가능 | 필수 + PATCH 금지로 맞추기 |
 | 3 | 토론글 게시판·태그 | 요구사항에 없음 (품목 토론방만) | `board`(pokemon·sneakers·onepiece·watch·free) 필수, `tag` | 피드 게시판을 요구사항에 추가 or API에서 제거 |
 | 4 | 토론글 사진 | 최대 4장 (REQ-BWRITE-002) | 필드 없음 (TODO: `post_images`) | 이미지 필드·테이블 추가 |
