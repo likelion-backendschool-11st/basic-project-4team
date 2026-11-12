@@ -41,12 +41,12 @@
 
 | # | 항목 | 현재 상태 | 정리할 것 |
 |---|---|---|---|
-| A1 | 토큰 전달 방식 | 1장은 `Authorization: Bearer` + Refresh 쿠키, 4~6장·`CLAUDE.md`·현재 `auth.js`는 `accessToken` 쿠키 | 1장 기준이면 4~6장 쿠키 문구·예시, `CLAUDE.md` 수정 |
-| A2 | 선택 인증 (`optionalAuth`) | 5장: 만료 토큰이면 비로그인 처리 | Bearer + refresh 구조에선 만료 시 `isMine`이 틀어짐 → 선택 인증에서도 `401 TOKEN_EXPIRED`를 돌려 프론트가 재발급하게 하기 |
-| A3 | 관리자 권한 | 요구사항에 관리자 기능 있음 (운영 기준 설정, 품목 등록 요청, 신고 처리) | `users`·JWT에 `role` 없음 → `role` 컬럼 or DB 조회 방식 결정 |
-| A4 | 작성자 검증 | 판매글·토론글·댓글 모두 `403 FORBIDDEN` ✓ | "회원은 `sub`로만 식별" 규칙이 1장에만 있음 → 공통 규칙으로 올리기 |
-| A5 | 탈퇴 회원 | 1장은 탈퇴 여부 검사 | 다른 장 미들웨어엔 없음 → `auth.js`에서 매 요청 DB 조회 여부 결정 (요청마다 쿼리 1회 비용) |
-| A6 | Refresh 토큰과 소프트 삭제 | `refresh_tokens`는 `ON DELETE CASCADE` | `users`는 소프트 삭제라 CASCADE가 동작하지 않음 → 탈퇴 시 토큰 명시적 폐기 |
+| A1 | 토큰 전달 방식 | 1장은 `Authorization: Bearer accessToken` | `Authorization: Bearer accessToken` |
+| A2 | 선택 인증 (`optionalAuth`) | 헤더 없음 → 비로그인. 헤더 있는데 만료 → 401 TOKEN_EXPIRED, 위조·형식 오류 → 401 INVALID_TOKEN. 비로그인으로 넘기지 않음 → 프론트가 refresh 후 같은 요청 재시도 (isMine·isWished가 안 틀어짐) |
+| A3 | 관리자 권한 | users.role 컬럼 추가 (USER/ADMIN, 기본 USER). accessToken payload에 role을 넣고 requireAdmin 미들웨어는 req.user.role만 검사(DB 조회 X). 권한 변경은 다음 refresh 때 DB에서 다시 읽어 반영 |
+| A4 | 작성자 검증 | 0장 공통 규칙으로 올림: 회원은 토큰의 sub(userId)로만 식별하고, body·query의 userId는 믿지 않음. 남의 리소스 수정·삭제는 모든 API에서 403 FORBIDDEN |
+| A5 | 탈퇴 회원 | auth.js는 토큰 검증만 하고 매 요청 DB 조회 안 함. ① 탈퇴 시 refresh 토큰 전부 폐기 ② POST /auth/refresh에서 users.deleted_at 확인 ③ 남은 access 수명(최대 30분)은 허용 |
+| A6 | Refresh 토큰과 소프트 삭제 | CASCADE에 기대지 않음. 탈퇴 트랜잭션 안에서 deleted_at = NOW()와 함께 DELETE FROM refresh_tokens WHERE user_id = ?를 명시적으로 실행. CASCADE는 하드 삭제 대비용으로만 남김 |
 
 ## 3. DB 설계 미정 규칙
 
