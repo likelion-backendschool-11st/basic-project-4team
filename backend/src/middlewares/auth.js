@@ -19,4 +19,18 @@ function requireAuth(req, res, next) {
   }
 }
 
-module.exports = { requireAuth, TOKEN_COOKIE };
+/** 로그인 여부와 관계없이 통과시킨다. 유효한 토큰이 있을 때만 req.user를 채운다. */
+function optionalAuth(req, res, next) {
+  const token = req.cookies?.[TOKEN_COOKIE];
+  if (token) {
+    try {
+      const payload = jwt.verify(token, env.jwt.secret);
+      req.user = { id: Number(payload.sub) };
+    } catch {
+      // 만료·위조 토큰은 비로그인으로 취급한다 — 공개 조회 API가 401로 막히지 않게.
+    }
+  }
+  next();
+}
+
+module.exports = { requireAuth, optionalAuth, TOKEN_COOKIE };
