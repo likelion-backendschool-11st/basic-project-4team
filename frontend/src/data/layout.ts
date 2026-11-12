@@ -40,6 +40,11 @@ export const headerData = {
   alertLabel: '알림',
   alertCount: 3,
   myLabel: '마이',
+  loginLabel: '로그인',
+  logoutLabel: '로그아웃',
+  loggingOutLabel: '로그아웃 중...',
+  logoutError: '로그아웃하지 못했습니다. 잠시 후 다시 시도해 주세요.',
+  nicknameSuffix: (nickname: string) => `${nickname}님`,
 };
 
 export interface NavItem {

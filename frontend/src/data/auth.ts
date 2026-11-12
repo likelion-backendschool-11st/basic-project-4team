@@ -30,10 +30,11 @@ export const loginCopy = {
   submit: '로그인',
   submitting: '로그인 중...',
   missingFields: '아이디와 비밀번호를 모두 입력해 주세요.',
+  networkError: '서버에 연결할 수 없습니다. 백엔드 서버가 실행 중인지 확인해 주세요.',
+  unknownError: '로그인 중 문제가 발생했습니다. 잠시 후 다시 시도해 주세요.',
   success: '로그인 성공!',
   successDetail: '메인 페이지로 이동합니다.',
   socialPending: (provider: string) => `${provider} 간편 로그인 인증 창으로 연결 중입니다.`,
-  submitDelayMs: 900,
   redirectTo: ROUTES.home,
 };
 
@@ -72,7 +73,7 @@ export const googleLogoPaths: readonly { readonly d: string; readonly fill: stri
 
 export const testAccountNotice = {
   title: '테스트 계정 안내:',
-  body: '아이디와 비밀번호를 자유롭게 입력하여 로그인 시연이 가능합니다.',
+  body: '아이디 test1 / 비밀번호 test1234 로 로그인할 수 있습니다. (test2, test3도 동일)',
 };
 
 export const authFooter = {

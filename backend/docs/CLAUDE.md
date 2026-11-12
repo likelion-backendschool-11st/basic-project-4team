@@ -8,8 +8,8 @@
 
 ## 현재 상태 (2026-11 기준)
 
-- `frontend/` : 화면 UI는 대부분 구현됨. **모든 데이터는 `src/data/*.ts`의 목(mock) 데이터** — 실제 API 호출 없음.
-- `backend/` : Express 5만 설치된 빈 상태. 서버 코드·DB 연결은 아직 없음.
+- `frontend/` : 화면 UI는 대부분 구현됨. **로그인만 실제 API 연결**(`src/api/`), 나머지 데이터는 `src/data/*.ts`의 목(mock) 데이터.
+- `backend/` : 서버 골격 + 인증 API(회원가입·로그인·로그아웃·내 정보)와 `users` 테이블 구현됨. 나머지 API는 아직 없음.
 - 다음 단계: 백엔드 API 구현 → 프론트 목 데이터를 API 호출로 교체.
 
 ## 기술 스택
@@ -18,7 +18,8 @@
 |---|---|
 | Frontend | React 18 + **TypeScript** 5 + Vite 5, React Router 6, Tailwind CSS 3 (forms, container-queries) |
 | Backend | Node.js + Express 5 (CommonJS) |
-| DB | MySQL (드라이버/ORM 미정 → 정해지면 여기 갱신) |
+| DB | MySQL 8 + `mysql2` (ORM 없이 SQL 직접 작성), 스키마는 `backend/db/schema.sql` |
+| 인증 | JWT(`jsonwebtoken`)를 httpOnly 쿠키로 전달, 비밀번호는 `bcryptjs` |
 | 폰트·아이콘 | Hanken Grotesk, Pretendard, Material Symbols Outlined (`index.html`에서 CDN 로드) |
 
 ## 명령어
@@ -35,7 +36,11 @@ npm run validate -- src/components/xxx/Foo.tsx   # 컴포넌트 규칙 검사 (P
 # 백엔드
 cd backend
 npm install
-# 실행 스크립트 아직 없음 — 서버 진입 파일 만들면 여기에 추가
+cp .env.example .env   # DB_PASSWORD만 채우기 (Windows: copy)
+npm run db:init        # DB·테이블 생성 — .env 정보로 db/schema.sql 실행, 반복 실행 안전
+npm run db:seed        # 테스트 계정 test1~3 / test1234 (이미 있으면 건너뜀)
+npm run dev            # 개발 서버 (http://localhost:4000, 파일 변경 시 자동 재시작)
+npm start              # 일반 실행
 ```
 
 ## 폴더 구조
@@ -46,7 +51,10 @@ frontend/src/
   components/     기능별 폴더 (home, search, listing, listing-form, market, community, auth, layout, common)
   hooks/          기능별 폴더, 상태·로직은 여기로 (useXxx.ts)
   data/           기능별 목 데이터 + 화면 문구(copy) + 타입 정의, layout.ts에 ROUTES
-backend/          (구현 예정)
+backend/
+  db/schema.sql   테이블 정의 (IF NOT EXISTS로만 작성)
+  scripts/        db-init.js, db-seed.js (mysql CLI 없이 mysql2로 실행 — Mac/Windows 공통)
+  src/            app.js, server.js, config/, routes/, controllers/, services/, repositories/, middlewares/, utils/
 docs/             컨벤션, API 정의서
 ```
 

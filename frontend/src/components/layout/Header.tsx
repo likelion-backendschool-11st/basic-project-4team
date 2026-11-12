@@ -1,9 +1,11 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { brand, headerData, liveTicker, navItems, ROUTES } from '../../data/layout';
+import { useHeaderAuth } from '../../hooks/layout/useHeaderAuth';
 import { useActiveRoute } from '../../hooks/useActiveRoute';
 import { useHeaderSearch } from '../../hooks/useHeaderSearch';
 import { Icon } from '../common/Icon';
+import { HeaderUserMenu } from './HeaderUserMenu';
 import { NoticeBar } from './NoticeBar';
 
 interface HeaderProps {
@@ -14,6 +16,7 @@ interface HeaderProps {
 export const Header: React.FC<HeaderProps> = ({ showNotice = true }) => {
   const isActive = useActiveRoute();
   const { query, setQuery, onSubmit } = useHeaderSearch();
+  const headerAuth = useHeaderAuth();
 
   return (
     <header className="sticky top-0 left-0 w-full z-50 bg-canvas">
@@ -64,12 +67,12 @@ export const Header: React.FC<HeaderProps> = ({ showNotice = true }) => {
               <span>{headerData.alertLabel}</span>
               <span className="bg-primary-container text-on-primary font-micro text-micro px-1.5 rounded-full">{headerData.alertCount}</span>
             </button>
-            <Link className="flex items-center gap-space-xs pl-space-xs" to={ROUTES.login}>
-              <span className="hidden md:inline font-ui-sm text-ui-sm text-body">{headerData.myLabel}</span>
-              <span className="w-8 h-8 rounded-[9999px] bg-primary flex items-center justify-center">
-                <Icon className="text-on-primary text-[18px]" name="person" />
-              </span>
-            </Link>
+            <HeaderUserMenu
+              loggingOut={headerAuth.loggingOut}
+              onLogout={headerAuth.onLogout}
+              status={headerAuth.status}
+              user={headerAuth.user}
+            />
           </div>
         </div>
       </div>
