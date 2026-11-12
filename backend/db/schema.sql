@@ -18,3 +18,23 @@ CREATE TABLE IF NOT EXISTS users (
   UNIQUE KEY uk_users_nickname (nickname),
   UNIQUE KEY uk_users_email (email)
 ) ENGINE = InnoDB COMMENT = '회원';
+
+-- 토론글 (커뮤니티 피드 + 품목별 토론방)
+CREATE TABLE IF NOT EXISTS posts (
+  id             BIGINT       NOT NULL AUTO_INCREMENT,
+  user_id        BIGINT       NOT NULL COMMENT '작성자',
+  board          VARCHAR(20)  NOT NULL COMMENT 'pokemon | sneakers | onepiece | watch | free',
+  tag            VARCHAR(20)  NULL     COMMENT 'analysis | verify | unboxing | poll | qna | info',
+  item_id        VARCHAR(100) NULL     COMMENT '품목 식별자 (품목 테이블 생기면 FK로 교체)',
+  title          VARCHAR(100) NULL,
+  body           TEXT         NOT NULL,
+  reaction_count INT          NOT NULL DEFAULT 0 COMMENT '인기순 정렬용 집계 (리액션 API에서 갱신)',
+  comment_count  INT          NOT NULL DEFAULT 0 COMMENT '인기순 정렬용 집계 (댓글 API에서 갱신)',
+  created_at     DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at     DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  deleted_at     DATETIME     NULL COMMENT '소프트 삭제 시각',
+  PRIMARY KEY (id),
+  KEY idx_posts_board_created (board, created_at),
+  KEY idx_posts_item_created (item_id, created_at),
+  CONSTRAINT fk_posts_user FOREIGN KEY (user_id) REFERENCES users (id)
+) ENGINE = InnoDB COMMENT = '토론글';
