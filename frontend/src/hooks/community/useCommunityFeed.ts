@@ -4,6 +4,7 @@ import { ApiError } from '../../api/client';
 import { createPost, deletePost, getPosts, updatePost } from '../../api/community';
 import type { Post, PostBoard, PostTag } from '../../api/types';
 import {
+  discussionReactionTemplate,
   feedBoardMeta,
   feedComposer,
   feedErrorCopy,
@@ -34,7 +35,8 @@ const toFeedPost = (post: Post): FeedPost => {
     context: tagLabel,
     title: post.title ?? '',
     body: post.body,
-    reactions: [],
+    // 토론글 이모지 4종(🔥😮😂🧊). 이모지 반응 API(#59)가 생기기 전까지는 0에서 시작해 화면에서만 토글된다.
+    reactions: discussionReactionTemplate(0, 0, 0, 0),
     commentCount: post.commentCount,
     isMine: post.isMine,
     edited: post.editedAt !== null,
