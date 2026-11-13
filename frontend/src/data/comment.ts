@@ -1,3 +1,5 @@
+import type { ReportReason } from '../api/types';
+
 /* ------------------------------------------------------------------ */
 /* 토론글 댓글 (피드 카드 아래로 펼치는 댓글 영역)                        */
 /* ------------------------------------------------------------------ */
@@ -44,7 +46,27 @@ export const commentLikeCopy = {
   ariaLabel: (n: number, liked: boolean) => `좋아요 ${n}개${liked ? ', 누름' : ''}`,
 };
 
-/** 내 댓글 "⋮" 메뉴. */
+/** 댓글 "⋮" 메뉴 — 내 댓글은 삭제, 남의 댓글은 신고. */
 export const commentMenu = {
   mine: [{ key: 'delete', icon: 'delete', label: '삭제', danger: true }],
+  others: [{ key: 'report', icon: 'flag', label: '신고하기', danger: true }],
+};
+
+export const REPORT_DETAIL_MAX = 500;
+
+export const reportCopy = {
+  title: '신고하기',
+  description: '신고 사유를 선택해 주세요. 접수된 신고는 운영팀이 검토합니다.',
+  reasons: [
+    { value: 'fraud', label: '사기·허위 시세' },
+    { value: 'spam', label: '도배·광고' },
+    { value: 'abuse', label: '욕설·비방' },
+    { value: 'inappropriate', label: '부적절한 내용' },
+    { value: 'etc', label: '기타' },
+  ] as readonly { readonly value: ReportReason; readonly label: string }[],
+  detailPlaceholder: '상세 내용을 입력해 주세요. (기타 선택 시 필수, 최대 500자)',
+  submitLabel: '신고하기',
+  cancelLabel: '취소',
+  done: '신고가 접수되었습니다.',
+  submitError: '신고하지 못했습니다. 잠시 후 다시 시도해 주세요.',
 };

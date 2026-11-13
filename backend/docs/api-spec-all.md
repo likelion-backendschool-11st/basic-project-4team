@@ -2255,6 +2255,8 @@ curl -b cookie.txt -X DELETE http://localhost:4000/api/posts/1
 | `COMMENT_NOT_FOUND` | 404 | 댓글이 없거나 이미 삭제됨 |
 | `INVALID_PARENT_COMMENT` | 400 | 부모 댓글이 다른 게시글 소속이거나, 답글에 답글을 달려고 함 |
 | `FORBIDDEN` | 403 | 본인 댓글이 아님 |
+| `CANNOT_REPORT_OWN` | 400 | 본인 글·댓글을 신고하려 함 (#76) |
+| `ALREADY_REPORTED` | 409 | 같은 대상을 이미 신고함 (#76) |
 
 ---
 
@@ -2351,22 +2353,55 @@ curl -b cookie.txt -X DELETE http://localhost:4000/api/posts/1
 
 에러: `401 UNAUTHORIZED`, `404 COMMENT_NOT_FOUND`
 
+### POST /reports — 신고 🔒 (#76)
+
+토론글·댓글 신고. 같은 대상은 1인 1회. 테이블 설계는 `erd.md` 2.15 (`spec-gaps.md` 3장).
+
+요청
+
+```json
+{ "targetType": "comment", "targetId": 12, "reason": "abuse", "detail": null }
+```
+
+| 필드 | 필수 | 규칙 |
+|---|---|---|
+| `targetType` | O | `post` · `comment` (`listing`·`user`는 DB만 준비, API 미지원) |
+| `targetId` | O | 양의 정수 |
+| `reason` | O | `fraud` 사기 · `spam` 도배·광고 · `abuse` 욕설·비방 · `inappropriate` 부적절 · `etc` 기타 |
+| `detail` | `etc`면 O | 앞뒤 공백 제거 후 1~500자. `etc`가 아니면 선택 |
+
+응답 `201`
+
+```json
+{
+  "data": {
+    "report": {
+      "id": 1, "targetType": "comment", "targetId": 12, "reason": "abuse",
+      "detail": null, "status": "pending", "createdAt": "2026-11-13T06:00:00.000Z"
+    }
+  }
+}
+```
+
+에러: `400 VALIDATION_ERROR` / `CANNOT_REPORT_OWN`, `401 UNAUTHORIZED`, `404 POST_NOT_FOUND` / `COMMENT_NOT_FOUND`(없거나 삭제된 대상), `409 ALREADY_REPORTED`
+
 ### 구현 메모 (#42)
 
 - 위치: `backend/src/comment/` (`comment.routes.js` → `controller` → `service` → `repository`), `app.use('/api/community', commentRoutes)`
-- 프론트: `src/api/comment.ts`, `hooks/comment/`, `components/comment/` — **커뮤니티 피드(P-017)와 품목 토론방(P-018)** 카드의 "댓글"을 누르면 카드 아래로 펼쳐진다 (페이지 이동 없음). 품목 토론방은 URL `#post-{id}`로 들어오면 그 글의 댓글을 자동으로 펼친다
+- 프론트: `src/api/comment.ts`, `src/api/report.ts`, `hooks/comment/`, `components/comment/` — **커뮤니티 피드(P-017)와 품목 토론방(P-018)** 카드의 "댓글"을 누르면 카드 아래로 펼쳐진다 (페이지 이동 없음). 품목 토론방은 URL `#post-{id}`로 들어오면 그 글의 댓글을 자동으로 펼친다
 - 좋아요: `backend/src/comment/` (`comment_likes` 테이블 + `comments.like_count`, erd.md 2.13, #63). 누르기·취소와 `like_count ± 1`은 한 트랜잭션. 댓글을 삭제하면 좋아요 행을 지우고 `like_count`를 0으로 만든다
-- 비로그인으로 댓글 좋아요를 누르면 로그인 필요 팝업, 댓글 입력창 자리에는 로그인 안내
+- 신고 (#76): `backend/src/report/` (`reports` 테이블), `app.use('/api/reports', reportRoutes)`. 대상 확인은 `community.repository.findById`(글), `comment.service.findLiveAuthorId`(댓글)로 한다
+- 비로그인으로 댓글 좋아요·신고를 누르면 로그인 필요 팝업, 댓글 입력창 자리에는 로그인 안내
 - `cursor`는 직전 페이지 마지막 항목의 `id`(문자열). 숫자가 아니면 `400 VALIDATION_ERROR`
 - 경로의 `postId`·`commentId`가 양의 정수가 아니면 존재할 수 없는 리소스로 보고 `404`
 - 작성·삭제와 `posts.comment_count` ±1은 한 트랜잭션. 같은 댓글을 두 번 삭제해도 한 번만 줄어든다
 - 답글 더보기: 삭제됐어도 살아 있는 답글이 있는 댓글이면 조회 가능, 답글(`parentId` 있음)의 id로 요청하면 `404 COMMENT_NOT_FOUND`
 - `author.badges`: 보유자·거래 인증 데이터(테이블)가 아직 없어 **항상 `[]`**
-- 시드(`npm run db:seed`): 토론글 10개(품목별 토론방 글 6개 포함), 댓글·답글 46개(삭제된 댓글 2개 포함), 댓글 좋아요. 글·댓글은 **글 단위로 건너뛰므로** 반복 실행해도 중복되지 않고, 댓글 시각은 항상 글(답글은 부모 댓글)보다 늦다. 넣은 뒤 `posts.comment_count`를 실제 개수로 맞춘다
+- 시드(`npm run db:seed`): 토론글 10개(품목별 토론방 글 6개 포함), 댓글·답글 46개(삭제된 댓글 2개 포함), 댓글 좋아요, 신고 예시 2건. 글·댓글은 **글 단위로 건너뛰므로** 반복 실행해도 중복되지 않고, 댓글 시각은 항상 글(답글은 부모 댓글)보다 늦다. 넣은 뒤 `posts.comment_count`를 실제 개수로 맞춘다
 
 ### 미정 항목 (팀 결정 필요)
 
-1. ~~댓글 리액션·신고를 댓글에도 둘지~~ → #63에서 **좋아요(1종)** 추가 (위 PUT/DELETE like). 🔥😮😂🧊 4종 리액션은 토론글에만. 신고는 미정.
+1. ~~댓글 리액션·신고를 댓글에도 둘지~~ → **좋아요(1종, #63)**·신고(#76) 추가 (위 PUT/DELETE like, POST /reports). 🔥😮😂🧊 4종 리액션은 토론글에만.
 2. 게시글 id 형식 — 목업은 `'post-1'` 문자열, 명세는 `users`와 같은 숫자 BIGINT로 가정.
 3. 댓글 작성 시 게시글 작성자 알림 — 알림 API가 생기면 추가.
 

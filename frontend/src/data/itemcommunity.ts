@@ -26,11 +26,11 @@ export const itemStatusCopy = {
   error: '품목 정보를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.',
 };
 
-/** 비로그인 사용자가 댓글·이모지·좋아요를 누르면 띄우는 팝업 문구. */
+/** 비로그인 사용자가 댓글·이모지·좋아요·신고를 누르면 띄우는 팝업 문구. */
 export const loginRequiredCopy = {
   icon: 'lock',
   title: '로그인이 필요합니다',
-  message: '로그인하지 않으면 토론글에 댓글을 달거나 이모지·좋아요를 남길 수 없습니다.',
+  message: '로그인하지 않으면 토론글에 댓글을 달거나 이모지·좋아요를 남기거나 신고할 수 없습니다.',
   confirmLabel: '로그인하기',
   cancelLabel: '닫기',
 };
