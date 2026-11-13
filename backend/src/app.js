@@ -4,6 +4,7 @@ const cors = require('cors');
 const env = require('./config/env');
 const authRoutes = require('./routes/auth.routes');
 const postsRoutes = require('./routes/posts.routes');
+const sellRoutes = require('./sell/sell.routes');
 const errorHandler = require('./middlewares/errorHandler');
 const HttpError = require('./utils/HttpError');
 
@@ -17,6 +18,7 @@ app.use(cookieParser());
 app.get('/api/health', (req, res) => res.json({ data: { status: 'ok' } }));
 app.use('/api/auth', authRoutes);
 app.use('/api/posts', postsRoutes);
+app.use('/api/listings', sellRoutes);
 
 app.use((req, res, next) => next(new HttpError(404, 'NOT_FOUND', '요청한 API를 찾을 수 없습니다.')));
 app.use(errorHandler);
