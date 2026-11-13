@@ -140,7 +140,127 @@ async function increaseViewCount(listingId, viewerKey, viewedOn) {
   }
 }
 
+// 사용자 입력을 SQL에 그대로 넣지 않도록 정렬 키 → ORDER BY 절을 고정해 둔다.
+const ORDER_BY = {
+  latest: 'l.created_at DESC, l.id DESC',
+  priceAsc: 'l.price ASC, l.id DESC',
+  priceDesc: 'l.price DESC, l.id DESC',
+  popular: 'l.wish_count DESC, l.created_at DESC, l.id DESC',
+};
+
+/** LIKE 검색어의 %, _ 를 글자 그대로 찾도록 이스케이프한다. */
+const escapeLike = (text) => text.replace(/[\\%_]/g, (c) => `\\${c}`);
+
+/** 카테고리 code → id 목록. 대분류면 하위 카테고리까지 포함. 없는 code면 null. */
+async function findCategoryIdsByCode(code) {
+  const [rows] = await pool.execute(
+    `SELECT c.id FROM categories c
+     WHERE c.code = ? OR c.parent_id = (SELECT id FROM categories WHERE code = ?)`,
+    [code, code],
+  );
+  return rows.length === 0 ? null : rows.map((row) => row.id);
+}
+
+function buildListWhere({ q, categoryIds, itemId, conditions, grades, minPrice, maxPrice, tradeMethods, excludeSold }) {
+  const where = ['l.deleted_at IS NULL'];
+  const params = [];
+  if (q) {
+    const like = `%${escapeLike(q)}%`;
+    where.push('(l.title LIKE ? OR i.name LIKE ? OR i.set_name LIKE ? OR i.card_no LIKE ?)');
+    params.push(like, like, like, like);
+  }
+  if (categoryIds) {
+    where.push(`l.category_id IN (${categoryIds.map(() => '?').join(', ')})`);
+    params.push(...categoryIds);
+  }
+  if (itemId) {
+    where.push('l.item_id = ?');
+    params.push(itemId);
+  }
+  // 상태(condition)와 등급(grades)은 검색 화면의 "등급" 체크박스 한 묶음이라 둘 다 오면 OR로 묶는다.
+  // 예) grades=PSA-10 & condition=unopened → PSA 10 슬랩 또는 미개봉
+  const gradeGroup = [];
+  if (conditions.length > 0) {
+    gradeGroup.push(`l.\`condition\` IN (${conditions.map(() => '?').join(', ')})`);
+    params.push(...conditions);
+  }
+  if (grades.length > 0) {
+    gradeGroup.push(`(l.\`condition\` = 'graded' AND (${grades.map(() => '(l.grading_service = ? AND l.grade = ?)').join(' OR ')}))`);
+    grades.forEach(({ gradingService, grade }) => params.push(gradingService, grade));
+  }
+  if (gradeGroup.length > 0) where.push(`(${gradeGroup.join(' OR ')})`);
+  if (minPrice !== null) {
+    where.push('l.price >= ?');
+    params.push(minPrice);
+  }
+  if (maxPrice !== null) {
+    where.push('l.price <= ?');
+    params.push(maxPrice);
+  }
+  if (tradeMethods.length > 0) {
+    // 하나라도 만족하면 포함. 컬럼 이름은 controller가 허용한 값(delivery·direct)만 온다.
+    where.push(`(${tradeMethods.map((method) => `l.${method} = 1`).join(' OR ')})`);
+  }
+  if (excludeSold) where.push("l.status <> 'sold'");
+  return { where: `WHERE ${where.join(' AND ')}`, params };
+}
+
+/** ListingSummary 행(snake_case) → API용 객체. isWished·priceDiffRate는 service에서 붙인다. */
+function toListingSummary(row) {
+  return {
+    id: row.id,
+    registrationNo: row.registration_no,
+    title: row.title,
+    price: row.price,
+    status: row.status,
+    condition: row.condition,
+    gradingService: row.grading_service,
+    grade: row.grade,
+    thumbnailUrl: row.thumbnail_url,
+    directLocation: row.direct ? row.direct_location : null,
+    wishCount: row.wish_count,
+    isWished: Boolean(row.is_wished),
+    // AVG 결과는 DECIMAL이라 문자열로 온다. 상세(findMarketPrice)와 같이 원 단위 정수로 맞춘다.
+    marketAveragePrice: row.market_avg === null ? null : Math.round(Number(row.market_avg)),
+    item: { id: row.item_id, slug: row.item_slug, name: row.item_name, setName: row.item_set_name },
+    createdAt: row.created_at,
+  };
+}
+
+/** LISTING-01 목록. { listings, totalCount } 반환. */
+async function findMany(filter, { sort, limit, offset, viewerId }) {
+  const { where, params } = buildListWhere(filter);
+  const [rows] = await pool.query(
+    `SELECT
+       l.id, l.registration_no, l.title, l.price, l.status, l.\`condition\`, l.grading_service, l.grade,
+       l.direct, l.direct_location, l.wish_count, l.item_id, l.created_at,
+       i.slug AS item_slug, i.name AS item_name, i.set_name AS item_set_name,
+       (SELECT url FROM listing_images li
+         WHERE li.listing_id = l.id AND li.type = 'photo' AND li.sort_order = 0) AS thumbnail_url,
+       ${viewerId === undefined ? '0' : 'EXISTS (SELECT 1 FROM wishes w WHERE w.listing_id = l.id AND w.user_id = ?)'} AS is_wished,
+       -- 같은 품목·상태·그레이딩사·등급의 30일 평균 체결가 (idx_listings_market 사용)
+       (SELECT AVG(s.sold_price) FROM listings s
+         WHERE s.item_id = l.item_id AND s.status = 'sold' AND s.\`condition\` = l.\`condition\`
+           AND s.grading_service <=> l.grading_service AND s.grade <=> l.grade
+           AND s.sold_at >= UTC_TIMESTAMP() - INTERVAL ${MARKET_PRICE_DAYS} DAY
+           AND s.deleted_at IS NULL) AS market_avg
+     FROM listings l
+     JOIN items i ON i.id = l.item_id
+     ${where}
+     ORDER BY ${ORDER_BY[sort]}
+     LIMIT ? OFFSET ?`,
+    [...(viewerId === undefined ? [] : [viewerId]), ...params, limit, offset],
+  );
+  const [[{ totalCount }]] = await pool.query(
+    `SELECT COUNT(*) AS totalCount FROM listings l JOIN items i ON i.id = l.item_id ${where}`,
+    params,
+  );
+  return { listings: rows.map(toListingSummary), totalCount };
+}
+
 module.exports = {
+  findCategoryIdsByCode,
+  findMany,
   findDetailById,
   findImages,
   findMarketPrice,

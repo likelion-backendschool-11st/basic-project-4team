@@ -1,8 +1,15 @@
 /**
  * npm run db:seed:sell — 판매글 화면 확인용 더미 데이터(카테고리·품목·판매글·사진).
- * npm run db:seed(테스트 계정) 다음에 실행한다. 품목이 이미 있으면 건너뛴다.
+ * npm run db:seed(테스트 계정) 다음에 실행한다. 이미 있는 데이터는 건너뛴다.
+ *  1) 상세 화면용: 리자몽 판매글 1건 + 거래완료 2건 (/listings/1)
+ *  2) 검색 결과 화면용: 목 카드 10건 + 카드별 거래완료 1건 (sell-seed-cards.js)
  */
 const { connect, exitWithHint } = require('./db-common');
+const SEARCH_CARDS = require('./sell-seed-cards');
+
+const MINUTES_PER_DAY = 24 * 60;
+const CARD_SOLD_DAYS_AGO = 5;
+const CARD_SOLD_CREATED_DAYS_AGO = 15;
 
 const IMG = 'https://lh3.googleusercontent.com/aida-public/';
 const IMAGES = {
@@ -45,15 +52,16 @@ async function insertListing(connection, listing) {
   const [result] = await connection.execute(
     `INSERT INTO listings
        (seller_id, item_id, category_id, title, description, price, \`condition\`, grading_service, grade,
-        delivery, direct, direct_location, agreed_at, status, view_count, sold_price, sold_at, buyer_id, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, UTC_TIMESTAMP(), ?, ?, ?,
-             IF(? IS NULL, NULL, UTC_TIMESTAMP() - INTERVAL ? DAY), ?, UTC_TIMESTAMP() - INTERVAL ? DAY)`,
+        delivery, direct, direct_location, agreed_at, status, view_count, wish_count, sold_price, sold_at, buyer_id, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, UTC_TIMESTAMP(), ?, ?, ?, ?,
+             IF(? IS NULL, NULL, UTC_TIMESTAMP() - INTERVAL ? DAY), ?, UTC_TIMESTAMP() - INTERVAL ? MINUTE)`,
     [
       listing.sellerId, listing.itemId, listing.categoryId, listing.title, listing.description ?? '',
       listing.price, listing.condition, listing.gradingService ?? null, listing.grade ?? null,
       listing.delivery ? 1 : 0, listing.direct ? 1 : 0, listing.directLocation ?? null,
-      listing.status ?? 'selling', listing.viewCount ?? 0, listing.soldPrice ?? null,
-      listing.soldDaysAgo ?? null, listing.soldDaysAgo ?? 0, listing.buyerId ?? null, listing.createdDaysAgo ?? 0,
+      listing.status ?? 'selling', listing.viewCount ?? 0, listing.wishCount ?? 0, listing.soldPrice ?? null,
+      listing.soldDaysAgo ?? null, listing.soldDaysAgo ?? 0, listing.buyerId ?? null,
+      listing.createdMinutesAgo ?? (listing.createdDaysAgo ?? 0) * MINUTES_PER_DAY,
     ],
   );
   const id = result.insertId;
@@ -64,31 +72,38 @@ async function insertListing(connection, listing) {
   return id;
 }
 
-async function main() {
-  const connection = await connect();
+/** 카드 > 포켓몬 카테고리를 만들고(이미 있으면 그대로) 포켓몬 카테고리 id를 돌려준다. */
+async function ensurePokemonCategory(connection) {
+  await connection.execute(
+    "INSERT IGNORE INTO categories (code, name, sort_order) VALUES ('card', '트레이딩 카드 (TCG)', 1)",
+  );
+  const [[card]] = await connection.query("SELECT id FROM categories WHERE code = 'card'");
+  await connection.execute(
+    "INSERT IGNORE INTO categories (parent_id, code, name, sort_order) VALUES (?, 'pokemon', '포켓몬 카드', 1)",
+    [card.id],
+  );
+  const [[pokemon]] = await connection.query("SELECT id FROM categories WHERE code = 'pokemon'");
+  return pokemon.id;
+}
+
+/** 1) 상세 화면용 리자몽 판매글. 품목이 이미 있으면 건너뛴다. */
+async function seedDetailListing(connection) {
+  const [existing] = await connection.execute('SELECT id FROM items WHERE slug = ?', [ITEM.slug]);
+  if (existing.length > 0) {
+    console.log('⏭  상세 화면용 판매글이 이미 있음 — 건너뜀');
+    return;
+  }
+  const seller = await findUserId(connection, 'test1');
+  const buyers = [await findUserId(connection, 'test2'), await findUserId(connection, 'test3')];
+
+  for (const table of ['categories', 'items', 'listings', 'listing_images']) {
+    await resetAutoIncrementIfEmpty(connection, table);
+  }
+
+  await connection.beginTransaction();
   try {
-    const [existing] = await connection.execute('SELECT id FROM items WHERE slug = ?', [ITEM.slug]);
-    if (existing.length > 0) {
-      console.log('⏭  판매글 시드가 이미 있음 — 건너뜀');
-      return;
-    }
-    const seller = await findUserId(connection, 'test1');
-    const buyers = [await findUserId(connection, 'test2'), await findUserId(connection, 'test3')];
-
-    for (const table of ['categories', 'items', 'listings', 'listing_images']) {
-      await resetAutoIncrementIfEmpty(connection, table);
-    }
-
-    await connection.beginTransaction();
-    await connection.execute(
-      "INSERT IGNORE INTO categories (code, name, sort_order) VALUES ('card', '트레이딩 카드 (TCG)', 1)",
-    );
-    const [[card]] = await connection.query("SELECT id FROM categories WHERE code = 'card'");
-    await connection.execute(
-      "INSERT IGNORE INTO categories (parent_id, code, name, sort_order) VALUES (?, 'pokemon', '포켓몬 카드', 1)",
-      [card.id],
-    );
-    const [[pokemon]] = await connection.query("SELECT id FROM categories WHERE code = 'pokemon'");
+    const pokemonId = await ensurePokemonCategory(connection);
+    const pokemon = { id: pokemonId };
 
     const [item] = await connection.execute(
       `INSERT INTO items (category_id, slug, name, set_name, card_no, language, rarity, image_url)
@@ -143,10 +158,90 @@ async function main() {
     }
 
     await connection.commit();
-    console.log(`➕ 판매글 시드 추가 — http://127.0.0.1:4173/listings/${listingId}`);
+    console.log(`➕ 상세 화면용 판매글 추가 — http://127.0.0.1:4173/listings/${listingId}`);
   } catch (err) {
     await connection.rollback().catch(() => {});
     throw err;
+  }
+}
+
+/** 목 카드의 "시세 대비 %"가 나오도록 하는 30일 평균 체결가. 0%면 같은 가격. */
+const toMarketPrice = (price, rate) => Math.round(price / (1 + rate / 100));
+
+/** 2) 검색 결과 화면용 카드 10건. 카드마다 품목 slug로 확인해 이미 있으면 건너뛴다. */
+async function seedSearchCards(connection) {
+  const users = {
+    test1: await findUserId(connection, 'test1'),
+    test2: await findUserId(connection, 'test2'),
+    test3: await findUserId(connection, 'test3'),
+  };
+  let added = 0;
+  for (const card of SEARCH_CARDS) {
+    const [existing] = await connection.execute('SELECT id FROM items WHERE slug = ?', [card.slug]);
+    if (existing.length > 0) continue;
+
+    await connection.beginTransaction();
+    try {
+      const categoryId = await ensurePokemonCategory(connection);
+      const [item] = await connection.execute(
+        `INSERT INTO items (category_id, slug, name, set_name, card_no, language, rarity, image_url)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [categoryId, card.slug, card.itemName, card.setName, card.cardNo, card.language, card.rarity, card.imageUrl],
+      );
+      const sellerId = users[card.seller];
+      const base = {
+        itemId: item.insertId,
+        categoryId,
+        condition: card.condition,
+        gradingService: card.gradingService,
+        grade: card.grade,
+        delivery: true,
+      };
+      const listingId = await insertListing(connection, {
+        ...base,
+        sellerId,
+        title: card.title,
+        price: card.price,
+        direct: Boolean(card.directLocation),
+        directLocation: card.directLocation,
+        status: card.status,
+        wishCount: card.wishCount,
+        createdMinutesAgo: card.createdMinutesAgo,
+      });
+      await connection.execute(
+        "INSERT INTO listing_images (listing_id, uploader_id, type, url, sort_order) VALUES (?, ?, 'photo', ?, 0)",
+        [listingId, sellerId, card.imageUrl],
+      );
+      // 같은 품목·등급의 거래완료 1건 → 카드에 목 데이터와 같은 "시세 대비 %"가 나온다.
+      const soldPrice = toMarketPrice(card.price, card.marketRate);
+      await insertListing(connection, {
+        ...base,
+        sellerId,
+        title: `${card.title} (거래완료)`,
+        price: soldPrice,
+        status: 'sold',
+        soldPrice,
+        soldDaysAgo: CARD_SOLD_DAYS_AGO,
+        buyerId: users[card.seller === 'test2' ? 'test3' : 'test2'],
+        createdDaysAgo: CARD_SOLD_CREATED_DAYS_AGO,
+      });
+      await connection.commit();
+      added += 1;
+    } catch (err) {
+      await connection.rollback().catch(() => {});
+      throw err;
+    }
+  }
+  console.log(added > 0
+    ? `➕ 검색 결과 화면용 카드 ${added}건 추가 — http://127.0.0.1:4173/search?q=리자몽`
+    : '⏭  검색 결과 화면용 카드가 이미 있음 — 건너뜀');
+}
+
+async function main() {
+  const connection = await connect();
+  try {
+    await seedDetailListing(connection);
+    await seedSearchCards(connection);
   } finally {
     await connection.end();
   }

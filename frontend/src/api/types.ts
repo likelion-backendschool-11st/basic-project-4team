@@ -219,3 +219,29 @@ export interface Report {
   readonly status: 'pending' | 'resolved' | 'rejected';
   readonly createdAt: string;
 }
+
+/** LISTING-01 목록 카드 (ListingSummary). LISTING-10, ITEM-05도 같은 형식. */
+export interface ListingSummary {
+  readonly id: number;
+  readonly registrationNo: string | null;
+  readonly title: string;
+  readonly price: number;
+  readonly status: ListingStatus;
+  readonly condition: ItemCondition;
+  readonly gradingService: string | null;
+  readonly grade: string | null;
+  readonly thumbnailUrl: string | null;
+  readonly directLocation: string | null;
+  readonly wishCount: number;
+  readonly isWished: boolean;
+  readonly priceDiffRate: number | null;
+  readonly item: { readonly id: number; readonly slug: string; readonly name: string; readonly setName: string | null };
+  readonly createdAt: string;
+}
+
+export interface ListingListResponse {
+  readonly items: readonly ListingSummary[];
+  readonly page: number;
+  readonly size: number;
+  readonly totalCount: number;
+}
