@@ -826,11 +826,16 @@ GET /api/v1/items/{itemId}?condition=graded&gradingService=PSA&grade=10
 
 | 상태 | code | 상황 |
 |---|---|---|
+| 400 | `VALIDATION_ERROR` | `condition`·`gradingService`·`grade` 값이 허용값이 아님, `condition=graded`가 아닌데 `gradingService`·`grade` 지정 (7장 #9에 따라 `INVALID_PARAMETER` 대신 사용) |
 | 404 | `ITEM_NOT_FOUND` | 없는 품목 |
 
 #### 비고
 - 감성 투표(오른다/내린다), 토론 글 수는 **board API**에서 제공
 - 시세 계산 기준: `listings.status = 'sold'` 이고 `deleted_at IS NULL`인 행의 `sold_price`
+- **구현 (#36)**: `GET /api/items/:itemId` — `backend/src/itemcommunity/`. Base URL은 현재 구현과 같은 `/api` (7장 #1)
+- `itemId`: 양의 정수면 `id`, `[a-z0-9-]` 1~150자면 `slug`로 찾는다. 둘 다 아니거나 `is_active = 0`인 품목은 `404 ITEM_NOT_FOUND` (토론방 URL·`posts.item_id`가 slug라서 허용)
+- **전일 대비** = 최근 체결가 − (최근 체결이 일어난 날(KST) 0시 이전의 마지막 체결가). 이전 체결이 없으면 `changeAmount`, `changeRate` 모두 `0`
+- `latestPrice`는 `sold_at`이 가장 늦은 체결의 `sold_price`. `tradeCount30d`는 `sold_at`이 최근 30일 이내인 건수
 
 ---
 

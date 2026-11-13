@@ -49,3 +49,41 @@ export interface PostListResponse {
   readonly totalCount: number;
   readonly hasNext: boolean;
 }
+
+/* 품목 (품목 토론방) — backend/docs/api-spec-all.md 2장 ITEM-03 */
+
+export type ItemCondition = 'unopened' | 'opened_raw' | 'graded';
+export type GradingService = 'PSA' | 'BGS' | 'CGC' | 'BRG';
+export type Grade = '10' | '9.5' | '9' | '8.5' | '8' | '7';
+
+export interface ItemCategory {
+  readonly id: number;
+  readonly code: string;
+  readonly name: string;
+}
+
+export interface MarketSummary {
+  readonly latestPrice: number;
+  /** 전일 대비 변동액(원). 음수 가능. */
+  readonly changeAmount: number;
+  /** 전일 대비 변동률(%, 소수 1자리). */
+  readonly changeRate: number;
+  readonly tradeCount30d: number;
+}
+
+export interface ItemDetail {
+  readonly id: number;
+  readonly slug: string;
+  readonly name: string;
+  readonly setName: string | null;
+  readonly cardNo: string | null;
+  readonly language: string | null;
+  readonly rarity: string | null;
+  readonly imageUrl: string | null;
+  readonly category: ItemCategory;
+  /** 대분류 → 소분류 순서. */
+  readonly breadcrumbs: readonly ItemCategory[];
+  /** 거래 이력이 없으면 null. */
+  readonly marketSummary: MarketSummary | null;
+  readonly sellingCount: number;
+}

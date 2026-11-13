@@ -281,6 +281,8 @@ export interface DiscussionItem {
   readonly price: string;
   readonly changePct: string;
   readonly changeAmount: string;
+  /** 전일 대비 방향 — 화살표·색상 선택용. */
+  readonly trend: 'up' | 'down' | 'flat';
   readonly listingCount: number;
   readonly breadcrumbs: readonly { readonly label: string; readonly to: string }[];
   readonly breadcrumbCurrent: string;
@@ -301,6 +303,7 @@ export const discussionItems: readonly DiscussionItem[] = [
     price: '320,000원',
     changePct: '18.2%',
     changeAmount: '(전일 대비 +49,000원)',
+    trend: 'up',
     listingCount: 42,
     breadcrumbs: [
       { label: '홈', to: ROUTES.home },
