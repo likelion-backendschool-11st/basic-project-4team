@@ -375,7 +375,7 @@ export interface DiscussionPost {
   readonly commentCount: number;
   /** Higher = newer. Used for 최신순 sorting. */
   readonly order: number;
-  /** API에서 받은 글의 숫자 id. 목 데이터 글은 없음. */
+  /** API에서 받은 글의 숫자 id. 댓글 요청에 쓴다. 목 데이터 글은 없음. */
   readonly postId?: number;
   /** 로그인 사용자가 쓴 글이면 true. */
   readonly isMine?: boolean;

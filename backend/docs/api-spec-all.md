@@ -2331,6 +2331,18 @@ curl -b cookie.txt -X DELETE http://localhost:4000/api/posts/1
 
 에러: `401 UNAUTHORIZED`, `403 FORBIDDEN`, `404 COMMENT_NOT_FOUND`
 
+### 구현 메모 (#42)
+
+- 위치: `backend/src/comment/` (`comment.routes.js` → `controller` → `service` → `repository`), `app.use('/api/community', commentRoutes)`
+- 프론트: `src/api/comment.ts`, `hooks/comment/`, `components/comment/` — **커뮤니티 피드(P-017)와 품목 토론방(P-018)** 카드의 "댓글"을 누르면 카드 아래로 펼쳐진다 (페이지 이동 없음). 품목 토론방은 URL `#post-{id}`로 들어오면 그 글의 댓글을 자동으로 펼친다
+- 비로그인이면 댓글 입력창 자리에 로그인 안내
+- `cursor`는 직전 페이지 마지막 항목의 `id`(문자열). 숫자가 아니면 `400 VALIDATION_ERROR`
+- 경로의 `postId`·`commentId`가 양의 정수가 아니면 존재할 수 없는 리소스로 보고 `404`
+- 작성·삭제와 `posts.comment_count` ±1은 한 트랜잭션. 같은 댓글을 두 번 삭제해도 한 번만 줄어든다
+- 답글 더보기: 삭제됐어도 살아 있는 답글이 있는 댓글이면 조회 가능, 답글(`parentId` 있음)의 id로 요청하면 `404 COMMENT_NOT_FOUND`
+- `author.badges`: 보유자·거래 인증 데이터(테이블)가 아직 없어 **항상 `[]`**
+- 시드(`npm run db:seed`): 토론글 10개(품목별 토론방 글 6개 포함), 댓글·답글 46개(삭제된 댓글 2개 포함). 글·댓글은 **글 단위로 건너뛰므로** 반복 실행해도 중복되지 않고, 댓글 시각은 항상 글(답글은 부모 댓글)보다 늦다. 넣은 뒤 `posts.comment_count`를 실제 개수로 맞춘다
+
 ### 미정 항목 (팀 결정 필요)
 
 1. 댓글 리액션(🔥😮😂🧊)·신고를 댓글에도 둘지 — 현재 명세에는 없음.
