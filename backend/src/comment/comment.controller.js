@@ -83,4 +83,14 @@ async function remove(req, res) {
   res.status(204).end();
 }
 
-module.exports = { list, replies, create, update, remove };
+/** PUT /api/community/comments/:commentId/like — 좋아요. */
+async function like(req, res) {
+  res.json({ data: await commentService.setLike(parseCommentId(req), req.user.id, true) });
+}
+
+/** DELETE /api/community/comments/:commentId/like — 좋아요 취소. */
+async function unlike(req, res) {
+  res.json({ data: await commentService.setLike(parseCommentId(req), req.user.id, false) });
+}
+
+module.exports = { list, replies, create, update, remove, like, unlike };

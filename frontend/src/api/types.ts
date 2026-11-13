@@ -90,6 +90,10 @@ export interface ItemDetail {
 
 /* 댓글 — backend/docs/api-spec-all.md 6장 */
 
+export interface CommentLikeResponse {
+  readonly likeCount: number;
+  readonly isLiked: boolean;
+}
 
 export interface CommentAuthor {
   readonly id: number;
@@ -112,6 +116,10 @@ export interface CommentReply {
   readonly createdAt: string;
   /** createdAt과 다르면 "(수정됨)". */
   readonly updatedAt: string;
+  /** 좋아요 수. 삭제된 댓글은 0. */
+  readonly likeCount: number;
+  /** 내가 좋아요를 눌렀는지. 비로그인이면 false. */
+  readonly isLiked: boolean;
 }
 
 /** 댓글(답글이 아닌 것). 답글 수와 앞쪽 답글 3개 미리보기가 붙는다. */

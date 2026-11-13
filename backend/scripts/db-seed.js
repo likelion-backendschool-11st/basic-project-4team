@@ -1,4 +1,4 @@
-/** npm run db:seed — 개발용 더미 유저·품목·판매글·토론글·댓글을 넣는다. 이미 있는 데이터는 건너뛴다. */
+/** npm run db:seed — 개발용 더미 유저·품목·판매글·토론글·댓글·좋아요를 넣는다. 이미 있는 데이터는 건너뛴다. */
 const bcrypt = require('bcryptjs');
 const { connect, exitWithHint } = require('./db-common');
 
@@ -319,6 +319,35 @@ async function seedComments(connection) {
   console.log(inserted ? `➕ 댓글·답글 ${inserted}개 추가` : '⏭  댓글이 이미 있음 — 건너뜀');
 }
 
+/**
+ * 댓글 좋아요. 좋아요 테이블이 비어 있을 때만, 살아 있는 댓글마다 test1~3이 규칙적으로 누른다.
+ * (댓글 id + 사용자 순번) % 3 === 0 이면 누르지 않음 → 댓글마다 좋아요 0~3개가 섞인다.
+ * 넣은 뒤 comments.like_count를 실제 개수로 맞춘다.
+ */
+async function seedCommentLikes(connection) {
+  const [[{ count }]] = await connection.query('SELECT COUNT(*) AS count FROM comment_likes');
+  if (count > 0) {
+    console.log('⏭  댓글 좋아요가 이미 있음 — 건너뜀');
+    return;
+  }
+  const [comments] = await connection.query('SELECT id FROM comments WHERE deleted_at IS NULL');
+  const [users] = await connection.query(
+    "SELECT id FROM users WHERE login_id IN ('test1', 'test2', 'test3') ORDER BY login_id",
+  );
+  let added = 0;
+  for (const { id: commentId } of comments) {
+    for (const [index, { id: userId }] of users.entries()) {
+      if ((commentId * 2 + index) % 3 === 0) continue;
+      await connection.execute('INSERT INTO comment_likes (user_id, comment_id) VALUES (?, ?)', [userId, commentId]);
+      added += 1;
+    }
+  }
+  await connection.query(
+    `UPDATE comments c SET like_count = (SELECT COUNT(*) FROM comment_likes l WHERE l.comment_id = c.id)`,
+  );
+  console.log(`➕ 댓글 좋아요 ${added}개 추가`);
+}
+
 async function main() {
   const connection = await connect();
   try {
@@ -338,6 +367,7 @@ async function main() {
     await seedItems(connection);
     await seedPosts(connection);
     await seedComments(connection);
+    await seedCommentLikes(connection);
     console.log(`✅ 시드 완료. 비밀번호는 모두 ${SEED_PASSWORD}`);
   } finally {
     await connection.end();

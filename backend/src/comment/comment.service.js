@@ -12,12 +12,13 @@ function commentNotFound() {
   return new HttpError(404, 'COMMENT_NOT_FOUND', '댓글을 찾을 수 없습니다.');
 }
 
-/** DB 행 → 응답 Comment. 로그인 사용자 기준 isMine을 붙인다. */
-function decorate(row, viewerId) {
+/** DB 행 → 응답 Comment. isMine과 isLiked(내가 좋아요를 눌렀는지)를 붙인다. */
+function decorate(row, viewerId, likedIds) {
   const comment = commentRepository.toComment(row);
   return {
     ...comment,
     isMine: viewerId !== undefined && comment.author !== null && comment.author.id === viewerId,
+    isLiked: !comment.isDeleted && likedIds.has(row.id),
   };
 }
 
@@ -28,18 +29,22 @@ function toPage(rows, size) {
   return { pageRows, hasNext, nextCursor: hasNext ? String(pageRows[pageRows.length - 1].id) : null };
 }
 
-/** 댓글(답글 제외) 행에 replyCount, replies(미리보기)를 붙인다. */
+/** 댓글(답글 제외) 행에 replyCount, replies(미리보기), isLiked를 붙인다. 좋아요 여부는 댓글·답글을 한 번에 조회. */
 async function decorateTopLevel(rows, viewerId) {
   const { previews, counts } = await commentRepository.findReplyPreviews(
     rows.map((row) => row.id),
     REPLY_PREVIEW_SIZE,
   );
+  const likedIds = await commentRepository.findLikedIds(
+    [...rows, ...previews].map((row) => row.id),
+    viewerId,
+  );
   return rows.map((row) => ({
-    ...decorate(row, viewerId),
+    ...decorate(row, viewerId, likedIds),
     replyCount: counts.get(row.id) ?? 0,
     replies: previews
       .filter((reply) => reply.parent_id === row.id)
-      .map((reply) => decorate(reply, viewerId)),
+      .map((reply) => decorate(reply, viewerId, likedIds)),
   }));
 }
 
@@ -64,8 +69,9 @@ async function listReplies(commentId, { cursor, size }, viewerId) {
   }
   const rows = await commentRepository.findReplies(commentId, { cursor, limit: size + 1 });
   const { pageRows, hasNext, nextCursor } = toPage(rows, size);
+  const likedIds = await commentRepository.findLikedIds(pageRows.map((row) => row.id), viewerId);
   return {
-    items: pageRows.map((row) => decorate(row, viewerId)),
+    items: pageRows.map((row) => decorate(row, viewerId, likedIds)),
     nextCursor,
     hasNext,
   };
@@ -78,7 +84,8 @@ async function getComment(commentId, viewerId) {
     const [comment] = await decorateTopLevel([row], viewerId);
     return comment;
   }
-  return decorate(row, viewerId);
+  const likedIds = await commentRepository.findLikedIds([row.id], viewerId);
+  return decorate(row, viewerId, likedIds);
 }
 
 /** 댓글·답글 작성. 답글은 같은 게시글의, 삭제되지 않은 댓글에만 달 수 있다 (답글의 답글 금지). */
@@ -122,10 +129,18 @@ async function deleteComment(commentId, userId) {
   await commentRepository.softDelete(commentId, row.post_id);
 }
 
+/** 좋아요 누르기·취소 (댓글당 1인 1번, 멱등). 본인 댓글에도 누를 수 있다. */
+async function setLike(commentId, userId, liked) {
+  await getLiveComment(commentId);
+  const likeCount = await commentRepository.setLike(commentId, userId, liked);
+  return { likeCount, isLiked: liked };
+}
+
 module.exports = {
   listComments,
   listReplies,
   createComment,
   updateComment,
   deleteComment,
+  setLike,
 };

@@ -1,6 +1,7 @@
 import { apiRequest } from './client';
 import type {
   CommentListResponse,
+  CommentLikeResponse,
   CreateCommentResponse,
   ReplyListResponse,
 } from './types';
@@ -37,3 +38,10 @@ export const createComment = (postId: number, body: string, parentId: number | n
 export const deleteComment = (commentId: number): Promise<void> =>
   apiRequest<void>(`/community/comments/${commentId}`, { method: 'DELETE' });
 
+/** 댓글 좋아요 (1인 1번, 멱등). 로그인 필요. */
+export const likeComment = (commentId: number): Promise<CommentLikeResponse> =>
+  apiRequest<CommentLikeResponse>(`/community/comments/${commentId}/like`, { method: 'PUT' });
+
+/** 댓글 좋아요 취소 (멱등). 로그인 필요. */
+export const unlikeComment = (commentId: number): Promise<CommentLikeResponse> =>
+  apiRequest<CommentLikeResponse>(`/community/comments/${commentId}/like`, { method: 'DELETE' });
