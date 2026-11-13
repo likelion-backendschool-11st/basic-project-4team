@@ -1,59 +1,155 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { ApiError } from '../../api/client';
+import { createPost, deletePost, getPosts, updatePost } from '../../api/community';
+import type { Post, PostBoard, PostTag } from '../../api/types';
 import {
   feedBoardMeta,
   feedComposer,
-  feedCopy,
-  feedMorePosts,
-  feedPosts,
-  myAuthor,
+  feedErrorCopy,
+  formatTimeAgo,
   type FeedCategoryKey,
   type FeedPost,
 } from '../../data/community';
+import { ROUTES } from '../../data/layout';
+import { useAuth } from '../auth/useAuth';
 
-const PAGE_SIZE = 1;
+const PAGE_SIZE = 10;
 
-/** Community feed: category filter, composer board/tag selection, posting, infinite load. */
+/** API Post → 피드 카드용 FeedPost. */
+const toFeedPost = (post: Post): FeedPost => {
+  const meta = feedBoardMeta[post.board] ?? feedBoardMeta.free;
+  const tagLabel = feedComposer.tagOptions.find((t) => t.value === post.tag)?.label ?? '';
+  return {
+    id: `post-${post.id}`,
+    postId: post.id,
+    category: meta.category,
+    board: { label: meta.label, icon: meta.icon, itemId: post.itemId ?? meta.itemId },
+    author: {
+      name: post.author.nickname,
+      initials: post.author.nickname.slice(0, 1),
+      tone: post.isMine ? 'primary' : 'neutral',
+    },
+    timeAgo: formatTimeAgo(post.createdAt),
+    context: tagLabel,
+    title: post.title ?? '',
+    body: post.body,
+    reactions: [],
+    commentCount: post.commentCount,
+    isMine: post.isMine,
+    edited: post.editedAt !== null,
+  };
+};
+
+/** 피드 필터(category) → API board 쿼리. '전체'는 필터 없음. */
+const toBoardQuery = (category: FeedCategoryKey): PostBoard | undefined =>
+  category === 'all' ? undefined : category;
+
+const errorMessage = (error: unknown, fallback: string): string =>
+  error instanceof ApiError && error.status !== 0 && error.status < 500 ? error.message : fallback;
+
+/** Community feed (P-017): 카테고리 필터, 무한 스크롤, 글 등록·수정·삭제를 API로 처리. */
 export const useCommunityFeed = () => {
+  const navigate = useNavigate();
+  const { status } = useAuth();
   const [category, setCategory] = useState<FeedCategoryKey>('all');
   const [board, setBoard] = useState<string>(feedComposer.boardOptions[0].value);
   const [tag, setTag] = useState<string>(feedComposer.tagOptions[0].value);
-  const [userPosts, setUserPosts] = useState<readonly FeedPost[]>([]);
-  const [loadedCount, setLoadedCount] = useState(0);
+  const [posts, setPosts] = useState<readonly Post[]>([]);
+  const [page, setPage] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  // 카테고리를 바꾼 뒤 늦게 도착한 이전 응답을 버리기 위한 요청 번호.
+  const requestId = useRef(0);
 
-  const hasMore = loadedCount < feedMorePosts.length;
-
-  const loadMore = useCallback(() => {
-    setLoadedCount((n) => Math.min(n + PAGE_SIZE, feedMorePosts.length));
+  const fetchPage = useCallback(async (nextPage: number, target: FeedCategoryKey) => {
+    const id = ++requestId.current;
+    setLoading(true);
+    try {
+      const result = await getPosts({ board: toBoardQuery(target), page: nextPage, size: PAGE_SIZE });
+      if (id !== requestId.current) return;
+      setPosts((prev) => (nextPage === 1 ? result.posts : [...prev, ...result.posts]));
+      setPage(nextPage);
+      setHasMore(result.hasNext);
+      setError(null);
+    } catch (e) {
+      if (id !== requestId.current) return;
+      setHasMore(false);
+      setError(errorMessage(e, feedErrorCopy.load));
+    } finally {
+      if (id === requestId.current) setLoading(false);
+    }
   }, []);
 
+  useEffect(() => {
+    setPosts([]);
+    setHasMore(true);
+    fetchPage(1, category);
+  }, [category, fetchPage]);
+
+  const loadMore = useCallback(() => {
+    if (!loading && hasMore) fetchPage(page + 1, category);
+  }, [loading, hasMore, page, category, fetchPage]);
+
+  const requireLogin = useCallback(() => {
+    if (status === 'authenticated') return false;
+    navigate(ROUTES.login);
+    return true;
+  }, [status, navigate]);
+
   const addPost = useCallback(
-    (text: string) => {
-      const meta = feedBoardMeta[board] ?? feedBoardMeta.free;
-      const tagLabel = feedComposer.tagOptions.find((t) => t.value === tag)?.label ?? '';
-      const post: FeedPost = {
-        id: `feed-user-${Date.now()}`,
-        category: meta.category,
-        board: { label: meta.label, icon: meta.icon, itemId: meta.itemId },
-        author: myAuthor,
-        timeAgo: feedCopy.justNow,
-        context: tagLabel,
-        title: feedCopy.newPostTitle,
-        body: text,
-        reactions: [
-          { key: 'fire', emoji: '🔥', count: 0 },
-          { key: 'clap', emoji: '👏', count: 0 },
-        ],
-        commentCount: 0,
-      };
-      setUserPosts((prev) => [post, ...prev]);
+    async (text: string) => {
+      if (requireLogin()) return;
+      try {
+        const created = await createPost({ board: board as PostBoard, tag: tag as PostTag, body: text });
+        const visible = category === 'all' || created.board === category;
+        if (visible) setPosts((prev) => [created, ...prev]);
+        setError(null);
+      } catch (e) {
+        setError(errorMessage(e, feedErrorCopy.create));
+      }
     },
-    [board, tag],
+    [requireLogin, board, tag, category],
   );
 
-  const posts = useMemo(() => {
-    const all = [...userPosts, ...feedPosts, ...feedMorePosts.slice(0, loadedCount)];
-    return category === 'all' ? all : all.filter((p) => p.category === category);
-  }, [userPosts, loadedCount, category]);
+  /** 본문 수정. 성공하면 true. */
+  const editPost = useCallback(async (postId: number, body: string): Promise<boolean> => {
+    try {
+      const updated = await updatePost(postId, { body });
+      setPosts((prev) => prev.map((p) => (p.id === postId ? updated : p)));
+      setError(null);
+      return true;
+    } catch (e) {
+      setError(errorMessage(e, feedErrorCopy.update));
+      return false;
+    }
+  }, []);
 
-  return { category, setCategory, board, setBoard, tag, setTag, posts, addPost, hasMore, loadMore };
+  const removePost = useCallback(async (postId: number) => {
+    try {
+      await deletePost(postId);
+      setPosts((prev) => prev.filter((p) => p.id !== postId));
+      setError(null);
+    } catch (e) {
+      setError(errorMessage(e, feedErrorCopy.remove));
+    }
+  }, []);
+
+  return {
+    category,
+    setCategory,
+    board,
+    setBoard,
+    tag,
+    setTag,
+    posts: posts.map(toFeedPost),
+    addPost,
+    editPost,
+    removePost,
+    hasMore,
+    loadMore,
+    loading,
+    error,
+  };
 };

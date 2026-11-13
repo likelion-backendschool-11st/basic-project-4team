@@ -28,10 +28,15 @@ export const CommunityFeedPage: React.FC<CommunityFeedPageProps> = ({ className 
               tag={feed.tag}
             />
             <CategoryFilterPills active={feed.category} categories={feedCategories} onChange={feed.setCategory} />
+            {feed.error && (
+              <p className="py-space-xs text-center font-body-sm text-body-sm text-error" role="alert">
+                {feed.error}
+              </p>
+            )}
             {feed.posts.map((post) => (
-              <FeedPostCard key={post.id} post={post} />
+              <FeedPostCard key={post.id} onDelete={feed.removePost} onEdit={feed.editPost} post={post} />
             ))}
-            {feed.posts.length === 0 && (
+            {!feed.loading && !feed.error && feed.posts.length === 0 && (
               <p className="py-space-lg text-center font-body-sm text-body-sm text-muted">{feedCopy.emptyLabel}</p>
             )}
             <LoadMoreSentinel

@@ -1,4 +1,4 @@
-const postsService = require('../services/posts.service');
+const communityService = require('./community.service');
 const HttpError = require('../utils/HttpError');
 
 const BOARDS = ['pokemon', 'sneakers', 'onepiece', 'watch', 'free'];
@@ -76,7 +76,7 @@ async function list(req, res) {
     throw badRequest(`size는 1~${MAX_PAGE_SIZE} 사이의 정수여야 합니다.`);
   }
 
-  const result = await postsService.listPosts(
+  const result = await communityService.listPosts(
     {
       board: parseEnum(board, BOARDS, '게시판(board)'),
       itemId: parseOptionalText(itemId, ITEM_ID_MAX, '품목 ID(itemId)'),
@@ -91,7 +91,7 @@ async function list(req, res) {
 }
 
 async function detail(req, res) {
-  const post = await postsService.getPost(parsePostId(req), req.user?.id);
+  const post = await communityService.getPost(parsePostId(req), req.user?.id);
   res.json({ data: { post } });
 }
 
@@ -100,28 +100,34 @@ async function create(req, res) {
   const fields = Object.fromEntries(
     Object.entries(FIELD_PARSERS).map(([key, parse]) => [key, parse(input[key])]),
   );
-  const post = await postsService.createPost(req.user.id, fields);
+  const post = await communityService.createPost(req.user.id, fields);
   res.status(201).json({ data: { post } });
 }
+
+// 품목은 진입한 토론방으로 고정되어 수정할 수 없다 (REQ-BEDIT-001).
+const UPDATABLE_FIELDS = ['board', 'tag', 'title', 'body'];
 
 async function update(req, res) {
   const postId = parsePostId(req);
   const input = req.body ?? {};
+  if (input.itemId !== undefined) {
+    throw badRequest('품목(itemId)은 수정할 수 없습니다.');
+  }
   // 요청에 들어온 필드만 검증·수정한다 (부분 수정).
   const fields = Object.fromEntries(
-    Object.entries(FIELD_PARSERS)
-      .filter(([key]) => input[key] !== undefined)
-      .map(([key, parse]) => [key, parse(input[key])]),
+    UPDATABLE_FIELDS
+      .filter((key) => input[key] !== undefined)
+      .map((key) => [key, FIELD_PARSERS[key](input[key])]),
   );
   if (Object.keys(fields).length === 0) {
-    throw badRequest(`수정할 항목이 없습니다. (${Object.keys(FIELD_PARSERS).join(', ')})`);
+    throw badRequest(`수정할 항목이 없습니다. (${UPDATABLE_FIELDS.join(', ')})`);
   }
-  const post = await postsService.updatePost(postId, req.user.id, fields);
+  const post = await communityService.updatePost(postId, req.user.id, fields);
   res.json({ data: { post } });
 }
 
 async function remove(req, res) {
-  await postsService.deletePost(parsePostId(req), req.user.id);
+  await communityService.deletePost(parsePostId(req), req.user.id);
   res.status(204).end();
 }
 

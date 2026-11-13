@@ -112,6 +112,7 @@
   "reactionCount": 0,
   "commentCount": 0,
   "isMine": true,
+  "editedAt": null,
   "createdAt": "2026-11-12T03:09:50.000Z",
   "updatedAt": "2026-11-12T03:09:50.000Z"
 }
@@ -119,6 +120,7 @@
 
 - `tag`, `itemId`, `title`은 `null`일 수 있다. (품목 토론방 글은 제목 없이 본문만 쓰는 경우가 많다)
 - `itemId`는 품목 식별자(현재는 프론트의 품목 slug). 품목 API가 생기면 그 ID로 맞춘다.
+- `editedAt`: 마지막으로 수정한 시각. 수정한 적이 없으면 `null`. 화면의 "(수정됨)" 표시에 쓴다 (REQ-BEDIT-004).
 - `isMine`: 로그인한 사용자가 작성자면 `true`. 비로그인이면 항상 `false`. 수정·삭제 버튼 노출에 쓴다.
 
 ## GET /posts — 토론글 목록
@@ -180,7 +182,10 @@
 
 ## PATCH /posts/:id — 토론글 수정 🔒
 
-바꿀 필드만 보낸다. 필드 규칙은 등록과 같고, `tag`·`itemId`·`title`은 `null`을 보내면 비운다. 아무 필드도 없으면 `400`.
+바꿀 필드만 보낸다(`board`, `tag`, `title`, `body`). 필드 규칙은 등록과 같고, `tag`·`title`은 `null`을 보내면 비운다. 아무 필드도 없으면 `400`.
+
+- `itemId`는 수정할 수 없다(REQ-BEDIT-001). 보내면 `400 VALIDATION_ERROR`.
+- 수정에 성공하면 `editedAt`이 현재 시각으로 바뀐다.
 
 응답 `200` → `{ "data": { "post": Post } }`
 

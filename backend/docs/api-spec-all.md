@@ -2047,6 +2047,7 @@ CREATE TABLE wishes (
         "reactionCount": 0,
         "commentCount": 0,
         "isMine": true,
+        "editedAt": null,
         "createdAt": "2026-11-12T03:09:50.000Z",
         "updatedAt": "2026-11-12T03:09:50.000Z"
       }
@@ -2068,11 +2069,11 @@ CREATE TABLE wishes (
 |---|---|---|
 | `board` | O | 값 목록 중 하나 (수정 시 `null` 불가) |
 | `tag` | X | 값 목록 중 하나, `null`로 비우기 가능 |
-| `itemId` | X | 1~100자, `null`로 비우기 가능 |
+| `itemId` | X | 1~100자. **등록할 때만** 받는다. 수정 요청에 넣으면 `400` (REQ-BEDIT-001) |
 | `title` | X | 1~100자, 빈 문자열·`null`은 `null`로 저장 |
 | `body` | O | 앞뒤 공백 제거 후 1~500자 |
 
-PATCH는 보낸 필드만 수정한다. 아무 필드도 보내지 않으면 `400`.
+PATCH는 보낸 필드만 수정한다(`board`, `tag`, `title`, `body`). 아무 필드도 보내지 않으면 `400`. 수정하면 `editedAt`이 현재 시각으로 바뀐다 ("(수정됨)" 표시, REQ-BEDIT-004).
 
 #### 에러 코드
 
@@ -2092,11 +2093,11 @@ backend/
   db/schema.sql                         posts 테이블 정의
   scripts/db-seed.js                    샘플 토론글 4개 (테이블이 비었을 때만)
   src/
-    app.js                              app.use('/api/posts', postsRoutes)
-    routes/posts.routes.js              URL ↔ 컨트롤러, 인증 미들웨어 연결
-    controllers/posts.controller.js     쿼리·본문 검증 (board/tag 값 목록, 글자 수, 페이징 범위)
-    services/posts.service.js           작성자 권한 확인(403), isMine 계산, hasNext 계산
-    repositories/posts.repository.js    SQL, snake_case → camelCase 변환
+    app.js                              app.use('/api/posts', communityRoutes)
+    community/community.routes.js       URL ↔ 컨트롤러, 인증 미들웨어 연결
+    community/community.controller.js   쿼리·본문 검증 (board/tag 값 목록, 글자 수, 페이징 범위)
+    community/community.service.js      작성자 권한 확인(403), isMine 계산, hasNext 계산
+    community/community.repository.js   SQL, snake_case → camelCase 변환, edited_at 기록
     middlewares/auth.js                 optionalAuth 추가 (조회용 선택 인증)
 ```
 
@@ -2168,7 +2169,7 @@ curl -b cookie.txt -X DELETE http://localhost:4000/api/posts/1
 - [ ] **품목 연동** (#46): `item_id`가 지금은 프론트 slug 문자열이다. 품목 테이블이 생기면 FK로 바꾼다.
 - [ ] **리액션** (#59) / **댓글** (#62): 리액션이나 댓글을 추가·삭제할 때 `posts.reaction_count` / `comment_count`도 함께 올리고 내려야 인기순 정렬이 의미가 생긴다. (지금은 둘 다 0이라 인기순 = 최신순)
 - [ ] **이미지 첨부**: 파일 서버(#16)가 생기면 `post_images` 테이블을 추가한다.
-- [ ] **프론트 연동** (#38, #40~#42): `src/api/posts.ts`를 만들고 `useCommunityFeed`, `useItemDiscussion`의 목 데이터를 API 호출로 바꾼다.
+- [ ] **프론트 연동** (#38, #40~#42): ~~피드(`useCommunityFeed`)~~ → `src/api/community.ts`로 연결 완료(#57). 품목 토론방 `useItemDiscussion`은 아직 목 데이터.
 
 ---
 
