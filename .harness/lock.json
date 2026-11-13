@@ -1,0 +1,19 @@
+{
+  "active": true,
+  "approved_at": "2026-11-13T10:23:54",
+  "patterns": [
+    "SPEC.md",
+    "scripts/verify.py",
+    "tests/**/*"
+  ],
+  "hashes": {
+    "SPEC.md": "a5ab939cb4037b8bcfa5fb5c317651c45532d411871eee4f9e232e5d08d4e014",
+    "scripts/verify.py": "1490a5f85f64ac3b91defa4cc4e4321925851139a49a84716318cd98aa873612",
+    "tests/helpers/db.js": "6d5e71d1c163c45118e9f90e1c1abc81fb04e70467b8ccb8685cd0fae6419f53",
+    "tests/schema_apply.test.js": "dee3bb2b80c6306f6a295e2cd7293f135754b55afd6c56c01611a8da657c3e6e",
+    "tests/schema_charset.test.js": "12bb650020ab93c3249f22efe6560c592ad3eb7ca5947b7eec7536a3131e65d2",
+    "tests/schema_constraints.test.js": "6b4b59e7fb1d6d8cb8ac91e957af7eb6f9de66a8131f7b90fb5eedb3cdad40b9",
+    "tests/schema_fk.test.js": "faf447760459c67d7d625228fc9c88903527c0ed6e70b3d3d59d1b5ca23e5765",
+    "tests/schema_index.test.js": "6eff378b96f87fe0a8c84de78260bbbcd517503cd6252abf710b8f3b9695296a"
+  }
+}
