@@ -151,3 +151,11 @@ docs/..., refactor/..., chore/...
 - 본문에 `작업 내용 / 확인 방법 / 스크린샷(UI 변경 시)`을 적는다.
 - 1명 이상 승인 후 Squash merge.
 - 머지 전 `npm run build`(프론트) 통과 확인.
+
+## 브랜치
+- 항상 최신 `main`에서 브랜치를 딴다: `git checkout main && git pull && git checkout -b <type>/<이슈번호>-<짧은-설명>`
+  - 예: `feat/82-report-api`, `fix/85-login-error`
+- 다른 미병합 브랜치 위에서 브랜치를 따지 않는다(스택 PR 금지).
+- 앞선 작업에 의존해서 어쩔 수 없을 때는 **작업 전에 나에게 먼저 알리고**, 앞 PR을 먼저 병합해 달라고 요청한다. 내가 스택을 허용한 경우에만 스택 PR을 쓴다.
+
+
