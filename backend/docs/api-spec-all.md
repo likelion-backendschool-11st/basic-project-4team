@@ -1,6 +1,6 @@
 # RE:PICK API 명세서 (통합본)
 
-> 회원·품목·판매글·찜·토론글·댓글 명세 6개를 하나로 합친 문서다. 각 장의 내용은 원래 문서를 그대로 옮겼다.
+> 회원·품목·판매글·찜·토론글·댓글 명세 6개를 하나로 합친 문서다. 8장(시세 전망 투표)은 #60에서 추가했다. 각 장의 내용은 원래 문서를 그대로 옮겼다.
 > **문서마다 공통 규칙(Base URL, 인증 방식 등)이 서로 다른 부분이 있다.** 맨 아래 **[7. 통일이 필요한 항목](#7-통일이-필요한-항목)**을 먼저 확인할 것.
 
 ## 목차
@@ -14,6 +14,7 @@
 | [5](#5-토론글-board) | 토론글 (Board) | 토론글 목록·단건·등록·수정·삭제 |
 | [6](#6-댓글-comment) | 댓글 (Comment) | 댓글 목록, 답글 더보기, 작성·수정·삭제 |
 | [7](#7-통일이-필요한-항목) | — | 문서 간 충돌 정리 |
+| [8](#8-시세-전망-투표-communityvote) | 시세 전망 투표 (CommunityVote) | 투표 집계 조회, 오른다/내린다 투표 |
 
 ## 공통 응답 형식 (모든 문서 공통)
 
@@ -830,7 +831,7 @@ GET /api/v1/items/{itemId}?condition=graded&gradingService=PSA&grade=10
 | 404 | `ITEM_NOT_FOUND` | 없는 품목 |
 
 #### 비고
-- 감성 투표(오른다/내린다), 토론 글 수는 **board API**에서 제공
+- 시세 전망 투표(오른다/내린다)는 **8장 CommunityVote API**(`/api/communityVote/:itemId`)에서 제공. 토론 글 수는 5장 토론글 목록의 `totalCount`
 - 시세 계산 기준: `listings.status = 'sold'` 이고 `deleted_at IS NULL`인 행의 `sold_price`
 - **구현 (#36)**: `GET /api/items/:itemId` — `backend/src/itemcommunity/`. Base URL은 현재 구현과 같은 `/api` (7장 #1)
 - `itemId`: 양의 정수면 `id`, `[a-z0-9-]` 1~150자면 `slug`로 찾는다. 둘 다 아니거나 `is_active = 0`인 품목은 `404 ITEM_NOT_FOUND` (토론방 URL·`posts.item_id`가 slug라서 허용)
@@ -2358,3 +2359,129 @@ curl -b cookie.txt -X DELETE http://localhost:4000/api/posts/1
 | 11 | **API ID 체계** | `AUTH-xx` — 1장, `ITEM-xx` — 2장, `LISTING-xx` — 3장, `LIST-xx` — 4장, 없음 — 5·6장 | 도메인별 접두어로 통일 (예: `WISH-01`, `BOARD-01`, `COMMENT-01`) |
 | 12 | **시간 예시 표기** | `+09:00` — 2, 3장<br>`Z` (UTC) — 1, 4, 5, 6장 (현재 구현은 UTC) | 응답은 UTC(`Z`)로 통일 |
 | 13 | **`listings` 테이블 정의** | 4장은 찜 테스트용 최소 컬럼, 3장은 전체 컬럼 | 3장 기준으로 하나만 유지 |
+
+---
+
+# 8. 시세 전망 투표 (CommunityVote)
+
+> 관련 이슈: #60 [BE] 시세 전망 투표, #37 [FE] 시세 전망 투표 구현
+> 요구사항: REQ-BOARD-003 투표 결과 바, REQ-BOARD-004 품목당 하루 1회·로그인 필요
+> DB: `docs/erd.md` 2.14 `item_votes`
+> 공통 규칙(Base URL `/api`, `{ "data": ... }` / `{ "error": ... }` 응답, `accessToken` 쿠키 인증)은 5장 토론글과 같다. 🔒 = 로그인 필요.
+
+품목 토론방(P-018) 헤더의 오른다 🔥 / 내린다 🧊 투표(`SentimentPoll`)에서 쓴다.
+
+### 규칙
+
+- 방향 값은 **소문자** `up`(오른다) · `down`(내린다) (7장 #5)
+- **품목당 하루 1번**. "하루"는 **KST** 날짜 기준이며, 서버가 KST 날짜를 계산해 `item_votes.vote_date`에 저장한다.
+- 같은 날 **다시 투표하거나 방향을 바꿀 수 없다** → `409 ALREADY_VOTED`. 다음 날(KST 0시 이후) 다시 투표할 수 있다.
+- 취소 API는 없다.
+- `itemId`는 품목 상세(ITEM-03)와 같이 양의 정수면 `id`, `[a-z0-9-]` 1~150자면 `slug`로 찾는다. 없거나 `is_active = 0`이면 `404 ITEM_NOT_FOUND`.
+
+### 1. API 요약
+
+기본 주소: `http://localhost:4000/api`
+
+| ID | 메서드 | 경로 | 인증 | 설명 | 성공 |
+|---|---|---|---|---|---|
+| VOTE-01 | GET | `/communityVote/:itemId` | 선택 | 투표 집계 + 오늘 내 투표 | `200` |
+| VOTE-02 | POST | `/communityVote/:itemId` | 🔒 필수 | 오른다/내린다 투표 | `201` |
+
+- **선택 인증**: 로그인하지 않아도 집계를 볼 수 있다. 로그인 쿠키가 있으면 `myVote`·`canVote`가 채워진다. 만료·잘못된 토큰은 비로그인으로 처리한다.
+
+### 2. Vote 객체
+
+```json
+{
+  "itemId": 1,
+  "up": 1842,
+  "down": 1036,
+  "total": 2878,
+  "upRate": 64,
+  "downRate": 36,
+  "myVote": "up",
+  "canVote": false
+}
+```
+
+| 필드 | 타입 | 설명 |
+|---|---|---|
+| `itemId` | number | 품목 숫자 id (요청을 slug로 해도 숫자로 응답) |
+| `up` / `down` | number | 방향별 투표 수 |
+| `total` | number | `up + down` |
+| `upRate` / `downRate` | number | 정수 %. `upRate = round(up / total × 100)`, `downRate = 100 − upRate`. `total`이 0이면 둘 다 `50` |
+| `myVote` | `"up"` \| `"down"` \| `null` | 로그인 사용자가 **오늘(KST)** 투표한 방향. 오늘 투표하지 않았거나 비로그인이면 `null` |
+| `canVote` | boolean | 로그인했고 오늘 아직 투표하지 않았으면 `true`. 비로그인은 `false` |
+
+### 3. VOTE-01. 투표 집계 조회
+
+```
+GET /api/communityVote/:itemId
+```
+
+응답 `200`
+
+```json
+{ "data": { "vote": Vote } }
+```
+
+에러: `404 ITEM_NOT_FOUND`
+
+### 4. VOTE-02. 투표하기 🔒
+
+```
+POST /api/communityVote/:itemId
+```
+
+요청
+
+```json
+{ "direction": "up" }
+```
+
+| 필드 | 필수 | 규칙 |
+|---|---|---|
+| `direction` | O | `up` 또는 `down` (소문자만 허용) |
+
+응답 `201` — 투표가 반영된 집계
+
+```json
+{ "data": { "vote": { "itemId": 1, "up": 1843, "down": 1036, "total": 2879, "upRate": 64, "downRate": 36, "myVote": "up", "canVote": false } } }
+```
+
+### 5. 에러 코드
+
+| 코드 | 상태 | 언제 |
+|---|---|---|
+| `VALIDATION_ERROR` | 400 | `direction`이 없거나 `up`·`down`이 아님 (대문자 `UP` 포함) |
+| `UNAUTHORIZED` / `INVALID_TOKEN` | 401 | 투표 시 로그인 안 됨 / 토큰 만료 |
+| `ITEM_NOT_FOUND` | 404 | 없는 품목, 숨긴 품목(`is_active = 0`), 형식이 맞지 않는 `itemId` |
+| `ALREADY_VOTED` | 409 | 오늘(KST) 이 품목에 이미 투표함 (같은 방향·다른 방향 모두) |
+
+### 6. 파일 구조 (예정)
+
+```
+backend/src/
+  app.js                                    app.use('/api/communityVote', communityVoteRoutes)
+  communityVote/communityVote.routes.js     URL ↔ 컨트롤러, optionalAuth / requireAuth
+  communityVote/communityVote.controller.js itemId·direction 검증
+  communityVote/communityVote.service.js    품목 확인(404), KST 날짜 계산, 중복 투표 409, 비율 계산
+  communityVote/communityVote.repository.js item_votes INSERT·집계 SQL
+```
+
+프론트: `src/api/communityVote.ts` → `hooks/community/useSentimentVote.ts` → `components/community/SentimentPoll.tsx`
+
+### 7. 구현 메모
+
+- 중복 투표는 먼저 SELECT로 확인하지 않고 `INSERT` 후 PK(`user_id, item_id, vote_date`) 중복 에러(`ER_DUP_ENTRY`)를 `409`로 바꾼다. 동시에 두 번 눌러도 DB가 1건만 남긴다.
+- KST 날짜는 DB 세션 시간대에 기대지 않고 서버에서 계산한다: `UTC 현재 시각 + 9시간`의 날짜(`YYYY-MM-DD`).
+- 집계는 `idx_item_votes_item_date (item_id, vote_date, direction)` 인덱스로 `GROUP BY direction` 한다.
+- 품목 조회는 `itemcommunity/itemcommunity.repository.js`의 `findByIdOrSlug`를 재사용한다.
+
+### 8. 확인이 필요한 사항
+
+| # | 항목 | 이 문서의 가정 |
+|---|---|---|
+| 1 | 집계 기간 (`erd.md` 3장 #4) | **전체 기간 누적**. 최근 N일로 바꾸려면 `vote_date >= ?` 조건만 추가하면 된다(인덱스 지원) |
+| 2 | 품목 상세(ITEM-03)에 집계를 같이 넣을지 | 넣지 않는다. 토론방 헤더가 ITEM-03과 VOTE-01을 각각 호출한다 |
