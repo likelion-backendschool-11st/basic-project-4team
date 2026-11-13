@@ -281,6 +281,8 @@ export interface DiscussionItem {
   readonly price: string;
   readonly changePct: string;
   readonly changeAmount: string;
+  /** 소분류 카테고리 code (API 품목만). 토론글 등록 시 게시판(board)을 정하는 데 쓴다. */
+  readonly categoryCode?: string;
   /** 전일 대비 방향 — 화살표·색상 선택용. */
   readonly trend: 'up' | 'down' | 'flat';
   readonly listingCount: number;
@@ -373,6 +375,10 @@ export interface DiscussionPost {
   readonly commentCount: number;
   /** Higher = newer. Used for 최신순 sorting. */
   readonly order: number;
+  /** API에서 받은 글의 숫자 id. 목 데이터 글은 없음. */
+  readonly postId?: number;
+  /** 로그인 사용자가 쓴 글이면 true. */
+  readonly isMine?: boolean;
 }
 
 const ownerBadge: CommunityBadge = { label: '보유자', tone: 'mint', icon: 'verified' };
@@ -456,6 +462,7 @@ export const discussionPostCopy = {
     { key: 'report', icon: 'flag', label: '신고하기', danger: true },
   ],
   newPostBadge: '방금 전 작성',
+  edited: '(수정됨)',
   justNow: '방금 전',
   loadingIcon: 'expand_more',
   loadingLabel: '스크롤 시 이전 토론 글 자동 로딩',
