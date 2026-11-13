@@ -7,10 +7,10 @@ const ORDER_BY = {
 };
 
 // camelCase 필드 → 컬럼. update에서 이 목록에 있는 필드만 SET 절에 들어간다.
+// item_id는 수정 불가(REQ-BEDIT-001)라 목록에 넣지 않는다.
 const UPDATABLE_COLUMNS = {
   board: 'board',
   tag: 'tag',
-  itemId: 'item_id',
   title: 'title',
   body: 'body',
 };
@@ -33,6 +33,7 @@ function toPost(row) {
     author: { id: row.user_id, nickname: row.author_nickname },
     reactionCount: row.reaction_count,
     commentCount: row.comment_count,
+    editedAt: row.edited_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -91,7 +92,11 @@ async function update(id, fields) {
     ([key, value]) => UPDATABLE_COLUMNS[key] && value !== undefined,
   );
   if (entries.length > 0) {
-    const setClause = entries.map(([key]) => `${UPDATABLE_COLUMNS[key]} = ?`).join(', ');
+    // edited_at은 "(수정됨)" 표시용(REQ-BEDIT-004). updated_at은 집계 갱신 때도 바뀌어 쓸 수 없다.
+    const setClause = [
+      ...entries.map(([key]) => `${UPDATABLE_COLUMNS[key]} = ?`),
+      'edited_at = CURRENT_TIMESTAMP',
+    ].join(', ');
     await pool.execute(
       `UPDATE posts SET ${setClause} WHERE id = ? AND deleted_at IS NULL`,
       [...entries.map(([, value]) => value), id],

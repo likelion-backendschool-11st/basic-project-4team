@@ -1,4 +1,4 @@
-const postsRepository = require('../repositories/posts.repository');
+const communityRepository = require('./community.repository');
 const HttpError = require('../utils/HttpError');
 
 function postNotFound() {
@@ -12,7 +12,7 @@ function withIsMine(post, viewerId) {
 
 /** 본인 글인지 확인하고 글을 돌려준다. 없으면 404, 남의 글이면 403. */
 async function getOwnPost(postId, userId) {
-  const post = await postsRepository.findById(postId);
+  const post = await communityRepository.findById(postId);
   if (!post) throw postNotFound();
   if (post.author.id !== userId) {
     throw new HttpError(403, 'FORBIDDEN', '본인이 작성한 글만 수정·삭제할 수 있습니다.');
@@ -22,7 +22,7 @@ async function getOwnPost(postId, userId) {
 
 /** 목록 조회 + 페이지 정보. */
 async function listPosts({ board, itemId, tag, sort, page, size }, viewerId) {
-  const { posts, totalCount } = await postsRepository.findMany({
+  const { posts, totalCount } = await communityRepository.findMany({
     board,
     itemId,
     tag,
@@ -40,25 +40,25 @@ async function listPosts({ board, itemId, tag, sort, page, size }, viewerId) {
 }
 
 async function getPost(postId, viewerId) {
-  const post = await postsRepository.findById(postId);
+  const post = await communityRepository.findById(postId);
   if (!post) throw postNotFound();
   return withIsMine(post, viewerId);
 }
 
 async function createPost(userId, fields) {
-  const post = await postsRepository.create({ userId, ...fields });
+  const post = await communityRepository.create({ userId, ...fields });
   return withIsMine(post, userId);
 }
 
 async function updatePost(postId, userId, fields) {
   await getOwnPost(postId, userId);
-  const post = await postsRepository.update(postId, fields);
+  const post = await communityRepository.update(postId, fields);
   return withIsMine(post, userId);
 }
 
 async function deletePost(postId, userId) {
   await getOwnPost(postId, userId);
-  await postsRepository.softDelete(postId);
+  await communityRepository.softDelete(postId);
 }
 
 module.exports = { listPosts, getPost, createPost, updatePost, deletePost };

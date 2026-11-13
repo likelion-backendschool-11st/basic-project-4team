@@ -123,7 +123,47 @@ export interface FeedPost {
   readonly images?: readonly CommunityImage[];
   readonly reactions?: readonly ReactionSeed[];
   readonly commentCount: number;
+  /** API에서 받은 글의 숫자 id. 수정·삭제 요청에 쓴다. */
+  readonly postId?: number;
+  /** 로그인 사용자가 작성한 글이면 true → 수정/삭제 메뉴 표시. */
+  readonly isMine?: boolean;
+  /** 수정된 적이 있으면 true → "(수정됨)" 표시. */
+  readonly edited?: boolean;
 }
+
+/** 피드 글 카드의 "⋯" 메뉴와 수정 모드 문구. */
+export const feedPostEditCopy = {
+  menu: [
+    { key: 'edit', icon: 'edit', label: '수정', danger: false },
+    { key: 'delete', icon: 'delete', label: '삭제', danger: true },
+  ],
+  editedLabel: '(수정됨)',
+  saveLabel: '수정하기',
+  cancelLabel: '취소',
+  deleteConfirm: '이 글을 삭제할까요? 삭제한 글은 되돌릴 수 없습니다.',
+  bodyMax: 500,
+};
+
+/** API 호출 실패 시 보여줄 문구. */
+export const feedErrorCopy = {
+  load: '토론글을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.',
+  loginRequired: '로그인이 필요합니다.',
+  create: '글을 등록하지 못했습니다.',
+  update: '글을 수정하지 못했습니다.',
+  remove: '글을 삭제하지 못했습니다.',
+};
+
+/** ISO 시간 → "방금 전 / N분 전 / N시간 전 / N일 전". 7일이 넘으면 날짜로 표시. */
+export const formatTimeAgo = (iso: string, now: number = Date.now()): string => {
+  const diffMin = Math.floor((now - new Date(iso).getTime()) / 60000);
+  if (diffMin < 1) return '방금 전';
+  if (diffMin < 60) return `${diffMin}분 전`;
+  const diffHour = Math.floor(diffMin / 60);
+  if (diffHour < 24) return `${diffHour}시간 전`;
+  const diffDay = Math.floor(diffHour / 24);
+  if (diffDay < 7) return `${diffDay}일 전`;
+  return new Date(iso).toLocaleDateString('ko-KR');
+};
 
 export const feedCopy = {
   commentLabel: (n: number) => `댓글 ${n}`,

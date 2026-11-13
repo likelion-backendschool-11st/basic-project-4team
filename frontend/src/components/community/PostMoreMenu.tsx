@@ -3,12 +3,21 @@ import { discussionPostCopy } from '../../data/community';
 import { useDisclosure } from '../../hooks/community/useDisclosure';
 import { Icon } from '../common/Icon';
 
-export interface PostMoreMenuProps {
-  readonly onSelect?: (key: string) => void;
+export interface PostMoreMenuItem {
+  readonly key: string;
+  readonly icon: string;
+  readonly label: string;
+  readonly danger: boolean;
 }
 
-/** "⋮" overflow menu with 공유 / 신고하기. */
-export const PostMoreMenu: React.FC<PostMoreMenuProps> = ({ onSelect }) => {
+export interface PostMoreMenuProps {
+  readonly onSelect?: (key: string) => void;
+  /** 메뉴 항목. 기본값은 공유 / 신고하기. */
+  readonly items?: readonly PostMoreMenuItem[];
+}
+
+/** "⋮" overflow menu (기본: 공유 / 신고하기). */
+export const PostMoreMenu: React.FC<PostMoreMenuProps> = ({ onSelect, items = discussionPostCopy.menu }) => {
   const { open, toggle, close, ref } = useDisclosure<HTMLDivElement>();
   return (
     <div className="relative" ref={ref}>
@@ -23,7 +32,7 @@ export const PostMoreMenu: React.FC<PostMoreMenuProps> = ({ onSelect }) => {
       </button>
       {open && (
         <div className="absolute right-0 top-full mt-1 w-28 bg-surface-container-lowest rounded-lg shadow-md py-1 z-10 font-caption text-caption text-on-surface">
-          {discussionPostCopy.menu.map((m) => (
+          {items.map((m) => (
             <button
               className={`w-full text-left px-space-sm py-1.5 flex items-center gap-1 ${
                 m.danger ? 'text-error hover:bg-error-container hover:text-on-error-container' : 'hover:bg-surface-container-low'
