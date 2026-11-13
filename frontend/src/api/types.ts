@@ -50,19 +50,52 @@ export interface PostListResponse {
   readonly hasNext: boolean;
 }
 
-/* ------------------------------------------------------------------ */
-/* 판매글 (api-spec-all.md 3장)                                         */
-/* ------------------------------------------------------------------ */
+/* 품목 (품목 토론방) — backend/docs/api-spec-all.md 2장 ITEM-03 */
 
-export type ListingStatus = 'selling' | 'reserved' | 'sold';
 export type ItemCondition = 'unopened' | 'opened_raw' | 'graded';
+export type GradingService = 'PSA' | 'BGS' | 'CGC' | 'BRG';
+export type Grade = '10' | '9.5' | '9' | '8.5' | '8' | '7';
 
-export interface Category {
+export interface ItemCategory {
   readonly id: number;
   readonly code: string;
   readonly name: string;
 }
 
+export interface MarketSummary {
+  readonly latestPrice: number;
+  /** 전일 대비 변동액(원). 음수 가능. */
+  readonly changeAmount: number;
+  /** 전일 대비 변동률(%, 소수 1자리). */
+  readonly changeRate: number;
+  readonly tradeCount30d: number;
+}
+
+export interface ItemDetail {
+  readonly id: number;
+  readonly slug: string;
+  readonly name: string;
+  readonly setName: string | null;
+  readonly cardNo: string | null;
+  readonly language: string | null;
+  readonly rarity: string | null;
+  readonly imageUrl: string | null;
+  readonly category: ItemCategory;
+  /** 대분류 → 소분류 순서. */
+  readonly breadcrumbs: readonly ItemCategory[];
+  /** 거래 이력이 없으면 null. */
+  readonly marketSummary: MarketSummary | null;
+  readonly sellingCount: number;
+}
+
+/* ------------------------------------------------------------------ */
+/* 판매글 (api-spec-all.md 3장)                                         */
+/* ItemCondition·ItemCategory는 위 품목 타입을 함께 쓴다.                   */
+/* ------------------------------------------------------------------ */
+
+export type ListingStatus = 'selling' | 'reserved' | 'sold';
+
+/** 판매글에 딸린 품목 요약 (ItemDetail에서 시세·breadcrumbs를 뺀 형태). */
 export interface ItemSummary {
   readonly id: number;
   readonly slug: string;
@@ -72,7 +105,7 @@ export interface ItemSummary {
   readonly language: string | null;
   readonly rarity: string | null;
   readonly imageUrl: string | null;
-  readonly category: Category;
+  readonly category: ItemCategory;
 }
 
 export interface ListingImage {
@@ -104,7 +137,7 @@ export interface ListingDetail {
   readonly delivery: boolean;
   readonly direct: boolean;
   readonly item: ItemSummary;
-  readonly breadcrumbs: readonly Category[];
+  readonly breadcrumbs: readonly ItemCategory[];
   readonly marketPrice: { readonly averagePrice: number; readonly tradeCount: number } | null;
   readonly viewCount: number;
   readonly seller: { readonly id: number; readonly nickname: string; readonly soldCount: number };

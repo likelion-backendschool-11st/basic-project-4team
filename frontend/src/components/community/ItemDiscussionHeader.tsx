@@ -8,6 +8,18 @@ export interface ItemDiscussionHeaderProps {
   readonly item: DiscussionItem;
 }
 
+const trendTone: Record<DiscussionItem['trend'], string> = {
+  up: 'text-primary',
+  down: 'text-error',
+  flat: 'text-muted',
+};
+
+const trendIcon: Record<DiscussionItem['trend'], string | null> = {
+  up: 'arrow_drop_up',
+  down: 'arrow_drop_down',
+  flat: null,
+};
+
 /** Item summary (thumb, grade, price, change), 현재 매물 link and sentiment gauge. */
 export const ItemDiscussionHeader: React.FC<ItemDiscussionHeaderProps> = ({ item }) => (
   /* data-component="ItemDiscussionHeader" */
@@ -15,20 +27,26 @@ export const ItemDiscussionHeader: React.FC<ItemDiscussionHeaderProps> = ({ item
     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-space-md pb-space-sm">
       <div className="flex items-center gap-space-md min-w-0">
         <div className="w-16 h-16 rounded-lg bg-surface-container-low overflow-hidden shrink-0 flex items-center justify-center p-1">
-          <img alt={item.image.alt} className="w-full h-full object-contain" src={item.image.src} />
+          {item.image.src ? (
+            <img alt={item.image.alt} className="w-full h-full object-contain" src={item.image.src} />
+          ) : (
+            <Icon className="text-[32px] text-muted" name="image" />
+          )}
         </div>
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-space-xs mb-space-xxs">
             <span className="font-eyebrow text-eyebrow bg-mint-100 text-forest px-space-xs py-0.5 rounded">{item.grade}</span>
-            <span className="font-micro text-micro text-muted">{item.certNo}</span>
+            {item.certNo && <span className="font-micro text-micro text-muted">{item.certNo}</span>}
           </div>
           <h1 className="font-heading-3 text-heading-3 text-on-surface tracking-tight">{item.name}</h1>
           <div className="flex flex-wrap items-baseline gap-space-xs mt-space-xxs">
             <span className="font-stat-value text-stat-value text-on-surface">{item.price}</span>
-            <span className="font-ui-label text-ui-label text-primary flex items-center">
-              <Icon className="text-[16px]" name="arrow_drop_up" />
-              {item.changePct}
-            </span>
+            {item.changePct && (
+              <span className={`font-ui-label text-ui-label flex items-center ${trendTone[item.trend]}`}>
+                {trendIcon[item.trend] && <Icon className="text-[16px]" name={trendIcon[item.trend] ?? ''} />}
+                {item.changePct}
+              </span>
+            )}
             <span className="font-micro text-micro text-muted">{item.changeAmount}</span>
           </div>
         </div>

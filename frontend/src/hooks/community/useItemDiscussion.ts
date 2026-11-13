@@ -11,14 +11,17 @@ import {
   type DiscussionPost,
   type DiscussionSort,
 } from '../../data/community';
+import { useItemDetail } from '../itemcommunity/useItemDetail';
 
 const score = (p: DiscussionPost) => p.reactions.reduce((s, r) => s + r.count, 0) + p.commentCount;
 
 /** Item discussion room: resolves :id, sorts/filters posts, adds composer posts, loads older posts. */
 export const useItemDiscussion = () => {
   const { id } = useParams<{ id: string }>();
-  const item = useMemo(() => discussionItems.find((i) => i.id === id) ?? defaultDiscussionItem, [id]);
-  const itemId = id ?? item.id;
+  const itemId = id ?? defaultDiscussionItem.id;
+  // 감성 투표·토론 글 수는 board API가 생기기 전까지 목 데이터를 쓴다.
+  const mockItem = useMemo(() => discussionItems.find((i) => i.id === itemId) ?? defaultDiscussionItem, [itemId]);
+  const { item, status: itemStatus } = useItemDetail(itemId, mockItem);
 
   const [sort, setSort] = useState<DiscussionSort>('popular');
   const [verifiedOnly, setVerifiedOnly] = useState(false);
@@ -58,12 +61,13 @@ export const useItemDiscussion = () => {
   return {
     itemId,
     item,
+    itemStatus,
     sort,
     setSort,
     verifiedOnly,
     setVerifiedOnly,
     posts,
-    totalDiscussions: item.totalDiscussions + userPosts.length,
+    totalDiscussions: mockItem.totalDiscussions + userPosts.length,
     addPost,
     hasMore,
     loadMore,
