@@ -6,6 +6,7 @@ const authRoutes = require('./routes/auth.routes');
 const communityRoutes = require('./community/community.routes');
 const sellRoutes = require('./sell/sell.routes');
 const itemCommunityRoutes = require('./itemcommunity/itemcommunity.routes');
+const communityVoteRoutes = require('./communityVote/communityVote.routes');
 const errorHandler = require('./middlewares/errorHandler');
 const HttpError = require('./utils/HttpError');
 
@@ -21,6 +22,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/posts', communityRoutes);
 app.use('/api/listings', sellRoutes);
 app.use('/api/items', itemCommunityRoutes);
+app.use('/api/communityVote', communityVoteRoutes);
 
 app.use((req, res, next) => next(new HttpError(404, 'NOT_FOUND', '요청한 API를 찾을 수 없습니다.')));
 app.use(errorHandler);
