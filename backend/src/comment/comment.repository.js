@@ -30,6 +30,7 @@ function toComment(row) {
       },
     body: isDeleted ? null : row.body,
     isDeleted,
+    likeCount: isDeleted ? 0 : row.like_count,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -149,6 +150,9 @@ async function softDelete(commentId, postId) {
     );
     // 동시에 두 번 삭제 요청이 와도 한 번만 줄인다.
     if (result.affectedRows === 1) {
+      // 삭제된 댓글은 좋아요를 0으로 보여주므로 좋아요 행도 함께 지운다.
+      await connection.execute('DELETE FROM comment_likes WHERE comment_id = ?', [commentId]);
+      await connection.execute('UPDATE comments SET like_count = 0 WHERE id = ?', [commentId]);
       await connection.execute(
         'UPDATE posts SET comment_count = GREATEST(comment_count, 1) - 1 WHERE id = ?',
         [postId],
@@ -163,7 +167,52 @@ async function softDelete(commentId, postId) {
   }
 }
 
+/** viewer가 좋아요를 누른 댓글 id 집합. 비로그인이면 빈 집합. */
+async function findLikedIds(commentIds, viewerId) {
+  if (viewerId === undefined || commentIds.length === 0) return new Set();
+  const [rows] = await pool.query(
+    'SELECT comment_id FROM comment_likes WHERE user_id = ? AND comment_id IN (?)',
+    [viewerId, commentIds],
+  );
+  return new Set(rows.map((row) => row.comment_id));
+}
+
+/**
+ * 좋아요 누르기(liked = true)·취소(false)와 comments.like_count ± 1을 한 트랜잭션으로.
+ * 이미 눌렀거나 누른 적이 없으면 행이 바뀌지 않아 like_count도 그대로다(멱등). 바뀐 뒤 좋아요 수를 돌려준다.
+ */
+async function setLike(commentId, userId, liked) {
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    const [result] = liked
+      ? await connection.execute('INSERT IGNORE INTO comment_likes (user_id, comment_id) VALUES (?, ?)', [userId, commentId])
+      : await connection.execute('DELETE FROM comment_likes WHERE user_id = ? AND comment_id = ?', [userId, commentId]);
+    if (result.affectedRows === 1) {
+      await connection.execute(
+        liked
+          ? 'UPDATE comments SET like_count = like_count + 1 WHERE id = ?'
+          : 'UPDATE comments SET like_count = GREATEST(like_count, 1) - 1 WHERE id = ?',
+        [commentId],
+      );
+    }
+    const [[{ like_count: likeCount }]] = await connection.execute(
+      'SELECT like_count FROM comments WHERE id = ?',
+      [commentId],
+    );
+    await connection.commit();
+    return likeCount;
+  } catch (err) {
+    await connection.rollback();
+    throw err;
+  } finally {
+    connection.release();
+  }
+}
+
 module.exports = {
+  findLikedIds,
+  setLike,
 
   toComment,
   existsPost,

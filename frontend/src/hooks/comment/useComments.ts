@@ -5,6 +5,8 @@ import {
   deleteComment,
   getComments,
   getReplies,
+  likeComment,
+  unlikeComment,
 } from '../../api/comment';
 import type { Comment, CommentReply } from '../../api/types';
 import { COMMENT_PAGE_SIZE, commentCopy } from '../../data/comment';
@@ -22,6 +24,14 @@ const errorMessage = (error: unknown, fallback: string): string =>
   error instanceof ApiError && error.status !== 0 && error.status < 500 ? error.message : fallback;
 
 const isTopLevel = (comment: Comment | CommentReply): comment is Comment => comment.parentId === null;
+
+/** 댓글·답글 중 id가 같은 것 하나에 patch를 적용한다. */
+const patchById = (list: readonly Comment[], id: number, patch: Partial<CommentReply>): Comment[] =>
+  list.map((c) =>
+    c.id === id
+      ? { ...c, ...patch }
+      : { ...c, replies: c.replies.map((r) => (r.id === id ? { ...r, ...patch } : r)) },
+  );
 
 /**
  * 토론글 카드 아래로 펼치는 댓글 영역 (피드·품목 토론방 공용).
@@ -132,6 +142,17 @@ export const useComments = (postId: number, initialCount: number, initiallyOpen 
     [fetchPage],
   );
 
+  /** 좋아요 토글 — 눌렀으면 취소, 아니면 누르기. 서버가 준 좋아요 수로 갱신한다. */
+  const toggleLike = useCallback(async (comment: CommentReply) => {
+    try {
+      const result = comment.isLiked ? await unlikeComment(comment.id) : await likeComment(comment.id);
+      setComments((prev) => patchById(prev, comment.id, result));
+      setActionError(null);
+    } catch (e) {
+      setActionError(errorMessage(e, commentCopy.likeError));
+    }
+  }, []);
+
   return {
     open,
     toggle,
@@ -144,6 +165,7 @@ export const useComments = (postId: number, initialCount: number, initiallyOpen 
     loadReplies,
     submit,
     remove,
+    toggleLike,
     totalCount,
     actionError,
     replyingTo,

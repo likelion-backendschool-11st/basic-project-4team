@@ -9,5 +9,7 @@ router.post('/posts/:postId/comments', requireAuth, commentController.create);
 router.get('/comments/:commentId/replies', optionalAuth, commentController.replies);
 router.patch('/comments/:commentId', requireAuth, commentController.update);
 router.delete('/comments/:commentId', requireAuth, commentController.remove);
+router.put('/comments/:commentId/like', requireAuth, commentController.like);
+router.delete('/comments/:commentId/like', requireAuth, commentController.unlike);
 
 module.exports = router;

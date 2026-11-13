@@ -2,22 +2,30 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import type { CommentReply } from '../../api/types';
 import { commentCopy } from '../../data/comment';
+import { loginRequiredCopy } from '../../data/itemcommunity';
 import { ROUTES } from '../../data/layout';
 import type { useComments } from '../../hooks/comment/useComments';
+import { useLoginGate } from '../../hooks/itemcommunity/useLoginGate';
+import { LoginRequiredModal } from '../itemcommunity/LoginRequiredModal';
 import { CommentForm } from './CommentForm';
 import { CommentItem } from './CommentItem';
 
 export interface CommentSectionProps {
   /** useComments()가 돌려준 상태·동작. */
   readonly state: ReturnType<typeof useComments>;
-  /** 로그인 상태면 입력창·답글 버튼을, 아니면 로그인 안내를 보여준다. */
+  /** 로그인 상태면 입력창·답글 버튼을, 아니면 로그인 안내를 보여준다. 비로그인으로 좋아요를 누르면 로그인 팝업. */
   readonly canWrite: boolean;
 }
 
 const textButton = 'font-ui-sm text-ui-sm text-primary hover:underline';
 
-/** 토론글 카드 아래로 펼쳐지는 댓글 목록 + 답글 + 입력창 (피드·품목 토론방 공용). */
+/** 토론글 카드 아래로 펼쳐지는 댓글 목록 + 답글 + 좋아요 + 입력창 (피드·품목 토론방 공용). */
 export const CommentSection: React.FC<CommentSectionProps> = ({ state, canWrite }) => {
+  const loginGate = useLoginGate();
+
+  const handleToggleLike = (comment: CommentReply) => {
+    if (loginGate.ensureLogin()) state.toggleLike(comment);
+  };
 
   const handleMenuSelect = (comment: CommentReply, key: string) => {
     if (key === 'delete' && window.confirm(commentCopy.deleteConfirm)) state.remove(comment.id);
@@ -50,6 +58,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ state, canWrite 
               <CommentItem
                 comment={comment}
                 onMenuSelect={handleMenuSelect}
+                onToggleLike={handleToggleLike}
                 onReply={canWrite && !comment.isDeleted ? () => state.setReplyingTo(comment.id) : undefined}
               />
               {(comment.replies.length > 0 || hiddenReplies > 0 || replyingHere) && (
@@ -59,6 +68,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ state, canWrite 
                       comment={reply}
                       key={reply.id}
                       onMenuSelect={handleMenuSelect}
+                      onToggleLike={handleToggleLike}
                     />
                   ))}
                   {hiddenReplies > 0 && (
@@ -100,6 +110,12 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ state, canWrite 
           </Link>
         </p>
       )}
+      <LoginRequiredModal
+        {...loginRequiredCopy}
+        onClose={loginGate.close}
+        onConfirm={loginGate.goLogin}
+        open={loginGate.open}
+      />
     </section>
   );
 };

@@ -25,6 +25,7 @@ export const commentCopy = {
   cancelLabel: '취소',
   submitError: '댓글을 등록하지 못했습니다.',
   deleteError: '댓글을 삭제하지 못했습니다.',
+  likeError: '좋아요를 처리하지 못했습니다.',
   moreMenuLabel: '댓글 더보기 메뉴',
   loginPrompt: '로그인하면 댓글을 남길 수 있습니다.',
   loginLabel: '로그인',
@@ -34,6 +35,13 @@ export const commentCopy = {
 export const commentBadgeLabel: Record<string, string> = {
   ITEM_OWNER: '보유자',
   TRADE_VERIFIED: '거래 인증',
+};
+
+/** 댓글 좋아요 버튼 (Material Symbols). */
+export const commentLikeCopy = {
+  icon: 'favorite',
+  label: '좋아요',
+  ariaLabel: (n: number, liked: boolean) => `좋아요 ${n}개${liked ? ', 누름' : ''}`,
 };
 
 /** 내 댓글 "⋮" 메뉴. */

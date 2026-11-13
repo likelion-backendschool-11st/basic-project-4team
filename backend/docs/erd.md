@@ -332,6 +332,7 @@ CHECK: `type = 'photo' OR sort_order = 0` (인증 사진은 항상 0번)
 | PK | `user_id, comment_id` | 1인 1좋아요 + 내가 눌렀는지 조회 |
 
 > `comment_id` 인덱스는 FK가 자동으로 만든다. 취소 = 하드 삭제, `comments.like_count ± 1`을 같은 트랜잭션에서.
+> API: `PUT`/`DELETE /api/community/comments/:id/like` (#63). 댓글을 삭제하면 좋아요 행을 지우고 `like_count`를 0으로 만든다.
 
 ### 2.14 `item_votes` — 시세 전망 투표
 
