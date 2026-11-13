@@ -1,8 +1,8 @@
 import { useCallback, useState } from 'react';
 
 /** Wishlist (찜) toggle with live count. `onChange` receives the new state. */
-export const useWishlist = (initialCount: number, onChange?: (wished: boolean) => void) => {
-  const [wished, setWished] = useState(false);
+export const useWishlist = (initialCount: number, onChange?: (wished: boolean) => void, initialWished = false) => {
+  const [wished, setWished] = useState(initialWished);
   const [count, setCount] = useState(initialCount);
 
   const toggle = useCallback(() => {

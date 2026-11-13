@@ -7,7 +7,8 @@
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
     "db:init": "node scripts/db-init.js",
-    "db:seed": "node scripts/db-seed.js"
+    "db:seed": "node scripts/db-seed.js",
+    "db:seed:sell": "node scripts/sell-seed.js"
   },
   "keywords": [],
   "author": "",

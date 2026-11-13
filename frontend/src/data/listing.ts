@@ -101,6 +101,67 @@ export const toastMessages = {
 };
 
 /* ------------------------------------------------------------------ */
+/* P-010 API 연동 문구 (LISTING-02 응답 → 화면)                          */
+/* ------------------------------------------------------------------ */
+
+export const listingDetailCopy = {
+  loading: '판매글을 불러오는 중입니다...',
+  notFoundTitle: '판매글을 찾을 수 없습니다',
+  notFoundBody: '삭제되었거나 존재하지 않는 판매글입니다.',
+  errorTitle: '판매글을 불러오지 못했습니다',
+  errorBody: '잠시 후 다시 시도해 주세요.',
+  homeLabel: '홈으로',
+  home: '홈',
+  noImage: '등록된 사진이 없습니다',
+  photoMain: '대표',
+  photoLabel: (n: number) => `사진 ${n}`,
+  authPhoto: '실물인증',
+  tradeLabel: '거래 방식',
+  delivery: '택배거래',
+  direct: '직거래',
+  directLocationLabel: '직거래 가능지역',
+  conditionLabel: '제품 상태',
+  conditions: { unopened: '미개봉', opened_raw: '개봉 (그레이딩 없음)', graded: '그레이딩 슬랩' },
+  statusLabel: '판매 상태',
+  statuses: { selling: '판매중', reserved: '예약중', sold: '거래완료' },
+  authLabel: '인증 여부',
+  authYes: '실물 인증 사진 등록',
+  authNo: '실물 인증 사진 없음',
+  specSetName: '세트명',
+  specCardNo: '카드 번호',
+  specLanguage: '발행 언어',
+  specRarity: '희귀도',
+  specGrade: '공식 등급',
+  languages: { ko: '한국어', ja: '일본어', en: '영어', zh: '중국어' } as Readonly<Record<string, string>>,
+  avgLabel: (price: string) => `최근 30일 평균 체결가 ${price}원`,
+  noMarket: '최근 30일 거래 이력 없음',
+  cheaper: (rate: number) => `▼ ${rate}% 저렴`,
+  pricier: (rate: number) => `▲ ${rate}% 높음`,
+  samePrice: '시세와 동일',
+  cheaperNote: '시세보다 저렴',
+  pricierNote: '시세보다 높음',
+  registered: (timeAgo: string) => `등록: ${timeAgo}`,
+  views: (count: string) => `조회 ${count}`,
+  updatedAt: (date: string) => `최종 수정일: ${date}`,
+  eyebrowCard: (setName: string, cardNo: string) => `${setName} 번호 ${cardNo}`,
+  setLabel: (setName: string) => `세트: ${setName}`,
+  sellerGrade: '판매자',
+  sellerBadge: 'RE:PICK 회원',
+  ratingEmpty: '-',
+  ratingCountEmpty: '(리뷰 준비중)',
+  otherTitle: '판매자의 다른 상품',
+  chatWelcome: (title: string) => `안녕하세요! [${title}] 문의 주셔서 감사합니다. 편하게 문의주세요!`,
+  timeAgo: {
+    justNow: '방금 전',
+    minutes: (n: number) => `${n}분 전`,
+    hours: (n: number) => `${n}시간 전`,
+    days: (n: number) => `${n}일 전`,
+    months: (n: number) => `${n}개월 전`,
+    years: (n: number) => `${n}년 전`,
+  },
+};
+
+/* ------------------------------------------------------------------ */
 /* P-010 Buyer view                                                    */
 /* ------------------------------------------------------------------ */
 

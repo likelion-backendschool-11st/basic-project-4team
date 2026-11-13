@@ -87,3 +87,60 @@ export interface ItemDetail {
   readonly marketSummary: MarketSummary | null;
   readonly sellingCount: number;
 }
+
+/* ------------------------------------------------------------------ */
+/* 판매글 (api-spec-all.md 3장)                                         */
+/* ItemCondition·ItemCategory는 위 품목 타입을 함께 쓴다.                   */
+/* ------------------------------------------------------------------ */
+
+export type ListingStatus = 'selling' | 'reserved' | 'sold';
+
+/** 판매글에 딸린 품목 요약 (ItemDetail에서 시세·breadcrumbs를 뺀 형태). */
+export interface ItemSummary {
+  readonly id: number;
+  readonly slug: string;
+  readonly name: string;
+  readonly setName: string | null;
+  readonly cardNo: string | null;
+  readonly language: string | null;
+  readonly rarity: string | null;
+  readonly imageUrl: string | null;
+  readonly category: ItemCategory;
+}
+
+export interface ListingImage {
+  readonly id: number;
+  readonly url: string;
+  readonly sortOrder: number;
+}
+
+/** LISTING-02 판매글 상세 응답. */
+export interface ListingDetail {
+  readonly id: number;
+  readonly registrationNo: string | null;
+  readonly title: string;
+  readonly price: number;
+  readonly status: ListingStatus;
+  readonly condition: ItemCondition;
+  readonly gradingService: string | null;
+  readonly grade: string | null;
+  readonly thumbnailUrl: string | null;
+  readonly directLocation: string | null;
+  readonly wishCount: number;
+  readonly isWished: boolean;
+  readonly priceDiffRate: number | null;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+  readonly description: string;
+  readonly images: readonly ListingImage[];
+  readonly authImage: { readonly id: number; readonly url: string } | null;
+  readonly delivery: boolean;
+  readonly direct: boolean;
+  readonly item: ItemSummary;
+  readonly breadcrumbs: readonly ItemCategory[];
+  readonly marketPrice: { readonly averagePrice: number; readonly tradeCount: number } | null;
+  readonly viewCount: number;
+  readonly seller: { readonly id: number; readonly nickname: string; readonly soldCount: number };
+  readonly isOwner: boolean;
+  readonly soldPrice: number | null;
+}
