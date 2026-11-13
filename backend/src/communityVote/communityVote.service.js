@@ -1,4 +1,4 @@
-const communitiVoteRepository = require('./communitiVote.repository');
+const communityVoteRepository = require('./communityVote.repository');
 const itemCommunityRepository = require('../itemcommunity/itemcommunity.repository');
 const HttpError = require('../utils/HttpError');
 
@@ -19,8 +19,8 @@ async function resolveItemId(idOrSlug) {
 /** 집계 + 오늘 내 투표 → Vote 객체. total이 0이면 비율은 50/50. */
 async function buildVote(itemId, viewerId, voteDate) {
   const [{ up, down }, myVote] = await Promise.all([
-    communitiVoteRepository.countByDirection(itemId),
-    viewerId === undefined ? null : communitiVoteRepository.findDirection(viewerId, itemId, voteDate),
+    communityVoteRepository.countByDirection(itemId),
+    viewerId === undefined ? null : communityVoteRepository.findDirection(viewerId, itemId, voteDate),
   ]);
   const total = up + down;
   const upRate = total === 0 ? 50 : Math.round((up / total) * 100);
@@ -46,7 +46,7 @@ async function castVote(idOrSlug, userId, direction) {
   const itemId = await resolveItemId(idOrSlug);
   const voteDate = todayKst();
   try {
-    await communitiVoteRepository.insert({ userId, itemId, voteDate, direction });
+    await communityVoteRepository.insert({ userId, itemId, voteDate, direction });
   } catch (err) {
     // PK(user_id, item_id, vote_date) 중복 — 동시에 두 번 눌러도 DB가 1건만 남긴다.
     if (err.code === 'ER_DUP_ENTRY') {

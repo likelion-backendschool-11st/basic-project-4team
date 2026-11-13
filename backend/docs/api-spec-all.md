@@ -2463,14 +2463,12 @@ POST /api/communityVote/:itemId
 
 ```
 backend/src/
-  app.js                                    app.use('/api/communityVote', communitiVoteRoutes)
-  communitiVote/communitiVote.routes.js     URL ↔ 컨트롤러, optionalAuth / requireAuth
-  communitiVote/communitiVote.controller.js itemId·direction 검증
-  communitiVote/communitiVote.service.js    품목 확인(404), KST 날짜 계산, 중복 투표 409, 비율 계산
-  communitiVote/communitiVote.repository.js item_votes INSERT·집계 SQL
+  app.js                                    app.use('/api/communityVote', communityVoteRoutes)
+  communityVote/communityVote.routes.js     URL ↔ 컨트롤러, optionalAuth / requireAuth
+  communityVote/communityVote.controller.js itemId·direction 검증
+  communityVote/communityVote.service.js    품목 확인(404), KST 날짜 계산, 중복 투표 409, 비율 계산
+  communityVote/communityVote.repository.js item_votes INSERT·집계 SQL
 ```
-
-폴더명은 `communitiVote`(팀 결정). API 주소는 `/api/communityVote` 그대로.
 
 프론트: `src/api/communityVote.ts` → `hooks/community/useSentimentVote.ts` → `components/community/SentimentPoll.tsx`
 

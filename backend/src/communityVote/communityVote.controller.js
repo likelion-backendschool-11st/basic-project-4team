@@ -1,4 +1,4 @@
-const communitiVoteService = require('./communitiVote.service');
+const communityVoteService = require('./communityVote.service');
 const HttpError = require('../utils/HttpError');
 
 const DIRECTIONS = ['up', 'down'];
@@ -22,7 +22,7 @@ function parseDirection(value) {
 
 /** GET /api/communityVote/:itemId — 투표 집계 + 오늘 내 투표 (VOTE-01). */
 async function summary(req, res) {
-  const vote = await communitiVoteService.getVoteSummary(parseItemId(req), req.user?.id);
+  const vote = await communityVoteService.getVoteSummary(parseItemId(req), req.user?.id);
   res.json({ data: { vote } });
 }
 
@@ -30,7 +30,7 @@ async function summary(req, res) {
 async function vote(req, res) {
   const itemId = parseItemId(req);
   const direction = parseDirection(req.body?.direction);
-  const result = await communitiVoteService.castVote(itemId, req.user.id, direction);
+  const result = await communityVoteService.castVote(itemId, req.user.id, direction);
   res.status(201).json({ data: { vote: result } });
 }
 
