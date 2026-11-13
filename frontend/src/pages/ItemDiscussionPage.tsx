@@ -52,7 +52,13 @@ export const ItemDiscussionPage: React.FC<ItemDiscussionPageProps> = ({ classNam
               {/* data-component="DiscussionPostList" */}
               <div className="flex flex-col gap-space-sm">
                 {d.posts.map((post) => (
-                  <DiscussionPostCard ensureLogin={loginGate.ensureLogin} itemId={d.itemId} key={post.id} post={post} />
+                  <DiscussionPostCard
+                    ensureLogin={loginGate.ensureLogin}
+                    focused={post.id === d.focusedPostId}
+                    itemId={d.itemId}
+                    key={post.id}
+                    post={post}
+                  />
                 ))}
                 {d.posts.length === 0 && !d.loading && (
                   <p className="py-space-lg text-center font-body-sm text-body-sm text-muted">{discussionPostCopy.emptyLabel}</p>

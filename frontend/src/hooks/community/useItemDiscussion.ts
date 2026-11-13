@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useLocation, useParams } from 'react-router-dom';
 import { ApiError } from '../../api/client';
 import { createPost, getPosts } from '../../api/community';
 import type { Post } from '../../api/types';
@@ -42,6 +42,7 @@ const errorMessage = (error: unknown, fallback: string): string =>
 /** 품목 토론방: 헤더(ITEM-03) + 토론글 목록·등록(posts API, itemId = 품목 slug). */
 export const useItemDiscussion = () => {
   const { id } = useParams<{ id: string }>();
+  const { hash } = useLocation();
   const itemId = id ?? defaultDiscussionItem.id;
   // 감성 투표는 board API가 생기기 전까지 목 데이터를 쓴다.
   const mockItem = useMemo(() => discussionItems.find((i) => i.id === itemId) ?? defaultDiscussionItem, [itemId]);
@@ -127,5 +128,7 @@ export const useItemDiscussion = () => {
     loadMore,
     loading,
     error,
+    /** URL #post-N — 이 글의 댓글을 펼치고 스크롤한다. */
+    focusedPostId: hash.slice(1),
   };
 };
