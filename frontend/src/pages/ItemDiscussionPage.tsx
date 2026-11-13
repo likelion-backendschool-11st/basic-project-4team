@@ -31,7 +31,7 @@ export const ItemDiscussionPage: React.FC<ItemDiscussionPageProps> = ({ classNam
             {/* Left Column: Discussion Room & Voting */}
             <div className="lg:col-span-8 flex flex-col gap-space-md min-w-0">
               {d.item ? (
-                <ItemDiscussionHeader item={d.item} />
+                <ItemDiscussionHeader ensureLogin={loginGate.ensureLogin} item={d.item} />
               ) : (
                 <section className="bg-surface-container-lowest rounded-lg p-space-md shadow-sm">
                   <p className="py-space-md text-center font-body-sm text-body-sm text-muted">

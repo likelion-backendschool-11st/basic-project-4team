@@ -330,7 +330,10 @@ export const sentimentCopy = {
   upIcon: 'local_fire_department',
   downIcon: 'ac_unit',
   votes: (n: number) => `(${n.toLocaleString('ko-KR')}표)`,
-  notice: '24시간 기준 품목당 1회 참여 가능 · 실시간 시세 반영',
+  notice: '품목당 하루(자정 기준) 1회 참여 · 투표 후 변경 불가',
+  alreadyVoted: '오늘은 이미 투표했습니다. 내일 다시 투표할 수 있습니다.',
+  voteError: '투표하지 못했습니다. 잠시 후 다시 시도해 주세요.',
+  loadError: '투표 결과를 불러오지 못했습니다.',
   upButton: '🔥 오른다 투표',
   downButton: '🧊 내린다 투표',
 };

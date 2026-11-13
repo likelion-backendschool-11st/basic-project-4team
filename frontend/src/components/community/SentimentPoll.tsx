@@ -4,12 +4,15 @@ import { useSentimentVote } from '../../hooks/community/useSentimentVote';
 import { Icon } from '../common/Icon';
 
 export interface SentimentPollProps {
-  readonly seed: { readonly up: number; readonly down: number };
+  /** 품목 id 또는 slug. */
+  readonly itemId: string;
+  /** 비로그인이면 false를 돌려주고 로그인 안내를 띄운다. */
+  readonly ensureLogin: () => boolean;
 }
 
 /** 오른다/내린다 dual-color sentiment gauge with vote buttons. */
-export const SentimentPoll: React.FC<SentimentPollProps> = ({ seed }) => {
-  const { up, down, upPct, downPct, choice, vote } = useSentimentVote(seed);
+export const SentimentPoll: React.FC<SentimentPollProps> = ({ itemId, ensureLogin }) => {
+  const { up, down, upPct, downPct, choice, voted, voting, message, vote } = useSentimentVote(itemId, ensureLogin);
 
   return (
     /* data-component="MarketSentimentPoll" */
@@ -39,14 +42,15 @@ export const SentimentPoll: React.FC<SentimentPollProps> = ({ seed }) => {
       <div className="flex flex-col sm:flex-row items-center justify-between gap-space-sm mt-space-sm pt-space-xs">
         <span className="font-caption text-caption text-muted flex items-center gap-1">
           <Icon className="text-[14px]" name="info" />
-          {sentimentCopy.notice}
+          {message ?? sentimentCopy.notice}
         </span>
         <div className="flex items-center gap-space-xs w-full sm:w-auto">
           <button
             aria-pressed={choice === 'up'}
-            className={`flex-1 sm:flex-none flex items-center justify-center gap-1 px-space-md py-space-xs rounded-lg font-ui-sm text-ui-sm shadow-sm transition-all ${
+            className={`flex-1 sm:flex-none flex items-center justify-center gap-1 px-space-md py-space-xs rounded-lg font-ui-sm text-ui-sm shadow-sm transition-all disabled:cursor-not-allowed disabled:opacity-60 ${
               choice === 'up' ? 'bg-tertiary text-on-primary' : 'bg-surface-container-lowest text-tertiary hover:bg-tertiary-fixed'
             }`}
+            disabled={voted || voting}
             onClick={() => vote('up')}
             type="button"
           >
@@ -55,9 +59,10 @@ export const SentimentPoll: React.FC<SentimentPollProps> = ({ seed }) => {
           </button>
           <button
             aria-pressed={choice === 'down'}
-            className={`flex-1 sm:flex-none flex items-center justify-center gap-1 px-space-md py-space-xs rounded-lg font-ui-sm text-ui-sm shadow-sm transition-all ${
+            className={`flex-1 sm:flex-none flex items-center justify-center gap-1 px-space-md py-space-xs rounded-lg font-ui-sm text-ui-sm shadow-sm transition-all disabled:cursor-not-allowed disabled:opacity-60 ${
               choice === 'down' ? 'bg-info text-on-primary' : 'bg-surface-container-lowest text-info hover:bg-surface-container-high'
             }`}
+            disabled={voted || voting}
             onClick={() => vote('down')}
             type="button"
           >

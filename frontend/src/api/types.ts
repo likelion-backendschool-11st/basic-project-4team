@@ -87,3 +87,21 @@ export interface ItemDetail {
   readonly marketSummary: MarketSummary | null;
   readonly sellingCount: number;
 }
+
+/* 시세 전망 투표 (CommunityVote) — backend/docs/api-spec-all.md 8장 */
+
+export type VoteDirection = 'up' | 'down';
+
+export interface CommunityVote {
+  readonly itemId: number;
+  readonly up: number;
+  readonly down: number;
+  readonly total: number;
+  /** 정수 %. total이 0이면 50. */
+  readonly upRate: number;
+  readonly downRate: number;
+  /** 오늘(KST) 내가 투표한 방향. 안 했거나 비로그인이면 null. */
+  readonly myVote: VoteDirection | null;
+  /** 로그인했고 오늘 아직 투표하지 않았으면 true. */
+  readonly canVote: boolean;
+}
