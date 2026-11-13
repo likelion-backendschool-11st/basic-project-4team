@@ -13,10 +13,12 @@ import { UserBadge } from './UserBadge';
 export interface DiscussionPostCardProps {
   readonly post: DiscussionPost;
   readonly itemId: string;
+  /** 댓글·이모지를 누르기 전에 호출. false면 동작을 막는다 (비로그인 팝업). */
+  readonly ensureLogin?: () => boolean;
 }
 
 /** Item discussion post: author row, body, optional photos, reactions + comment/bookmark. */
-export const DiscussionPostCard: React.FC<DiscussionPostCardProps> = ({ post, itemId }) => (
+export const DiscussionPostCard: React.FC<DiscussionPostCardProps> = ({ post, itemId, ensureLogin }) => (
   /* data-component="DiscussionPostCard" */
   <article className="bg-surface-container-lowest rounded-lg p-space-md shadow-sm transition-all hover:shadow-md" id={post.id}>
     <header className="flex items-center justify-between mb-space-sm">
@@ -40,10 +42,13 @@ export const DiscussionPostCard: React.FC<DiscussionPostCardProps> = ({ post, it
     {post.images && post.images.length > 0 && <PostImages images={post.images} variant="strip" />}
     {/* Reactions & Meta Row — data-component="Footer" */}
     <footer className="flex flex-wrap items-center justify-between gap-space-sm bg-surface-container-low/50 rounded-lg p-space-xs">
-      <ReactionBar seeds={post.reactions} variant="chip" />
+      <ReactionBar canToggle={ensureLogin} seeds={post.reactions} variant="chip" />
       <div className="flex items-center gap-space-xs">
         <Link
           className="flex items-center gap-1 px-space-sm py-1 rounded-lg bg-surface-container-lowest font-ui-sm text-ui-sm text-on-surface-variant hover:text-primary transition-colors shadow-sm"
+          onClick={(e) => {
+            if (ensureLogin && !ensureLogin()) e.preventDefault();
+          }}
           to={`${ROUTES.itemDiscussion(itemId)}#${post.id}`}
         >
           <Icon className="text-[16px]" name={discussionPostCopy.commentIcon} />
