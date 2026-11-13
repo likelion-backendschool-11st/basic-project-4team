@@ -2527,7 +2527,7 @@ POST /api/communityVote/:itemId
 | `ITEM_NOT_FOUND` | 404 | 없는 품목, 숨긴 품목(`is_active = 0`), 형식이 맞지 않는 `itemId` |
 | `ALREADY_VOTED` | 409 | 오늘(KST) 이 품목에 이미 투표함 (같은 방향·다른 방향 모두) |
 
-### 6. 파일 구조 (예정)
+### 6. 파일 구조
 
 ```
 backend/src/
