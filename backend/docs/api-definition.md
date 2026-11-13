@@ -143,7 +143,7 @@
 | ID | 기능 | Method | URI | 화면 | 인증 | 비고 |
 |---|---|---|---|---|---|---|
 | DISC-01 | 토론 품목 정보 | GET | `/community/items/{itemId}` | ItemDiscussionHeader | 선택 | 품목명, 등급, 인증번호, 이미지, 현재 시세·변동, 판매중 매물 수, 감성 투표 집계(up/down), 내 투표 여부, 총 토론 수 |
-| DISC-02 | 오른다/내린다 투표 | POST | `/community/items/{itemId}/sentiments` | SentimentPoll | 필수 | `direction`=`UP`/`DOWN`. 품목당 24시간 1회 → 위반 시 409 |
+| DISC-02 | 오른다/내린다 투표 | POST | `/communityVote/{itemId}` | SentimentPoll | 필수 | `direction`=`up`/`down`(소문자). 품목당 하루(KST) 1회, 같은 날 변경 불가 → 409 `ALREADY_VOTED`. 집계 조회는 `GET /communityVote/{itemId}`. 상세는 api-spec-all.md 8장 |
 | DISC-03 | 품목 토론 글 목록 | GET | `/community/items/{itemId}/posts` | 토론 목록 | 선택 | `sort`=`popular`/`latest`, `verifiedOnly`(보유자 글만), `cursor`, `size`. 작성자 배지(보유자/거래 인증) 포함 |
 | DISC-04 | 품목 토론 글 작성 | POST | `/community/items/{itemId}/posts` | DiscussionComposer | 필수 | `body`(≤500자), `imageIds[]`(≤4), `priceTag?`(희망 체결가) |
 | (재사용) | 리액션·북마크·신고 | | COMM-04 ~ COMM-08 | 토론 글 카드 | 필수 | 토론 글도 같은 `posts` 리소스로 관리 |
