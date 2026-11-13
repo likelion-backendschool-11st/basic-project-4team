@@ -65,9 +65,11 @@ export const ListingPriceCallout: React.FC<ListingPriceCalloutProps> = ({ price,
         <div className="sm:text-right">
           <span className="font-caption text-caption text-muted">{buyer.avgLabel}</span>
           <div className="flex items-center sm:justify-end gap-1 mt-0.5">
-            <span className="bg-forest text-lime-ribbon font-ui-sm text-ui-sm px-2 py-0.5 rounded font-bold">
-              {buyer.deltaBadge}
-            </span>
+            {buyer.deltaBadge && (
+              <span className="bg-forest text-lime-ribbon font-ui-sm text-ui-sm px-2 py-0.5 rounded font-bold">
+                {buyer.deltaBadge}
+              </span>
+            )}
             <span className="font-caption text-caption text-primary font-bold">{buyer.deltaNote}</span>
           </div>
         </div>
