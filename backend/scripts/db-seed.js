@@ -1,4 +1,4 @@
-/** npm run db:seed — 개발용 더미 유저·품목·판매글·토론글·댓글·좋아요를 넣는다. 이미 있는 데이터는 건너뛴다. */
+/** npm run db:seed — 개발용 더미 유저·품목·판매글·토론글·댓글·좋아요·신고를 넣는다. 이미 있는 데이터는 건너뛴다. */
 const bcrypt = require('bcryptjs');
 const { connect, exitWithHint } = require('./db-common');
 
@@ -348,6 +348,28 @@ async function seedCommentLikes(connection) {
   console.log(`➕ 댓글 좋아요 ${added}개 추가`);
 }
 
+/** 신고 예시 2건 (신고 테이블이 비어 있을 때만). 본인 글·댓글은 신고하지 않는다. */
+async function seedReports(connection) {
+  const [[{ count }]] = await connection.query('SELECT COUNT(*) AS count FROM reports');
+  if (count > 0) {
+    console.log('⏭  신고가 이미 있음 — 건너뜀');
+    return;
+  }
+  const [result1] = await connection.query(
+    `INSERT INTO reports (reporter_id, target_type, target_id, reason)
+     SELECT u.id, 'comment', c.id, 'spam' FROM users u
+     JOIN comments c ON c.user_id <> u.id AND c.deleted_at IS NULL
+     WHERE u.login_id = 'test1' ORDER BY c.id LIMIT 1`,
+  );
+  const [result2] = await connection.query(
+    `INSERT INTO reports (reporter_id, target_type, target_id, reason, detail)
+     SELECT u.id, 'post', p.id, 'etc', '시세 조작이 의심되는 글입니다.' FROM users u
+     JOIN posts p ON p.user_id <> u.id AND p.deleted_at IS NULL
+     WHERE u.login_id = 'test2' ORDER BY p.id LIMIT 1`,
+  );
+  console.log(`➕ 신고 ${result1.affectedRows + result2.affectedRows}개 추가`);
+}
+
 async function main() {
   const connection = await connect();
   try {
@@ -368,6 +390,7 @@ async function main() {
     await seedPosts(connection);
     await seedComments(connection);
     await seedCommentLikes(connection);
+    await seedReports(connection);
     console.log(`✅ 시드 완료. 비밀번호는 모두 ${SEED_PASSWORD}`);
   } finally {
     await connection.end();

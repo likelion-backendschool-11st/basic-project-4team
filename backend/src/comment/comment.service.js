@@ -136,6 +136,12 @@ async function setLike(commentId, userId, liked) {
   return { likeCount, isLiked: liked };
 }
 
+/** 신고 대상 확인용 — 삭제되지 않은 댓글의 작성자 id. 없으면 null. */
+async function findLiveAuthorId(commentId) {
+  const row = await commentRepository.findRawById(commentId);
+  return row && row.deleted_at === null ? row.user_id : null;
+}
+
 module.exports = {
   listComments,
   listReplies,
@@ -143,4 +149,5 @@ module.exports = {
   updateComment,
   deleteComment,
   setLike,
+  findLiveAuthorId,
 };

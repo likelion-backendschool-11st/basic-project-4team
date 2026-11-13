@@ -147,3 +147,18 @@ export interface CreateCommentResponse {
   /** 작성 후 게시글의 댓글 수. */
   readonly commentCount: number;
 }
+
+/* 신고 — backend/docs/api-spec-all.md 6장 POST /reports */
+
+export type ReportTargetType = 'post' | 'comment';
+export type ReportReason = 'fraud' | 'spam' | 'abuse' | 'inappropriate' | 'etc';
+
+export interface Report {
+  readonly id: number;
+  readonly targetType: ReportTargetType;
+  readonly targetId: number;
+  readonly reason: ReportReason;
+  readonly detail: string | null;
+  readonly status: 'pending' | 'resolved' | 'rejected';
+  readonly createdAt: string;
+}

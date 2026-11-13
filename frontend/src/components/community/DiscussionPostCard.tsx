@@ -5,7 +5,9 @@ import { discussionPostCopy, type DiscussionPost } from '../../data/community';
 import { ROUTES } from '../../data/layout';
 import { useAuth } from '../../hooks/auth/useAuth';
 import { useComments } from '../../hooks/comment/useComments';
+import { useReport } from '../../hooks/comment/useReport';
 import { CommentSection } from '../comment/CommentSection';
+import { ReportModal } from '../comment/ReportModal';
 import { Icon } from '../common/Icon';
 import { AuthorAvatar } from './AuthorAvatar';
 import { BookmarkButton } from './BookmarkButton';
@@ -17,7 +19,7 @@ import { UserBadge } from './UserBadge';
 export interface DiscussionPostCardProps {
   readonly post: DiscussionPost;
   readonly itemId: string;
-  /** 이모지를 누르기 전에 호출. false면 동작을 막는다 (비로그인 팝업). */
+  /** 이모지·신고를 누르기 전에 호출. false면 동작을 막는다 (비로그인 팝업). */
   readonly ensureLogin?: () => boolean;
   /** URL #post-N으로 들어온 글이면 true → 댓글을 펼치고 화면에 보이게 스크롤. */
   readonly focused?: boolean;
@@ -32,11 +34,16 @@ export const DiscussionPostCard: React.FC<DiscussionPostCardProps> = ({ post, it
   const { status } = useAuth();
   // API에서 온 글(postId 있음)만 댓글을 펼칠 수 있다.
   const comments = useComments(postId ?? 0, post.commentCount, focused && postId !== undefined);
+  const report = useReport();
   const ref = useRef<HTMLElement>(null);
 
   useEffect(() => {
     if (focused) ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, [focused]);
+
+  const handleMenuSelect = (key: string) => {
+    if (key === 'report' && postId !== undefined && (!ensureLogin || ensureLogin())) report.open('post', postId);
+  };
 
   return (
     /* data-component="DiscussionPostCard" */
@@ -54,7 +61,11 @@ export const DiscussionPostCard: React.FC<DiscussionPostCardProps> = ({ post, it
             <span className="font-micro text-micro text-muted">{post.meta}</span>
           </div>
         </div>
-        <PostMoreMenu />
+        {/* 내 글은 신고할 수 없어 메뉴에서 신고를 뺀다 */}
+        <PostMoreMenu
+          items={post.isMine ? discussionPostCopy.menu.filter((m) => m.key !== 'report') : discussionPostCopy.menu}
+          onSelect={handleMenuSelect}
+        />
       </header>
       <p className={`font-body-md text-body-md text-on-surface leading-relaxed whitespace-pre-line ${post.images ? 'mb-space-sm' : 'mb-space-md'}`}>
         {post.body}
@@ -83,7 +94,13 @@ export const DiscussionPostCard: React.FC<DiscussionPostCardProps> = ({ post, it
           <BookmarkButton />
         </div>
       </footer>
+      {report.notice && (
+        <p className="mt-space-xs font-body-sm text-body-sm text-primary" role="status">
+          {report.notice}
+        </p>
+      )}
       {comments.open && <CommentSection canWrite={status === 'authenticated'} state={comments} />}
+      <ReportModal state={report} />
     </article>
   );
 };

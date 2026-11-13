@@ -5,23 +5,26 @@ import { commentCopy } from '../../data/comment';
 import { loginRequiredCopy } from '../../data/itemcommunity';
 import { ROUTES } from '../../data/layout';
 import type { useComments } from '../../hooks/comment/useComments';
+import { useReport } from '../../hooks/comment/useReport';
 import { useLoginGate } from '../../hooks/itemcommunity/useLoginGate';
 import { LoginRequiredModal } from '../itemcommunity/LoginRequiredModal';
 import { CommentForm } from './CommentForm';
 import { CommentItem } from './CommentItem';
+import { ReportModal } from './ReportModal';
 
 export interface CommentSectionProps {
   /** useComments()가 돌려준 상태·동작. */
   readonly state: ReturnType<typeof useComments>;
-  /** 로그인 상태면 입력창·답글 버튼을, 아니면 로그인 안내를 보여준다. 비로그인으로 좋아요를 누르면 로그인 팝업. */
+  /** 로그인 상태면 입력창·답글 버튼을, 아니면 로그인 안내를 보여준다. 비로그인으로 좋아요·신고를 누르면 로그인 팝업. */
   readonly canWrite: boolean;
 }
 
 const textButton = 'font-ui-sm text-ui-sm text-primary hover:underline';
 
-/** 토론글 카드 아래로 펼쳐지는 댓글 목록 + 답글 + 좋아요 + 입력창 (피드·품목 토론방 공용). */
+/** 토론글 카드 아래로 펼쳐지는 댓글 목록 + 답글 + 좋아요 + 신고 + 입력창 (피드·품목 토론방 공용). */
 export const CommentSection: React.FC<CommentSectionProps> = ({ state, canWrite }) => {
   const loginGate = useLoginGate();
+  const report = useReport();
 
   const handleToggleLike = (comment: CommentReply) => {
     if (loginGate.ensureLogin()) state.toggleLike(comment);
@@ -29,6 +32,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ state, canWrite 
 
   const handleMenuSelect = (comment: CommentReply, key: string) => {
     if (key === 'delete' && window.confirm(commentCopy.deleteConfirm)) state.remove(comment.id);
+    if (key === 'report' && loginGate.ensureLogin()) report.open('comment', comment.id);
   };
 
   return (
@@ -99,6 +103,11 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ state, canWrite 
         </button>
       )}
       {state.actionError && <p className="font-body-sm text-body-sm text-error">{state.actionError}</p>}
+      {report.notice && (
+        <p className="font-body-sm text-body-sm text-primary" role="status">
+          {report.notice}
+        </p>
+      )}
 
       {canWrite ? (
         <CommentForm onSubmit={(body) => state.submit(body)} placeholder={commentCopy.placeholder} />
@@ -110,6 +119,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ state, canWrite 
           </Link>
         </p>
       )}
+      <ReportModal state={report} />
       <LoginRequiredModal
         {...loginRequiredCopy}
         onClose={loginGate.close}

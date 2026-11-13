@@ -11,11 +11,11 @@ export interface CommentItemProps {
   /** 있으면 "답글" 버튼을 보여준다 (댓글에만, 답글의 답글은 불가). */
   readonly onReply?: () => void;
   readonly onToggleLike: (comment: CommentReply) => void;
-  /** 내 댓글 ⋮ 메뉴 선택 ('delete'). */
+  /** 내 댓글이면 'delete', 남의 댓글이면 'report'. */
   readonly onMenuSelect: (comment: CommentReply, key: string) => void;
 }
 
-/** 댓글·답글 한 줄: 아바타, 닉네임·배지·시간, ⋮ 메뉴(내 댓글 삭제), 본문, 좋아요, 답글 버튼. */
+/** 댓글·답글 한 줄: 아바타, 닉네임·배지·시간, ⋮ 메뉴(삭제/신고), 본문, 좋아요, 답글 버튼. */
 export const CommentItem: React.FC<CommentItemProps> = ({ comment, onReply, onToggleLike, onMenuSelect }) => {
   if (comment.isDeleted || !comment.author) {
     return <p className="py-space-xs font-body-sm text-body-sm text-muted italic">{commentCopy.deletedBody}</p>;
@@ -42,7 +42,10 @@ export const CommentItem: React.FC<CommentItemProps> = ({ comment, onReply, onTo
               {comment.updatedAt !== comment.createdAt && ` ${commentCopy.edited}`}
             </span>
           </div>
-          {comment.isMine && <PostMoreMenu items={commentMenu.mine} onSelect={(key) => onMenuSelect(comment, key)} />}
+          <PostMoreMenu
+            items={comment.isMine ? commentMenu.mine : commentMenu.others}
+            onSelect={(key) => onMenuSelect(comment, key)}
+          />
         </div>
         <p className="font-body-sm text-body-sm text-body whitespace-pre-line break-words mt-0.5">{comment.body}</p>
         <div className="flex flex-wrap items-center gap-space-sm mt-1">
