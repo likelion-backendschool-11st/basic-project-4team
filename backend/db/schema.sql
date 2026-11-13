@@ -290,3 +290,27 @@ CREATE TABLE IF NOT EXISTS item_votes (
   CONSTRAINT fk_item_votes_item FOREIGN KEY (item_id) REFERENCES items (id) ON DELETE CASCADE,
   CONSTRAINT chk_item_votes_direction CHECK (direction IN ('up', 'down'))
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '시세 전망 투표 (품목당 하루 1회)';
+
+-- ───────────────────────── 신고 (#76, erd.md 2.15) ─────────────────────────
+CREATE TABLE IF NOT EXISTS reports (
+  id          BIGINT       NOT NULL AUTO_INCREMENT,
+  reporter_id BIGINT       NOT NULL,
+  target_type VARCHAR(20)  NOT NULL COMMENT 'listing | post | comment | user',
+  target_id   BIGINT       NOT NULL COMMENT '대상 id (종류마다 테이블이 달라 FK 없음)',
+  reason      VARCHAR(20)  NOT NULL COMMENT 'fraud | spam | abuse | inappropriate | etc',
+  detail      VARCHAR(500) NULL     COMMENT 'etc면 필수 (앱 검사)',
+  status      VARCHAR(20)  NOT NULL DEFAULT 'pending' COMMENT 'pending | resolved | rejected',
+  handled_at  DATETIME     NULL,
+  handled_by  BIGINT       NULL,
+  created_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_reports_target (reporter_id, target_type, target_id),
+  KEY idx_reports_status_created (status, created_at),
+  KEY idx_reports_target (target_type, target_id),
+  CONSTRAINT fk_reports_reporter FOREIGN KEY (reporter_id) REFERENCES users (id) ON DELETE CASCADE,
+  CONSTRAINT fk_reports_handler FOREIGN KEY (handled_by) REFERENCES users (id) ON DELETE SET NULL,
+  CONSTRAINT chk_reports_target_type CHECK (target_type IN ('listing', 'post', 'comment', 'user')),
+  CONSTRAINT chk_reports_reason CHECK (reason IN ('fraud', 'spam', 'abuse', 'inappropriate', 'etc')),
+  CONSTRAINT chk_reports_status CHECK (status IN ('pending', 'resolved', 'rejected'))
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '신고 (같은 대상 1인 1회)';

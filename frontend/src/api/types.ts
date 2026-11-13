@@ -144,3 +144,78 @@ export interface ListingDetail {
   readonly isOwner: boolean;
   readonly soldPrice: number | null;
 }
+
+/* 댓글 — backend/docs/api-spec-all.md 6장 */
+
+export interface CommentLikeResponse {
+  readonly likeCount: number;
+  readonly isLiked: boolean;
+}
+
+export interface CommentAuthor {
+  readonly id: number;
+  readonly nickname: string;
+  /** ITEM_OWNER(보유자), TRADE_VERIFIED(거래 인증). 해당 없으면 []. */
+  readonly badges: readonly string[];
+}
+
+export interface CommentReply {
+  readonly id: number;
+  readonly postId: number;
+  /** 답글이면 부모 댓글 id, 댓글이면 null. */
+  readonly parentId: number | null;
+  /** 삭제된 댓글이면 null. */
+  readonly author: CommentAuthor | null;
+  /** 삭제된 댓글이면 null. */
+  readonly body: string | null;
+  readonly isDeleted: boolean;
+  readonly isMine: boolean;
+  readonly createdAt: string;
+  /** createdAt과 다르면 "(수정됨)". */
+  readonly updatedAt: string;
+  /** 좋아요 수. 삭제된 댓글은 0. */
+  readonly likeCount: number;
+  /** 내가 좋아요를 눌렀는지. 비로그인이면 false. */
+  readonly isLiked: boolean;
+}
+
+/** 댓글(답글이 아닌 것). 답글 수와 앞쪽 답글 3개 미리보기가 붙는다. */
+export interface Comment extends CommentReply {
+  readonly replyCount: number;
+  readonly replies: readonly CommentReply[];
+}
+
+export interface CommentListResponse {
+  readonly items: readonly Comment[];
+  readonly nextCursor: string | null;
+  readonly hasNext: boolean;
+  /** 게시글의 commentCount (댓글 + 답글). */
+  readonly totalCount: number;
+}
+
+export interface ReplyListResponse {
+  readonly items: readonly CommentReply[];
+  readonly nextCursor: string | null;
+  readonly hasNext: boolean;
+}
+
+export interface CreateCommentResponse {
+  readonly comment: Comment | CommentReply;
+  /** 작성 후 게시글의 댓글 수. */
+  readonly commentCount: number;
+}
+
+/* 신고 — backend/docs/api-spec-all.md 6장 POST /reports */
+
+export type ReportTargetType = 'post' | 'comment';
+export type ReportReason = 'fraud' | 'spam' | 'abuse' | 'inappropriate' | 'etc';
+
+export interface Report {
+  readonly id: number;
+  readonly targetType: ReportTargetType;
+  readonly targetId: number;
+  readonly reason: ReportReason;
+  readonly detail: string | null;
+  readonly status: 'pending' | 'resolved' | 'rejected';
+  readonly createdAt: string;
+}

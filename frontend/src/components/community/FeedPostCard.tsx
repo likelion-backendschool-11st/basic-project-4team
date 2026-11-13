@@ -1,6 +1,9 @@
 import React from 'react';
 import { feedCopy, feedPostEditCopy, type FeedPost } from '../../data/community';
+import { useAuth } from '../../hooks/auth/useAuth';
+import { useComments } from '../../hooks/comment/useComments';
 import { usePostEditor } from '../../hooks/community/usePostEditor';
+import { CommentSection } from '../comment/CommentSection';
 import { FeedPoll } from './FeedPoll';
 import { FeedPostActions } from './FeedPostActions';
 import { FeedPostHeader } from './FeedPostHeader';
@@ -19,6 +22,10 @@ export interface FeedPostCardProps {
 export const FeedPostCard: React.FC<FeedPostCardProps> = ({ post, onEdit, onDelete }) => {
   const isPoll = Boolean(post.poll);
   const { postId } = post;
+  // API에서 온 글(postId 있음)만 댓글을 펼칠 수 있다. 목 데이터 글은 기존처럼 토론방 링크.
+  const comments = useComments(postId ?? 0, post.commentCount);
+  const { status } = useAuth();
+  const commentToggle = postId !== undefined ? comments.toggle : undefined;
   const editor = usePostEditor(post.body, (body) =>
     postId !== undefined && onEdit ? onEdit(postId, body) : Promise.resolve(false),
   );
@@ -83,8 +90,10 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({ post, onEdit, onDele
           actions={
             <FeedPostActions
               commentIcon="chat_bubble"
-              commentLabel={feedCopy.pollCommentLabel(post.commentCount)}
+              commentLabel={feedCopy.pollCommentLabel(comments.totalCount)}
+              commentsOpen={comments.open}
               itemId={post.board.itemId}
+              onCommentToggle={commentToggle}
             />
           }
           poll={post.poll}
@@ -97,12 +106,15 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({ post, onEdit, onDele
             <ReactionBar seeds={post.reactions ?? []} />
             <FeedPostActions
               commentIcon="chat"
-              commentLabel={feedCopy.commentLabel(post.commentCount)}
+              commentLabel={feedCopy.commentLabel(comments.totalCount)}
+              commentsOpen={comments.open}
               itemId={post.board.itemId}
+              onCommentToggle={commentToggle}
             />
           </div>
         </>
       )}
+      {comments.open && <CommentSection canWrite={status === 'authenticated'} state={comments} />}
     </article>
   );
 };

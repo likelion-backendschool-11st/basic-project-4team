@@ -13,7 +13,7 @@
 
 ## 0. 범위와 공통 규칙
 
-**만드는 테이블 (14개)**: `users`, `refresh_tokens`, `categories`, `items`, `listings`, `listing_images`, `listing_wishes`, `listing_views`, `posts`, `post_images`, `post_reactions`, `comments`, `comment_likes`, `item_votes`
+**만드는 테이블 (15개)**: `users`, `refresh_tokens`, `categories`, `items`, `listings`, `listing_images`, `listing_wishes`, `listing_views`, `posts`, `post_images`, `post_reactions`, `comments`, `comment_likes`, `item_votes`, `reports`
 
 **만들지 않는 것**
 
@@ -22,7 +22,7 @@
 | 채팅, 알림, 리뷰, 마이페이지 | 요구사항에서 미구현 |
 | 뱃지 | spec-gaps 1-#9 "뱃지 없음" |
 | 판매글 댓글 | spec-gaps 1-#6 "댓글은 토론글에만" |
-| `reports`, `blocks`, `settings` | API 없음·보류(1-#8, #13, #14). 필요할 때 spec-gaps 3장 설계대로 추가 |
+| `blocks`, `settings` | API 없음·보류(1-#13, #14). 필요할 때 spec-gaps 3장 설계대로 추가 (`reports`는 #76에서 추가 — 2.15) |
 | 시세 집계 테이블 | 시세·랭킹은 `listings`의 거래완료 행으로 계산. 느려지면 일별 집계 테이블을 추가 |
 
 **공통 규칙**
@@ -52,6 +52,7 @@ erDiagram
     users ||--o{ post_reactions : "리액션"
     users ||--o{ comment_likes : "좋아요"
     users ||--o{ item_votes : "투표"
+    users ||--o{ reports : "신고"
     users ||--o{ listing_images : "업로드"
     users ||--o{ post_images : "업로드"
 
@@ -332,6 +333,7 @@ CHECK: `type = 'photo' OR sort_order = 0` (인증 사진은 항상 0번)
 | PK | `user_id, comment_id` | 1인 1좋아요 + 내가 눌렀는지 조회 |
 
 > `comment_id` 인덱스는 FK가 자동으로 만든다. 취소 = 하드 삭제, `comments.like_count ± 1`을 같은 트랜잭션에서.
+> API: `PUT`/`DELETE /api/community/comments/:id/like` (#63). 댓글을 삭제하면 좋아요 행을 지우고 `like_count`를 0으로 만든다.
 
 ### 2.14 `item_votes` — 시세 전망 투표
 
@@ -346,6 +348,28 @@ CHECK: `type = 'photo' OR sort_order = 0` (인증 사진은 항상 0번)
 |---|---|---|
 | PK | `user_id, item_id, vote_date` | 품목당 하루 1회(BOARD-004). 두 번째 INSERT는 중복 키 에러 → 409 |
 | `idx_item_votes_item_date` | `item_id, vote_date, direction` | 투표 비율 집계(BOARD-003)를 인덱스만 읽고 끝냄 |
+
+### 2.15 `reports` — 신고 (#76, spec-gaps 3장 설계)
+
+| 컬럼 | 타입 | 제약 | 설명 |
+|---|---|---|---|
+| `id` | BIGINT | PK | |
+| `reporter_id` | BIGINT | NOT NULL, FK → `users` ON DELETE CASCADE | 신고한 사람 |
+| `target_type` | VARCHAR(20) | NOT NULL, CHECK (`listing`, `post`, `comment`, `user`) | 대상 종류. 지금 API는 `post`, `comment`만 받음 |
+| `target_id` | BIGINT | NOT NULL | 대상 id. 종류마다 테이블이 달라 FK는 걸 수 없음(앱에서 존재 검사) |
+| `reason` | VARCHAR(20) | NOT NULL, CHECK (`fraud`, `spam`, `abuse`, `inappropriate`, `etc`) | 사기 / 도배·광고 / 욕설·비방 / 부적절 / 기타 |
+| `detail` | VARCHAR(500) | NULL | `etc`면 필수(앱에서 검사) |
+| `status` | VARCHAR(20) | NOT NULL DEFAULT `'pending'`, CHECK (`pending`, `resolved`, `rejected`) | 접수 → 조치 / 기각 |
+| `handled_at` | DATETIME | NULL | 처리 시각 |
+| `handled_by` | BIGINT | NULL, FK → `users` ON DELETE SET NULL | 처리한 관리자 |
+
+| 인덱스 | 컬럼 | 이유 |
+|---|---|---|
+| `uk_reports_target` | `reporter_id, target_type, target_id` | 같은 사람이 같은 대상을 **한 번만** 신고 → 두 번째는 409 |
+| `idx_reports_status_created` | `status, created_at` | 관리자 화면에서 접수된 신고를 오래된 순으로 |
+| `idx_reports_target` | `target_type, target_id` | 대상별 신고 수 집계(누적 신고 시 숨김 처리 등 운영 정책용) |
+
+> 처리 완료 후 1년 보관 뒤 삭제(spec-gaps 3장). 관리자 처리 API·화면은 아직 없다.
 
 ## 3. 확인이 필요한 사항(확인완료)
 
