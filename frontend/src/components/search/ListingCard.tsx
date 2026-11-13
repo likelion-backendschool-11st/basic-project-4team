@@ -22,6 +22,7 @@ const diffStyles: Record<PriceDiffTone, string> = {
 const statusStyles: Record<ListingStatus, { readonly text: string; readonly dot: string }> = {
   selling: { text: 'text-forest', dot: 'bg-primary-container' },
   reserved: { text: 'text-tertiary-container', dot: 'bg-tertiary' },
+  sold: { text: 'text-muted', dot: 'bg-muted' },
 };
 
 /** Marketplace listing card (image, wish toggle, title, price vs. market, status). */

@@ -1,7 +1,7 @@
 import { ROUTES } from './layout';
 
 export type PriceDiffTone = 'below' | 'warning' | 'neutral';
-export type ListingStatus = 'selling' | 'reserved';
+export type ListingStatus = 'selling' | 'reserved' | 'sold';
 export type SortKey = 'latest' | 'priceAsc' | 'priceDesc' | 'popular';
 
 export interface Breadcrumb {
@@ -12,6 +12,8 @@ export interface Breadcrumb {
 export interface CategoryOption {
   readonly id: string;
   readonly label: string;
+  /** LISTING-01 category 파라미터(categories.code). 없으면 전체. */
+  readonly code?: string;
   /** Render a thin divider before this option. */
   readonly dividerBefore?: boolean;
 }
@@ -90,14 +92,14 @@ export const filterLabels = {
 
 export const categoryOptions: readonly CategoryOption[] = [
   { id: 'all', label: '전체' },
-  { id: 'card-pokemon', label: '카드 > 포켓몬', dividerBefore: true },
-  { id: 'onepiece', label: '원피스' },
-  { id: 'sports', label: '스포츠' },
-  { id: 'yugioh', label: '유희왕' },
-  { id: 'sneakers-jordan', label: '운동화 > 조던', dividerBefore: true },
-  { id: 'collab', label: '콜라보' },
-  { id: 'dunk', label: '덩크' },
-  { id: 'luxury', label: '명품', dividerBefore: true },
+  { id: 'card-pokemon', label: '카드 > 포켓몬', code: 'pokemon', dividerBefore: true },
+  { id: 'onepiece', label: '원피스', code: 'onepiece' },
+  { id: 'sports', label: '스포츠', code: 'sports' },
+  { id: 'yugioh', label: '유희왕', code: 'yugioh' },
+  { id: 'sneakers-jordan', label: '운동화 > 조던', code: 'jordan', dividerBefore: true },
+  { id: 'collab', label: '콜라보', code: 'collab' },
+  { id: 'dunk', label: '덩크', code: 'dunk' },
+  { id: 'luxury', label: '명품', code: 'luxury', dividerBefore: true },
 ];
 
 export const gradeOptions: readonly CheckOption[] = [
@@ -135,7 +137,8 @@ export const tradeOptions: readonly CheckOption[] = [
 
 export const initialFilterState = {
   categoryId: 'card-pokemon',
-  grades: ['psa10', 'psa9', 'sealed'] as readonly string[],
+  // 비어 있으면 등급 제한 없음. 체크한 등급만 남긴다 (LISTING-01 grades·condition).
+  grades: [] as readonly string[],
   priceMin: '50,000',
   priceMax: '5,000,000',
   excludeSold: true,
@@ -156,10 +159,32 @@ export const sortBarData = {
   badge: '정품 안심 검수 보증',
 };
 
+/** 등급 체크박스 → LISTING-01 파라미터. 그레이딩 등급은 grades, 미개봉·노슬랩은 condition으로 보낸다. */
+export const gradeFilterParams: Readonly<
+  Record<string, { readonly grades?: readonly string[]; readonly condition?: 'unopened' | 'opened_raw' }>
+> = {
+  psa10: { grades: ['PSA-10'] },
+  psa9: { grades: ['PSA-9'] },
+  bgs95: { grades: ['BGS-9.5', 'BGS-10'] },
+  sealed: { condition: 'unopened' },
+  ungraded: { condition: 'opened_raw' },
+};
+
+/** P-009 API 연동 문구. */
+export const searchApiCopy = {
+  loading: '검색 결과를 불러오는 중입니다...',
+  empty: '조건에 맞는 판매글이 없습니다.',
+  emptyHint: '검색어나 필터를 바꿔 보세요.',
+  error: '검색 결과를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.',
+  priceDiff: (rate: number) => `시세 대비 ${rate > 0 ? '+' : ''}${rate}%`,
+  noMarket: '시세 정보 없음',
+  caution: '시세보다 매우 낮음 (주의 요망)',
+};
+
 export const listingLabels = {
   wishAria: '찜하기',
   currency: '원',
-  status: { selling: '판매중', reserved: '예약중' } as Record<ListingStatus, string>,
+  status: { selling: '판매중', reserved: '예약중', sold: '거래완료' } as Record<ListingStatus, string>,
 };
 
 export const paginationData = {

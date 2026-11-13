@@ -27,6 +27,24 @@ function toPriceDiffRate(price, marketPrice) {
   return (Math.sign(rate) * Math.round(Math.abs(rate) * 10)) / 10;
 }
 
+/** LISTING-01 판매글 검색·목록. category는 code로 받아 하위 카테고리까지 포함한다. */
+async function listListings({ category, ...filter }, { sort, page, size, viewerId }) {
+  let categoryIds = null;
+  if (category) {
+    categoryIds = await sellRepository.findCategoryIdsByCode(category);
+    if (!categoryIds) throw new HttpError(404, 'CATEGORY_NOT_FOUND', '존재하지 않는 카테고리입니다.');
+  }
+  const { listings, totalCount } = await sellRepository.findMany(
+    { ...filter, categoryIds },
+    { sort, limit: size, offset: (page - 1) * size, viewerId },
+  );
+  const items = listings.map(({ marketAveragePrice, ...listing }) => ({
+    ...listing,
+    priceDiffRate: toPriceDiffRate(listing.price, marketAveragePrice === null ? null : { averagePrice: marketAveragePrice }),
+  }));
+  return { items, page, size, totalCount };
+}
+
 /**
  * 판매글 상세(LISTING-02). 작성자가 아니면 조회수를 올린다.
  * viewerId는 비로그인이면 undefined.
@@ -66,4 +84,4 @@ async function getListingDetail(listingId, { viewerId, ip }) {
   };
 }
 
-module.exports = { getListingDetail };
+module.exports = { listListings, getListingDetail };

@@ -3,37 +3,53 @@ import { EscrowGuideBanner } from '../components/search/EscrowGuideBanner';
 import { ListingGrid } from '../components/search/ListingGrid';
 import { Pagination } from '../components/search/Pagination';
 import { SearchFilterPanel } from '../components/search/SearchFilterPanel';
+import { SearchResultState } from '../components/search/SearchResultState';
 import { SearchSummaryHeader } from '../components/search/SearchSummaryHeader';
 import { SortBar } from '../components/search/SortBar';
 import {
   escrowBanner,
   listingLabels,
-  listings,
   paginationData,
+  searchApiCopy,
   searchHeaderData,
   sortBarData,
   sortOptions,
 } from '../data/search';
-import { usePagination } from '../hooks/search/usePagination';
+import { useListingSearch } from '../hooks/search/useListingSearch';
 import { useSearchFilters } from '../hooks/search/useSearchFilters';
 import { useSearchQuery } from '../hooks/search/useSearchQuery';
-import { useSortedListings } from '../hooks/search/useSortedListings';
-import { useWishlist } from '../hooks/search/useWishlist';
 
 interface SearchResultsPageProps {
   readonly className?: string;
 }
 
-const initialWished = listings.filter((item) => item.wished).map((item) => item.id);
-
-/** P-009 listing search results (`/search?q=...`). */
+/** P-009 listing search results (`/search?q=...`). 카드는 LISTING-01 응답, 클릭하면 /listings/:id. */
 export const SearchResultsPage: React.FC<SearchResultsPageProps> = ({ className = '' }) => {
   const query = useSearchQuery();
   const filters = useSearchFilters();
-  const { sortKey, setSortKey, items } = useSortedListings(listings, filters.appliedRange);
-  const wishlist = useWishlist(initialWished);
-  const pagination = usePagination(paginationData);
-  const total = paginationData.totalItems;
+  const search = useListingSearch(query, filters);
+  const { sortKey, setSortKey, items, pagination } = search;
+  const total = search.totalCount;
+
+  let results: React.ReactNode;
+  if (search.status === 'error') {
+    results = <SearchResultState icon="error" message={searchApiCopy.error} />;
+  } else if (search.status === 'loading' && items.length === 0) {
+    results = <SearchResultState icon="hourglass_empty" message={searchApiCopy.loading} />;
+  } else if (items.length === 0) {
+    results = <SearchResultState hint={searchApiCopy.emptyHint} icon="search_off" message={searchApiCopy.empty} />;
+  } else {
+    results = (
+      <ListingGrid
+        currency={listingLabels.currency}
+        isWished={search.isWished}
+        listings={items}
+        onToggleWish={search.toggleWish}
+        statusLabels={listingLabels.status}
+        wishAria={listingLabels.wishAria}
+      />
+    );
+  }
 
   return (
     <div className={`w-full bg-canvas pb-space-section ${className}`}>
@@ -53,14 +69,7 @@ export const SearchResultsPage: React.FC<SearchResultsPageProps> = ({ className 
           onSort={setSortKey}
           options={sortOptions}
         />
-        <ListingGrid
-          currency={listingLabels.currency}
-          isWished={wishlist.isWished}
-          listings={items}
-          onToggleWish={wishlist.toggle}
-          statusLabels={listingLabels.status}
-          wishAria={listingLabels.wishAria}
-        />
+        {results}
         <Pagination
           hasNext={pagination.hasNext}
           hasPrev={pagination.hasPrev}
