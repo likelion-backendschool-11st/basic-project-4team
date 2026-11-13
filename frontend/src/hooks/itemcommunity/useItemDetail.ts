@@ -27,6 +27,7 @@ const toDiscussionItem = (detail: ItemDetail, routeId: string, fallback: Fallbac
     changePct: summary ? itemSummaryCopy.changePct(summary.changeRate) : '',
     changeAmount: summary ? itemSummaryCopy.changeAmount(change) : '',
     trend: change > 0 ? 'up' : change < 0 ? 'down' : 'flat',
+    categoryCode: detail.category.code,
     listingCount: detail.sellingCount,
     breadcrumbs: [
       { label: itemSummaryCopy.homeLabel, to: ROUTES.home },

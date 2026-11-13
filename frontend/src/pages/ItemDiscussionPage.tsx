@@ -39,7 +39,9 @@ export const ItemDiscussionPage: React.FC<ItemDiscussionPageProps> = ({ classNam
                   </p>
                 </section>
               )}
-              <DiscussionComposer onSubmit={d.addPost} />
+              {/* 비로그인이면 글 등록 대신 로그인 팝업 */}
+              <DiscussionComposer onSubmit={(text) => loginGate.ensureLogin() && d.addPost(text)} />
+              {d.error && <p className="font-body-sm text-body-sm text-error">{d.error}</p>}
               <DiscussionFeedControls
                 onSortChange={d.setSort}
                 onVerifiedOnlyChange={d.setVerifiedOnly}
@@ -52,7 +54,7 @@ export const ItemDiscussionPage: React.FC<ItemDiscussionPageProps> = ({ classNam
                 {d.posts.map((post) => (
                   <DiscussionPostCard ensureLogin={loginGate.ensureLogin} itemId={d.itemId} key={post.id} post={post} />
                 ))}
-                {d.posts.length === 0 && (
+                {d.posts.length === 0 && !d.loading && (
                   <p className="py-space-lg text-center font-body-sm text-body-sm text-muted">{discussionPostCopy.emptyLabel}</p>
                 )}
               </div>

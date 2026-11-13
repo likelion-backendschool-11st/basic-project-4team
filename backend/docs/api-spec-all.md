@@ -2174,7 +2174,7 @@ curl -b cookie.txt -X DELETE http://localhost:4000/api/posts/1
 - [ ] **품목 연동** (#46): `item_id`가 지금은 프론트 slug 문자열이다. 품목 테이블이 생기면 FK로 바꾼다.
 - [ ] **리액션** (#59) / **댓글** (#62): 리액션이나 댓글을 추가·삭제할 때 `posts.reaction_count` / `comment_count`도 함께 올리고 내려야 인기순 정렬이 의미가 생긴다. (지금은 둘 다 0이라 인기순 = 최신순)
 - [ ] **이미지 첨부**: 파일 서버(#16)가 생기면 `post_images` 테이블을 추가한다.
-- [ ] **프론트 연동** (#38, #40~#42): ~~피드(`useCommunityFeed`)~~ → `src/api/community.ts`로 연결 완료(#57). 품목 토론방 `useItemDiscussion`은 아직 목 데이터.
+- [ ] **프론트 연동** (#38, #40~#42): ~~피드(`useCommunityFeed`)~~ → `src/api/community.ts`로 연결 완료(#57). ~~품목 토론방 `useItemDiscussion`~~ → 목록·등록 연결 완료(#38, `?itemId=품목 slug`).
 
 ---
 

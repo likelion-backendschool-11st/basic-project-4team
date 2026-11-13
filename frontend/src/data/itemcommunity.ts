@@ -1,3 +1,4 @@
+import type { PostBoard } from '../api/types';
 import { ROUTES } from './layout';
 
 /* ------------------------------------------------------------------ */
@@ -32,4 +33,19 @@ export const loginRequiredCopy = {
   message: '로그인하지 않으면 토론글에 댓글을 달거나 이모지를 남길 수 없습니다.',
   confirmLabel: '로그인하기',
   cancelLabel: '닫기',
+};
+
+/** 품목 소분류 카테고리 code → 토론글 게시판(board). 게시판이 없는 카테고리(유희왕 등)는 자유게시판. */
+export const boardByCategory: Readonly<Record<string, PostBoard>> = {
+  pokemon: 'pokemon',
+  onepiece: 'onepiece',
+  nike: 'sneakers',
+  watch: 'watch',
+};
+
+export const DISCUSSION_PAGE_SIZE = 10;
+
+export const discussionErrorCopy = {
+  load: '토론글을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.',
+  create: '글을 등록하지 못했습니다.',
 };

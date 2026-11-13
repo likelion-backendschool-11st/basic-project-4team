@@ -28,6 +28,32 @@ const SEED_POSTS = [
     title: '서브마리너 풀세트 vs 단품, 리셀 시 차이 얼마나 나나요?',
     body: '보증서와 박스 유무에 따라 체결가 차이가 어느 정도인지 실거래 경험 공유 부탁드립니다.',
   },
+  // 4~9: 품목별 토론방 더미 (#38). item_id는 품목 slug
+  {
+    loginId: 'test2', board: 'pokemon', tag: 'analysis', itemId: 'charizard-ex-sar-sv2a-201', title: null,
+    body: '일본판 SV2a 리자몽 PSA10, 이번 주 들어 5% 정도 빠졌네요. 한국판과 가격 차이가 좁혀지는 중입니다.',
+  },
+  {
+    loginId: 'test3', board: 'pokemon', tag: 'qna', itemId: 'charizard-ex-sar-sv2a-201', title: null,
+    body: '일본판 vs 한국판, 장기 소장용이면 어느 쪽이 나을까요?',
+  },
+  {
+    loginId: 'test1', board: 'pokemon', tag: 'info', itemId: 'charizard-ex-sar-sv2a-201', title: null,
+    body: 'PSA 접수 대행 이번 달 마감 일정 공유합니다. 일본판 SAR은 센터링 기준이 까다로우니 꼭 확인하고 보내세요.',
+  },
+  {
+    loginId: 'test1', board: 'onepiece', tag: 'analysis', itemId: 'luffy-gear5', title: null,
+    body: '기어5 패러렐 시세가 3일째 18만 원에서 보합이네요. 신규 부스터 발매 전까지는 이 가격대 유지될 듯.',
+  },
+  {
+    // 유희왕 게시판이 없어 자유게시판(free)
+    loginId: 'test3', board: 'free', tag: 'info', itemId: 'blue-eyes-white-dragon', title: null,
+    body: '쿼터 센츄리 크로니클 푸른 눈의 백룡 첫 거래가 9만 5천 원에 체결됐습니다.',
+  },
+  {
+    loginId: 'test2', board: 'sneakers', tag: 'verify', itemId: 'dunk-low-panda', title: null,
+    body: '덩크 로우 범고래 정품 검수 포인트 정리했어요. 힐탭 자수 간격과 박스 라벨 폰트를 먼저 보세요.',
+  },
 ];
 
 // 대분류 → 소분류. 소분류는 parent에 대분류 code를 적는다.
@@ -145,19 +171,25 @@ async function seedItems(connection) {
 
 /** 토론글은 테이블이 비어 있을 때만 넣는다 (반복 실행 시 중복 방지). */
 async function seedPosts(connection) {
-  const [[{ count }]] = await connection.query('SELECT COUNT(*) AS count FROM posts');
-  if (count > 0) {
-    console.log('⏭  토론글이 이미 있음 — 건너뜀');
-    return;
-  }
-  for (const post of SEED_POSTS) {
-    await connection.execute(
-      `INSERT INTO posts (user_id, board, tag, item_id, title, body)
-       SELECT id, ?, ?, ?, ?, ? FROM users WHERE login_id = ?`,
-      [post.board, post.tag, post.itemId, post.title, post.body, post.loginId],
+  let added = 0;
+  for (const [index, post] of SEED_POSTS.entries()) {
+    // 같은 품목·본문의 글이 있으면 건너뛴다 → 나중에 추가한 시드 글만 들어간다.
+    const [existing] = await connection.execute(
+      'SELECT 1 FROM posts WHERE item_id <=> ? AND body = ? LIMIT 1',
+      [post.itemId, post.body],
     );
+    if (existing.length > 0) continue;
+    // 하루 이상 전에 쓴 글로. 앞쪽 글일수록 오래됨(3시간 간격) → 최신순 정렬이 시드 순서와 반대.
+    const hoursAgo = 24 + (SEED_POSTS.length - index) * 3;
+    await connection.execute(
+      `INSERT INTO posts (user_id, board, tag, item_id, title, body, created_at, updated_at)
+       SELECT id, ?, ?, ?, ?, ?, UTC_TIMESTAMP() - INTERVAL ? HOUR, UTC_TIMESTAMP() - INTERVAL ? HOUR
+       FROM users WHERE login_id = ?`,
+      [post.board, post.tag, post.itemId, post.title, post.body, hoursAgo, hoursAgo, post.loginId],
+    );
+    added += 1;
   }
-  console.log(`➕ 토론글 ${SEED_POSTS.length}개 추가`);
+  console.log(added ? `➕ 토론글 ${added}개 추가` : '⏭  토론글이 이미 있음 — 건너뜀');
 }
 
 async function main() {
