@@ -85,7 +85,6 @@ export const listingCore = {
   title: '[PSA 10] 리자몽 ex SAR (SV2a 201/165)',
   price: '300,000',
   currency: '원',
-  discussionCount: 21,
   wishCount: 38,
 };
 

@@ -6,7 +6,8 @@ interface BuyerActionBarProps {
   readonly itemId: string;
   readonly discussionLabel: string;
   readonly discussionTitle: string;
-  readonly discussionCount: number;
+  /** 품목 토론글 수. 불러오기 전이면 null(숫자 숨김). */
+  readonly discussionCount: number | null;
   readonly wishLabel: string;
   readonly wishCount: number;
   readonly wished: boolean;
@@ -30,7 +31,7 @@ export const BuyerActionBar: React.FC<BuyerActionBarProps> = ({
 }) => (
   <div className="flex flex-wrap sm:flex-nowrap items-center gap-space-sm mt-space-md pt-space-sm border-t border-hairline">
     <DiscussionShortcut
-      count={discussionCount}
+      count={discussionCount ?? undefined}
       itemId={itemId}
       label={discussionLabel}
       title={discussionTitle}

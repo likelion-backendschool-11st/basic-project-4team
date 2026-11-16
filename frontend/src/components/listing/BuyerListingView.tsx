@@ -3,6 +3,7 @@ import type { ListingDetail } from '../../api/types';
 import { buyerListing, listingCore, listingDetailCopy, toastMessages } from '../../data/listing';
 import { useBuyerListingView } from '../../hooks/listing/useBuyerListingView';
 import { useChatDrawer } from '../../hooks/listing/useChatDrawer';
+import { useItemDiscussionCount } from '../../hooks/listing/useItemDiscussionCount';
 import { useToast } from '../../hooks/listing/useToast';
 import { useWishlist } from '../../hooks/listing/useWishlist';
 import { Icon } from '../common/Icon';
@@ -24,12 +25,11 @@ interface BuyerListingViewProps {
   readonly listing: ListingDetail;
 }
 
-// 품목 토론 글 수는 board API가 제공한다(LISTING-02 비고). 연동 전까지 0으로 둔다.
-const DISCUSSION_COUNT = 0;
-
 /** P-010 구매자 상세 본문. LISTING-02 응답을 받은 뒤에만 렌더링해 찜 상태를 응답값으로 시작한다. */
 export const BuyerListingView: React.FC<BuyerListingViewProps> = ({ listing }) => {
   const view = useBuyerListingView(listing);
+  // 품목 토론 글 수는 board API(GET /posts?itemId=)가 제공한다 (LISTING-02 비고).
+  const discussionCount = useItemDiscussionCount(view.itemSlug);
   const { actions } = buyerListing;
 
   const { toast, showToast } = useToast();
@@ -70,7 +70,7 @@ export const BuyerListingView: React.FC<BuyerListingViewProps> = ({ listing }) =
           <div className="lg:col-span-7 flex flex-col justify-between min-w-0">
             <div className="flex flex-col">
               <ListingCategoryHeader
-                discussionCount={DISCUSSION_COUNT}
+                discussionCount={discussionCount}
                 discussionLabel={actions.discussionChipLabel}
                 eyebrow={view.eyebrow}
                 itemId={view.itemSlug}
@@ -93,7 +93,7 @@ export const BuyerListingView: React.FC<BuyerListingViewProps> = ({ listing }) =
             </div>
             <BuyerActionBar
               chatLabel={actions.chatLabel}
-              discussionCount={DISCUSSION_COUNT}
+              discussionCount={discussionCount}
               discussionLabel={actions.discussionLabel}
               discussionTitle={actions.discussionTitle}
               itemId={view.itemSlug}
