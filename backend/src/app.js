@@ -19,6 +19,7 @@ const categoryRoutes = require('./sell/category.routes');
 const postUploadRoutes = require('./upload/upload.routes');
 const newSubscriberItemRoutes = require('./newsubscriber/newsubscriber.item.routes');
 const newSubscriberMeRoutes = require('./newsubscriber/newsubscriber.me.routes');
+const chatRoutes = require('./chat/chat.routes');
 const errorHandler = require('./middlewares/errorHandler');
 const HttpError = require('./utils/HttpError');
 

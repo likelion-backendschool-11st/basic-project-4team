@@ -582,3 +582,71 @@ export interface ListingLimit {
   readonly joinedAt: string;
   readonly limitEndsAt: string;
 }
+
+/* 채팅 — backend/docs/api-spec-all.md 10장 */
+
+export type ChatMessageType = 'text' | 'image';
+export type ChatRole = 'buyer' | 'seller';
+
+export interface ChatMessage {
+  readonly id: number;
+  readonly roomId: number;
+  readonly senderId: number;
+  readonly type: ChatMessageType;
+  /** text일 때 본문 (욕설·연락처는 서버에서 가려져 있음). */
+  readonly body: string | null;
+  /** image일 때 서버 기준 경로. toAssetUrl로 감싸서 쓴다. */
+  readonly imageUrl: string | null;
+  readonly createdAt: string;
+}
+
+export interface ChatLastMessage {
+  readonly id: number;
+  readonly senderId: number;
+  readonly type: ChatMessageType;
+  readonly body: string | null;
+  readonly createdAt: string;
+}
+
+export interface ChatRoom {
+  readonly id: number;
+  readonly listing: {
+    readonly id: number;
+    readonly title: string;
+    readonly price: number;
+    readonly status: ListingStatus;
+    readonly thumbnailUrl: string | null;
+    readonly isDeleted: boolean;
+  };
+  /** 상대방 — 내가 구매자면 판매자, 판매자면 구매자. */
+  readonly partner: { readonly id: number; readonly nickname: string };
+  readonly myRole: ChatRole;
+  readonly lastMessage: ChatLastMessage | null;
+  readonly unreadCount: number;
+  /** 상대가 어디까지 읽었는지 (내 메시지 "읽음" 표시). */
+  readonly partnerLastReadMessageId: number | null;
+  readonly createdAt: string;
+}
+
+export interface ChatRoomList {
+  readonly items: readonly ChatRoom[];
+  readonly unreadCount: number;
+}
+
+export interface ChatMessagePage {
+  /** 오래된 순. */
+  readonly items: readonly ChatMessage[];
+  readonly hasMore: boolean;
+}
+
+export interface SendChatMessageResult {
+  readonly message: ChatMessage;
+  /** 욕설·전화번호·외부 메신저 유도를 가렸으면 true. */
+  readonly filtered: boolean;
+}
+
+/** WebSocket /ws/chat 서버 이벤트 (CHAT-05). */
+export type ChatServerEvent =
+  | { readonly type: 'message'; readonly roomId: number; readonly message: ChatMessage }
+  | { readonly type: 'read'; readonly roomId: number; readonly readerId: number; readonly lastReadMessageId: number }
+  | { readonly type: 'unread'; readonly unreadCount: number };
