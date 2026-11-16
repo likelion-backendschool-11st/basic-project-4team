@@ -16,6 +16,7 @@
 | [7](#7-통일이-필요한-항목) | — | 문서 간 충돌 정리 |
 | [8](#8-시세-전망-투표-communityvote) | 시세 전망 투표 (CommunityVote) | 투표 집계 조회, 오른다/내린다 투표 |
 | [9](#9-알림-notification) | 알림 (Notification) | 알림 목록, 안 읽은 수, 읽음 처리 |
+| [10](#10-채팅-chat) | 채팅 (Chat) | 채팅방 만들기·목록, 메시지 목록·보내기, 읽음, 사진 업로드, WebSocket 실시간 수신 |
 
 ## 공통 응답 형식 (모든 문서 공통)
 
@@ -2700,3 +2701,217 @@ POST  /api/notifications/read-all                → 204
 
 `backend/db/schema.sql`의 `notifications` 테이블. 읽음은 `read_at`(NULL = 안 읽음)으로 표시한다.
 글·댓글·판매글·회원이 실제로 지워지면(FK CASCADE) 알림도 같이 지워진다. 시드는 시드 댓글에서 알림을 만들고, 회원마다 최근 5건만 안 읽음으로 둔다.
+
+---
+
+# 10. 채팅 (Chat)
+
+> 요구사항: REQ-DETAIL-005 판매글 상세 1:1 채팅창, REQ-HEADER-004 헤더 채팅 목록·안 읽은 수
+> API 정의서: `api-definition.md` 6장 CHAT-01~07
+> 공통 규칙(Base URL `/api`, `{ "data": ... }` / `{ "error": ... }` 응답, `accessToken` 쿠키 인증)은 5장 토론글과 같다. 🔒 = 로그인 필요 (이 장의 API는 모두 🔒).
+
+### 1. 규칙
+
+- 채팅방은 **판매글 1개 × 구매자 1명**에 하나다. 같은 구매자가 같은 판매글로 다시 채팅하면 기존 방을 쓴다.
+- 판매자는 자기 판매글로 채팅방을 만들 수 없다. 구매 문의를 받은 방에서 답한다.
+- 판매완료(`sold`)·삭제된 판매글로는 **새 방을 만들 수 없다.** 이미 있는 방은 계속 쓸 수 있다(거래 후 연락).
+- 메시지는 텍스트(1~1000자) 또는 사진 1장. 메시지 수정·삭제는 없다.
+- **보내기는 REST(`POST .../messages`)로, 받기는 WebSocket(`/ws/chat`)으로** 한다. WebSocket이 끊겨도 REST로 보낸 메시지는 저장되고, 다시 열면 목록 API로 받아온다.
+- 읽음은 방마다 "어디까지 읽었는지"(마지막으로 읽은 메시지 id)로 저장한다. 안 읽은 수 = 그보다 뒤에 상대가 보낸 메시지 수.
+- 내가 메시지를 보내면 그 방은 내 메시지까지 읽은 것으로 본다.
+
+**텍스트 필터** (저장 전에 바꾼다, 요청은 거절하지 않음):
+
+| 대상 | 예 | 결과 |
+|---|---|---|
+| 욕설 (REQ-COMMON-006, 토론글과 같은 규칙) | `존나 비싸네` | `** 비싸네` |
+| 전화번호 | `010-1234-5678`, `01012345678`, `010 1234 5678`, `02-123-4567` | 숫자를 `*`로 |
+| 외부 메신저 유도 | `카톡 abc123`, `카카오톡 아이디: abc`, `오픈채팅`, `텔레그램 @abc`, `open.kakao.com/o/xxx`, `t.me/xxx` | 단어와 뒤의 아이디·링크를 `*`로 |
+
+- 채팅창 안내 문구 "개인정보 보호를 위해 전화번호, 외부 메신저 유도는 자동 필터링됩니다."의 근거. 안전거래(에스크로) 밖으로 거래를 빼는 사기를 막기 위한 것.
+- 계좌번호는 가리지 않는다 (직거래 송금용, REQ-DETAIL-014 "연락처·계좌는 1:1 채팅에서만").
+- 응답의 `filtered: true`로 가려진 부분이 있었는지 알려준다 (프론트 안내 토스트용).
+- 규칙: `backend/src/utils/contactFilter.js`, `backend/src/utils/profanity.js`
+
+### 2. API 요약
+
+| ID | 메서드 | 경로 | 설명 | 성공 |
+|---|---|---|---|---|
+| CHAT-01 | POST | `/api/chat/rooms` | 채팅방 만들기 (있으면 기존 방) | 201 / 200 |
+| CHAT-02 | GET | `/api/chat/rooms` | 내 채팅방 목록 | 200 |
+| CHAT-06 | GET | `/api/chat/rooms/{roomId}` | 채팅방 하나 | 200 |
+| CHAT-03 | GET | `/api/chat/rooms/{roomId}/messages` | 메시지 목록 (과거 방향 페이지) | 200 |
+| CHAT-04 | POST | `/api/chat/rooms/{roomId}/messages` | 메시지 보내기 | 201 |
+| CHAT-07 | PUT | `/api/chat/rooms/{roomId}/read` | 이 방 모두 읽음 | 200 |
+| CHAT-08 | GET | `/api/chat/unread-count` | 안 읽은 메시지 수 (헤더 배지) | 200 |
+| UPLOAD-03 | POST | `/api/uploads/chat-images` | 채팅 사진 업로드 | 201 |
+| CHAT-05 | WS | `/ws/chat` | 새 메시지·읽음·안 읽은 수 실시간 수신 | — |
+
+### 3. 객체
+
+**ChatRoom**
+
+```json
+{
+  "id": 7,
+  "listing": {
+    "id": 16, "title": "[PSA 10] 리자몽 ex SAR", "price": 300000, "status": "selling",
+    "thumbnailUrl": "https://...", "isDeleted": false
+  },
+  "partner": { "id": 4, "nickname": "홀로마스터" },
+  "myRole": "buyer",
+  "lastMessage": { "id": 120, "senderId": 1, "type": "text", "body": "아직 구매 가능한가요?", "createdAt": "2026-11-16T05:10:00.000Z" },
+  "unreadCount": 2,
+  "partnerLastReadMessageId": 118,
+  "createdAt": "2026-11-16T05:00:00.000Z"
+}
+```
+
+| 필드 | 설명 |
+|---|---|
+| `listing.thumbnailUrl` | 대표 사진. 없으면 `null` |
+| `listing.isDeleted` | 판매글이 삭제됐으면 `true` (방은 남는다) |
+| `partner` | 상대방 (내가 구매자면 판매자, 판매자면 구매자) |
+| `myRole` | `buyer` \| `seller` |
+| `lastMessage` | 마지막 메시지. 메시지가 없으면 `null`. 사진이면 `type: "image"`, `body: null` |
+| `unreadCount` | 이 방에서 상대가 보낸, 내가 아직 안 읽은 메시지 수 |
+| `partnerLastReadMessageId` | 상대가 어디까지 읽었는지. 내 메시지의 "읽음" 표시에 쓴다. 안 읽었으면 `null` |
+
+**ChatMessage**
+
+```json
+{ "id": 121, "roomId": 7, "senderId": 1, "type": "image", "body": null, "imageUrl": "/uploads/chat/2f1c...e9.jpg", "createdAt": "2026-11-16T05:11:00.000Z" }
+```
+
+`type`: `text`(본문 `body`) \| `image`(`imageUrl`, 서버 기준 경로 — 프론트는 `toAssetUrl`로 API 서버 주소를 붙인다). 내 메시지인지는 `senderId`와 내 id(`GET /auth/me`)로 구분한다.
+
+### 4. CHAT-01 채팅방 만들기
+
+```
+POST /api/chat/rooms
+{ "listingId": 16 }
+```
+
+- 새로 만들었으면 `201`, 이미 있으면 `200` → `{ "data": { "room": ChatRoom } }`
+- 판매글 상세의 "1:1 채팅하기"가 부른다. 방만 만들고 메시지는 보내지 않으므로, 메시지가 없는 방은 CHAT-02 목록에 나오지 않는다.
+
+| 에러 | 상태 | 조건 |
+|---|---|---|
+| `VALIDATION_ERROR` | 400 | `listingId`가 1 이상 정수가 아님 |
+| `CANNOT_CHAT_OWN_LISTING` | 403 | 내 판매글 |
+| `LISTING_NOT_FOUND` | 404 | 없거나 삭제된 판매글 (새 방일 때) |
+| `LISTING_SOLD` | 409 | 판매완료 판매글 (새 방일 때) |
+
+### 5. CHAT-02 내 채팅방 목록 / CHAT-06 채팅방 하나 / CHAT-08 안 읽은 수
+
+```
+GET /api/chat/rooms               → { "data": { "items": ChatRoom[], "unreadCount": 3 } }
+GET /api/chat/rooms/{roomId}      → { "data": { "room": ChatRoom } }
+GET /api/chat/unread-count        → { "data": { "unreadCount": 3 } }
+```
+
+- 목록은 구매자·판매자로 참여한 방 모두, **메시지가 있는 방만**, 마지막 메시지가 최근인 순. 최대 100개.
+- `unreadCount`(목록·CHAT-08)는 모든 방의 안 읽은 수 합계 — 헤더 채팅 배지.
+- 내가 참여하지 않은 방은 `404 CHAT_ROOM_NOT_FOUND` (방이 있는지도 알려주지 않는다).
+
+### 6. CHAT-03 메시지 목록
+
+```
+GET /api/chat/rooms/{roomId}/messages?before=121&size=30
+```
+
+| 쿼리 | 기본값 | 설명 |
+|---|---|---|
+| `before` | - | 이 id보다 **이전** 메시지. 생략하면 최신부터 |
+| `size` | `30` | 1~100 |
+
+응답 `200` → `{ "data": { "items": ChatMessage[], "hasMore": true } }`
+
+- `items`는 **오래된 순**(화면에 그대로 위→아래로 그린다). 더 이전 메시지는 `before`에 첫 메시지 id를 넣어 부른다.
+- 목록을 불러와도 읽음 처리는 하지 않는다 — 화면에서 CHAT-07을 부른다.
+
+### 7. CHAT-04 메시지 보내기
+
+```
+POST /api/chat/rooms/{roomId}/messages
+{ "type": "text", "body": "아직 구매 가능한가요?" }
+{ "type": "image", "imageId": 31 }
+```
+
+| 필드 | 규칙 |
+|---|---|
+| `type` | `text` \| `image` |
+| `body` | `text`일 때 필수. 앞뒤 공백 제거 후 1~1000자. 저장 전에 텍스트 필터 적용 |
+| `imageId` | `image`일 때 필수. UPLOAD-03으로 **내가 올렸고 아직 보내지 않은** 사진 |
+
+응답 `201` → `{ "data": { "message": ChatMessage, "filtered": false } }`
+
+- 저장 후 WebSocket으로 두 사람에게 `message` 이벤트를, 받는 사람에게 `unread` 이벤트를 보낸다.
+
+| 에러 | 상태 | 조건 |
+|---|---|---|
+| `VALIDATION_ERROR` | 400 | `type`·`body`·`imageId` 규칙 위반 |
+| `IMAGE_NOT_AVAILABLE` | 400 | 남의 사진, 이미 보낸 사진, 없는 사진 |
+| `CHAT_ROOM_NOT_FOUND` | 404 | 없거나 내가 참여하지 않은 방 |
+
+### 8. CHAT-07 모두 읽음
+
+```
+PUT /api/chat/rooms/{roomId}/read
+```
+
+응답 `200` → `{ "data": { "unreadCount": 1 } }` (읽음 처리 후 **전체** 안 읽은 수)
+
+- 이 방의 마지막 메시지까지 읽은 것으로 저장한다. 상대에게 `read` 이벤트를 보낸다.
+- 채팅창이 열려 있는 동안 새 메시지를 받으면 프론트가 다시 부른다.
+
+### 9. UPLOAD-03 채팅 사진 업로드
+
+```
+POST /api/uploads/chat-images   (multipart/form-data, 파일 필드 image)
+```
+
+- JPG·PNG·WebP, 5MB 이하, 1장씩 (토론글 사진 업로드와 같은 검사 — Content-Type + 파일 시그니처).
+- 파일은 `backend/uploads/chat/`에 UUID 이름으로 저장되고 `/uploads/chat/<파일명>`으로 제공된다.
+- 응답 `201` → `{ "data": { "image": { "id": 31, "url": "/uploads/chat/2f1c...e9.jpg" } } }`
+- 보내지 않은 사진 정리는 토론글 사진과 같이 나중 작업.
+
+에러: `400 INVALID_FILE_TYPE`, `400 FILE_TOO_LARGE`, `400 VALIDATION_ERROR`(파일 없음), `401`
+
+### 10. CHAT-05 WebSocket `/ws/chat`
+
+```
+ws://127.0.0.1:4000/ws/chat
+```
+
+- **인증**: 로그인 쿠키(`accessToken`)를 그대로 쓴다. 브라우저가 연결할 때 쿠키를 자동으로 붙인다.
+- **Origin 검사**: `CORS_ORIGIN`과 다른 사이트에서 연 연결은 거절한다 (쿠키 인증이라 다른 사이트가 대신 연결하는 것을 막는다).
+- 로그인이 없거나 만료되면 닫는 코드 `4401`, Origin이 다르면 `4403`. 프론트는 `4401`·`4403`이면 다시 연결하지 않는다.
+- 토큰이 만료되는 시각에 서버가 `4401`로 닫는다. 그 외에 끊기면 프론트가 점점 길게 기다리며 다시 연결한다.
+- 서버 → 클라이언트 메시지만 있다 (보내기는 REST). 30초마다 ping으로 끊긴 연결을 정리한다.
+
+| `type` | 받는 사람 | 내용 |
+|---|---|---|
+| `message` | 두 사람 모두 (보낸 사람의 다른 탭 포함) | `{ "type": "message", "roomId": 7, "message": ChatMessage }` |
+| `read` | 상대 | `{ "type": "read", "roomId": 7, "readerId": 4, "lastReadMessageId": 121 }` |
+| `unread` | 안 읽은 수가 바뀐 사람 | `{ "type": "unread", "unreadCount": 3 }` |
+
+### 11. 에러 코드
+
+| Code | 상태 | 의미 |
+|---|---|---|
+| `VALIDATION_ERROR` | 400 | 요청 값 규칙 위반 |
+| `IMAGE_NOT_AVAILABLE` | 400 | 보낼 수 없는 사진 |
+| `UNAUTHORIZED` / `INVALID_TOKEN` | 401 | 로그인 안 함 / 만료 |
+| `CANNOT_CHAT_OWN_LISTING` | 403 | 내 판매글로 채팅방 만들기 |
+| `LISTING_NOT_FOUND` | 404 | 없거나 삭제된 판매글 |
+| `CHAT_ROOM_NOT_FOUND` | 404 | 없거나 내가 참여하지 않은 방 |
+| `LISTING_SOLD` | 409 | 판매완료 판매글로 새 방 만들기 |
+
+### 12. DB
+
+`backend/db/schema.sql`의 `chat_rooms`, `chat_messages`, `chat_images` (erd.md 2.17~2.19).
+
+- `chat_rooms`: UNIQUE `(listing_id, buyer_id)`. 목록 정렬용 `last_message_id`·`last_message_at`, 읽음 위치 `buyer_read_message_id`·`seller_read_message_id`.
+- `chat_messages`: `type`이 `text`면 `body`, `image`면 `image_id`. `image_id` UNIQUE라 사진 한 장은 한 번만 보낼 수 있다.
+- `chat_images`: 업로드한 사진. 메시지에 쓰이기 전까지는 어떤 메시지도 가리키지 않는다.
