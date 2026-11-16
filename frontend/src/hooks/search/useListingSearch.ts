@@ -1,44 +1,43 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ApiError } from '../../api/client';
 import { getListings, type ListingSearchParams } from '../../api/listingSearch';
 import type { ListingSummary } from '../../api/types';
 import { toastMessages, wishCopy } from '../../data/listing';
 import { FRAUD_THRESHOLD_RATIO } from '../../data/listingForm';
-import {
-  categoryOptions,
-  gradeFilterParams,
-  paginationData,
-  searchApiCopy,
-  type Listing,
-  type PriceDiffTone,
-  type SortKey,
-} from '../../data/search';
+import { gradeFilterParams, paginationData, searchApiCopy, type Listing, type PriceDiffTone } from '../../data/search';
 import { formatTimeAgo } from '../listing/listingViewHelpers';
 import type { ShowToast } from '../listing/useToast';
 import { requestWish } from '../listing/wishRequest';
 import { usePagination } from './usePagination';
-import type { useSearchFilters } from './useSearchFilters';
-
-type SearchFilters = ReturnType<typeof useSearchFilters>;
+import type { SearchFiltersState as SearchFilters } from './useSearchFilters';
 type SearchStatus = 'loading' | 'success' | 'error';
 
 const FRAUD_RATE = -FRAUD_THRESHOLD_RATIO * 100;
 
-/** 필터 패널 상태 → LISTING-01 파라미터. */
-const toSearchParams = (query: string, filters: SearchFilters, sort: SortKey): ListingSearchParams => {
-  const picked = filters.grades.map((id) => gradeFilterParams[id]).filter(Boolean);
-  // 둘 다 고르거나 둘 다 안 고르면 거래 방식은 제한하지 않는다.
+/**
+ * 주소의 검색 조건 → LISTING-01 파라미터.
+ * 고른 카테고리에서 쓸 수 없는 필터(카드가 아니면 등급, 운동화가 아니면 사이즈)는 보내지 않는다.
+ */
+const toSearchParams = (
+  filters: SearchFilters,
+  { gradeEnabled, sizeEnabled }: FilterAvailability,
+): ListingSearchParams => {
+  const picked = gradeEnabled ? filters.grades.map((id) => gradeFilterParams[id]).filter(Boolean) : [];
+  // 둘 다 고르거나 둘 다 안 고르면 제한하지 않는다.
   const tradeMethod = filters.trades.length === 1 ? (filters.trades as readonly ('delivery' | 'direct')[]) : undefined;
+  const itemState = filters.conditions.length === 1 ? (filters.conditions as readonly ('new' | 'used')[]) : undefined;
   return {
-    q: query,
-    category: categoryOptions.find((c) => c.id === filters.categoryId)?.code,
+    q: filters.q,
+    category: filters.categoryCode,
     grades: picked.flatMap((p) => p.grades ?? []),
+    sizes: sizeEnabled ? filters.sizes : [],
     condition: picked.flatMap((p) => (p.condition ? [p.condition] : [])),
     minPrice: filters.appliedRange.min,
     maxPrice: filters.appliedRange.max,
     tradeMethod,
+    itemState,
     excludeSold: filters.excludeSold,
-    sort,
+    sort: filters.sortKey,
   };
 };
 
@@ -52,7 +51,6 @@ const toCard = (listing: ListingSummary): Listing => {
     id: String(listing.id),
     series: listing.item.setName ?? listing.item.name,
     postedAgo: formatTimeAgo(listing.createdAt),
-    postedMinutes: Math.floor((Date.now() - new Date(listing.createdAt).getTime()) / 60000),
     title: listing.title,
     price: listing.price,
     priceDiff: rate === null ? searchApiCopy.noMarket : searchApiCopy.priceDiff(rate),
@@ -61,10 +59,16 @@ const toCard = (listing: ListingSummary): Listing => {
     status: listing.status,
     likes: listing.wishCount,
     wished: listing.isWished,
-    imageUrl: listing.thumbnailUrl ?? '',
+    imageUrl: listing.thumbnailUrl,
     imageAlt: listing.title,
   };
 };
+
+/** 고른 카테고리에서 쓸 수 있는 필터 (useSearchCategories). */
+export interface FilterAvailability {
+  readonly gradeEnabled: boolean;
+  readonly sizeEnabled: boolean;
+}
 
 /** 카드 하트에 필요한 화면 쪽 동작 (로그인 팝업·토스트). */
 export interface WishHandlers {
@@ -76,44 +80,52 @@ export interface WishHandlers {
 }
 
 /**
- * 검색 결과(P-009)를 LISTING-01로 불러온다. 정렬·페이지·필터가 바뀌면 다시 불러오고,
- * 조건이 바뀌면 1페이지로 돌아간다.
+ * 검색 결과(P-009)를 LISTING-01로 불러온다. 조건·정렬·페이지는 모두 주소에 있고(useSearchFilters),
+ * 그 값이 바뀔 때마다 다시 불러온다.
  */
-export const useListingSearch = (query: string, filters: SearchFilters, wish: WishHandlers) => {
-  const [sortKey, setSortKey] = useState<SortKey>('latest');
+export const useListingSearch = (filters: SearchFilters, availability: FilterAvailability, wish: WishHandlers) => {
   const [status, setStatus] = useState<SearchStatus>('loading');
   const [items, setItems] = useState<readonly Listing[]>([]);
   const [totalCount, setTotalCount] = useState(0);
+  const [reloadToken, setReloadToken] = useState(0);
   // 응답을 기다리는 카드 id — 그동안 같은 카드의 하트 연타는 무시한다.
   const pendingWishes = useRef(new Set<string>());
+  const { page, setPage } = filters;
   const pagination = usePagination({
     totalItems: totalCount,
     pageSize: paginationData.pageSize,
     windowSize: paginationData.windowSize,
+    page,
+    onPageChange: setPage,
   });
-  const { page, setPage } = pagination;
 
-  const params = useMemo(() => toSearchParams(query, filters, sortKey), [query, filters, sortKey]);
+  const params = toSearchParams(filters, availability);
   const paramsKey = JSON.stringify(params);
-
-  useEffect(() => {
-    setPage(1);
-  }, [paramsKey, setPage]);
 
   useEffect(() => {
     // 응답이 늦게 와도 이전 조건의 결과로 화면을 덮어쓰지 않게 한다.
     let cancelled = false;
     setStatus('loading');
-    getListings({ ...params, page, size: paginationData.pageSize })
+    getListings({
+      ...(JSON.parse(paramsKey) as ListingSearchParams),
+      page,
+      size: paginationData.pageSize,
+    })
       .then((result) => {
         if (cancelled) return;
+        const lastPage = Math.max(1, Math.ceil(result.totalCount / paginationData.pageSize));
+        // 주소의 page가 마지막 페이지를 넘으면(글이 줄었거나 주소를 고친 경우) 마지막 페이지로 옮긴다.
+        if (result.items.length === 0 && page > lastPage) {
+          setPage(lastPage);
+          return;
+        }
         setItems(result.items.map(toCard));
         setTotalCount(result.totalCount);
         setStatus('success');
       })
       .catch((err: unknown) => {
         if (cancelled) return;
-        // 아직 DB에 없는 카테고리는 결과 0건으로 보여준다.
+        // 주소의 카테고리가 DB에 없으면 결과 0건으로 보여준다.
         if (err instanceof ApiError && err.code === 'CATEGORY_NOT_FOUND') {
           setItems([]);
           setTotalCount(0);
@@ -125,8 +137,15 @@ export const useListingSearch = (query: string, filters: SearchFilters, wish: Wi
     return () => {
       cancelled = true;
     };
-    // params는 paramsKey로 비교한다 (객체가 매 렌더 새로 만들어져도 같은 조건이면 다시 부르지 않게).
-  }, [paramsKey, page]);
+    // 조건은 paramsKey(문자열)로 비교한다 — 같은 조건이면 다시 부르지 않는다.
+  }, [paramsKey, page, reloadToken]);
+
+  // 페이지를 옮기면 목록 맨 위가 보이게 한다.
+  useEffect(() => {
+    window.scrollTo({ top: 0 });
+  }, [page]);
+
+  const retry = useCallback(() => setReloadToken((n) => n + 1), []);
 
   const isWished = useCallback((id: string) => items.find((item) => item.id === id)?.wished ?? false, [items]);
 
@@ -141,12 +160,18 @@ export const useListingSearch = (query: string, filters: SearchFilters, wish: Wi
       if (!item || pendingWishes.current.has(id) || !wish.ensureLogin()) return;
       pendingWishes.current.add(id);
       const next = !item.wished;
-      patchItem(id, { wished: next, likes: Math.max(0, item.likes + (next ? 1 : -1)) });
+      patchItem(id, {
+        wished: next,
+        likes: Math.max(0, item.likes + (next ? 1 : -1)),
+      });
 
       const outcome = await requestWish(Number(id), next);
       pendingWishes.current.delete(id);
       if (outcome.ok) {
-        patchItem(id, { wished: outcome.result.isWished, likes: outcome.result.wishCount });
+        patchItem(id, {
+          wished: outcome.result.isWished,
+          likes: outcome.result.wishCount,
+        });
         wish.showToast(next ? toastMessages.wishAdded : toastMessages.wishRemoved);
         return;
       }
@@ -164,5 +189,5 @@ export const useListingSearch = (query: string, filters: SearchFilters, wish: Wi
     [items, patchItem, wish],
   );
 
-  return { status, items, totalCount, sortKey, setSortKey, pagination, isWished, toggleWish };
+  return { status, items, totalCount, pagination, isWished, toggleWish, retry };
 };

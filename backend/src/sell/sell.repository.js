@@ -145,7 +145,18 @@ const ORDER_BY = {
   latest: 'l.created_at DESC, l.id DESC',
   priceAsc: 'l.price ASC, l.id DESC',
   priceDesc: 'l.price DESC, l.id DESC',
-  popular: 'l.wish_count DESC, l.created_at DESC, l.id DESC',
+  // 인기순: 찜 수 → 조회수 (REQ-LIST-007)
+  popular: 'l.wish_count DESC, l.view_count DESC, l.created_at DESC, l.id DESC',
+};
+
+const SIZE_MM = "CAST(l.attributes->>'$.sizeMm' AS UNSIGNED)";
+/** 검색 사이즈 필터 구간 (controller가 허용한 키만 온다). */
+const SIZE_RANGES = {
+  le230: `${SIZE_MM} <= 230`,
+  '235-250': `${SIZE_MM} BETWEEN 231 AND 250`,
+  '255-265': `${SIZE_MM} BETWEEN 251 AND 265`,
+  '270-280': `${SIZE_MM} BETWEEN 266 AND 280`,
+  ge285: `${SIZE_MM} >= 281`,
 };
 
 /** LIKE 검색어의 %, _ 를 글자 그대로 찾도록 이스케이프한다. */
@@ -161,7 +172,7 @@ async function findCategoryIdsByCode(code) {
   return rows.length === 0 ? null : rows.map((row) => row.id);
 }
 
-function buildListWhere({ q, categoryIds, itemId, conditions, grades, minPrice, maxPrice, tradeMethods, excludeSold }) {
+function buildListWhere({ q, categoryIds, itemId, conditions, grades, minPrice, maxPrice, tradeMethods, itemStates = [], sizes = [], excludeSold }) {
   const where = ['l.deleted_at IS NULL'];
   const params = [];
   if (q) {
@@ -201,6 +212,15 @@ function buildListWhere({ q, categoryIds, itemId, conditions, grades, minPrice, 
     // 하나라도 만족하면 포함. 컬럼 이름은 controller가 허용한 값(delivery·direct)만 온다.
     where.push(`(${tradeMethods.map((method) => `l.${method} = 1`).join(' OR ')})`);
   }
+  // 상품 상태(새상품·중고)는 등급 묶음과 별개 조건(AND). 새상품 = 미개봉, 중고 = 개봉 노슬랩·그레이딩.
+  // 둘 다 고르거나 둘 다 안 고르면 제한하지 않는다.
+  if (itemStates.length === 1) {
+    where.push(itemStates[0] === 'new' ? "l.`condition` = 'unopened'" : "l.`condition` IN ('opened_raw', 'graded')");
+  }
+  if (sizes.length > 0) {
+    // 운동화 사이즈(attributes.sizeMm, mm). 구간 사이 빈틈이 없게 경계를 잡는다. 사이즈가 없는 글은 빠진다.
+    where.push(`(${sizes.map((key) => SIZE_RANGES[key]).join(' OR ')})`);
+  }
   if (excludeSold) where.push("l.status <> 'sold'");
   return { where: `WHERE ${where.join(' AND ')}`, params };
 }
@@ -235,8 +255,9 @@ async function findMany(filter, { sort, limit, offset, viewerId }) {
        l.id, l.registration_no, l.title, l.price, l.status, l.\`condition\`, l.grading_service, l.grade,
        l.direct, l.direct_location, l.wish_count, l.item_id, l.created_at,
        i.slug AS item_slug, i.name AS item_name, i.set_name AS item_set_name,
-       (SELECT url FROM listing_images li
-         WHERE li.listing_id = l.id AND li.type = 'photo' AND li.sort_order = 0) AS thumbnail_url,
+       -- 대표 사진이 없으면 공식 품목 이미지로 대신한다 (찜 목록·마이페이지와 같은 규칙)
+       COALESCE((SELECT url FROM listing_images li
+         WHERE li.listing_id = l.id AND li.type = 'photo' AND li.sort_order = 0), i.image_url) AS thumbnail_url,
        ${viewerId === undefined ? '0' : 'EXISTS (SELECT 1 FROM wishes w WHERE w.listing_id = l.id AND w.user_id = ?)'} AS is_wished,
        -- 같은 품목·상태·그레이딩사·등급의 30일 평균 체결가 (idx_listings_market 사용)
        (SELECT AVG(s.sold_price) FROM listings s

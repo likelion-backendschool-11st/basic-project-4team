@@ -15,6 +15,8 @@ const LIST_CONDITIONS = ['unopened', 'opened_raw', 'graded'];
 const LIST_GRADING_SERVICES = ['PSA', 'BGS', 'CGC', 'BRG'];
 const LIST_GRADES = ['10', '9.5', '9', '8.5', '8', '7'];
 const LIST_TRADE_METHODS = ['delivery', 'direct'];
+const LIST_ITEM_STATES = ['new', 'used'];
+const LIST_SIZES = ['le230', '235-250', '255-265', '270-280', 'ge285'];
 const DEFAULT_LIST_SIZE = 10;
 const MAX_LIST_SIZE = 50;
 const Q_MAX = 100;
@@ -90,6 +92,8 @@ async function list(req, res) {
       minPrice,
       maxPrice,
       tradeMethods: parseQueryList(query.tradeMethod, LIST_TRADE_METHODS, 'tradeMethod'),
+      itemStates: parseQueryList(query.itemState, LIST_ITEM_STATES, 'itemState'),
+      sizes: parseQueryList(query.sizes, LIST_SIZES, 'sizes'),
       excludeSold: parseQueryBoolean(query.excludeSold, 'excludeSold', true),
     },
     { sort, page, size, viewerId: req.user?.id },

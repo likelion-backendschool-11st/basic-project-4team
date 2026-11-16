@@ -3232,6 +3232,14 @@ JOIN (SELECT id, ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY created_at DES
 SET n.read_at = LEAST(n.created_at + INTERVAL 1 HOUR, UTC_TIMESTAMP())
 WHERE r.rn > 5;
 
+-- ───────────── 운동화 사이즈 (검색 사이즈 필터) ─────────────
+-- 운동화 판매글은 제목에 사이즈가 있다(예: "... 275mm 새상품"). attributes.sizeMm에 숫자로 넣는다.
+UPDATE listings l
+JOIN categories c ON c.id = l.category_id
+JOIN categories pc ON pc.id = c.parent_id AND pc.code = 'sneakers'
+SET l.attributes = JSON_OBJECT('sizeMm', CAST(REPLACE(REGEXP_SUBSTR(l.title, '[0-9]{3}mm'), 'mm', '') AS UNSIGNED))
+WHERE REGEXP_SUBSTR(l.title, '[0-9]{3}mm') IS NOT NULL;
+
 -- ───────────── 집계 컬럼을 실제 행 수로 맞춘다 ─────────────
 UPDATE listings l SET wish_count = (SELECT COUNT(*) FROM wishes w WHERE w.listing_id = l.id);
 UPDATE comments c SET like_count = (SELECT COUNT(*) FROM comment_likes k WHERE k.comment_id = c.id);
