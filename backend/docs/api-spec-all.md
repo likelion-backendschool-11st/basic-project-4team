@@ -1001,8 +1001,8 @@ GET /api/v1/items/{itemId}/listings?excludeListingId=882194&sort=priceAsc&size=1
 | LISTING-05 | 판매글 삭제 | DELETE | `/listings/{listingId}` | 필수(작성자) | 내 판매글 상세, 판매글 수정 |
 | LISTING-06 | 판매 상태 변경 | PATCH | `/listings/{listingId}/status` | 필수(작성자) | 내 판매글 상세 상태 드롭다운 |
 | LISTING-07 | 거래완료 처리 | POST | `/listings/{listingId}/complete` | 필수(작성자) | 내 판매글 상세 거래완료 모달 |
-| LISTING-08 | 찜하기 | PUT | `/listings/{listingId}/wish` | 필수 | 검색 결과, 판매글 상세 |
-| LISTING-09 | 찜 해제 | DELETE | `/listings/{listingId}/wish` | 필수 | 검색 결과, 판매글 상세 |
+| LISTING-08 | 찜하기 → [4장 LIST-02](#4-찜-wish) | POST | `/listings/{listingId}/wishes` | 필수 | 검색 결과, 판매글 상세 |
+| LISTING-09 | 찜 해제 → [4장 LIST-03](#4-찜-wish) | DELETE | `/listings/{listingId}/wishes` | 필수 | 검색 결과, 판매글 상세 |
 | LISTING-10 | 판매자의 다른 판매글 | GET | `/users/{userId}/listings` | 선택 | 판매글 상세 판매자 카드 |
 
 > "같은 품목의 다른 매물"은 **ITEM-05**(`GET /items/{itemId}/listings`)를 사용합니다.
@@ -1469,57 +1469,13 @@ Content-Type: application/json
 
 ---
 
-### LISTING-08. 찜하기
+### LISTING-08. 찜하기 / LISTING-09. 찜 해제
 
-```
-PUT /api/v1/listings/{listingId}/wish
-```
-
-#### Response `200 OK`
-
-```json
-{
-  "data": { "listingId": 882194, "isWished": true, "wishCount": 39 }
-}
-```
-
-#### Errors
-
-| 상태 | code | 상황 |
-|---|---|---|
-| 400 | `CANNOT_WISH_OWN_LISTING` | 내 판매글 |
-| 401 | `UNAUTHORIZED` | 비로그인 |
-| 404 | `LISTING_NOT_FOUND` | 없는 판매글 |
-
-#### 비고
-- 이미 찜한 상태면 그대로 200 (멱등). `(user_id, listing_id)` UNIQUE로 중복 방지
-
----
-
-### LISTING-09. 찜 해제
-
-```
-DELETE /api/v1/listings/{listingId}/wish
-```
-
-#### Response `200 OK`
-
-```json
-{
-  "data": { "listingId": 882194, "isWished": false, "wishCount": 38 }
-}
-```
-
-#### Errors
-
-| 상태 | code | 상황 |
-|---|---|---|
-| 401 | `UNAUTHORIZED` | 비로그인 |
-| 404 | `LISTING_NOT_FOUND` | 없는 판매글 |
-
-#### 비고
-- 찜하지 않은 상태여도 그대로 200 (멱등)
-- 찜 버튼 숫자를 바로 갱신할 수 있게 204 대신 `wishCount`를 돌려줌
+> **[4장 찜](#4-찜-wish)의 LIST-02 / LIST-03으로 옮겼다 (#55).** 아래 주소·에러 코드는 4장 기준이다.
+>
+> - 찜하기: `POST /api/listings/{listingId}/wishes` — 새로 찜하면 `201`, 이미 찜했으면 `200`
+> - 찜 해제: `DELETE /api/listings/{listingId}/wishes` — 항상 `200` + `wishCount`
+> - 내 판매글 찜은 `403 CANNOT_WISH_OWN_LISTING`, 거래완료 판매글 찜은 `409 LISTING_SOLD`
 
 ---
 
@@ -1584,9 +1540,9 @@ ERD 확정 시 맞춰서 수정합니다.
 
 **`listing_images`**: `id`, `listing_id`, `url`, `type`(`photo` / `auth`), `sort_order`, `created_at`
 
-**`listing_wishes`**: `id`, `user_id`, `listing_id`, `created_at`, UNIQUE `(user_id, listing_id)`
+**`wishes`**: `user_id`, `listing_id`, `created_at`, `updated_at`, PK `(user_id, listing_id)` — [4장 7. DB](#4-찜-wish) 참고
 
-> `wishCount`는 매번 `COUNT(*)`로 계산합니다. 느려지면 `listings.wish_count` 컬럼을 추가합니다.
+> `wishCount`는 `listings.wish_count` 컬럼 값이다. 찜 추가·해제와 같은 트랜잭션에서 ±1 한다.
 
 ---
 
@@ -1947,24 +1903,28 @@ items로 카드 목록 표시, totalCount로 페이지네이션 표시
 
 ### 7. DB
 
+실제 정의는 `backend/db/schema.sql`의 `wishes` 테이블이 기준이다.
+
 ```sql
 CREATE TABLE wishes (
   user_id    BIGINT   NOT NULL,
   listing_id BIGINT   NOT NULL,
-  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '찜한 시각',
-  PRIMARY KEY (user_id, listing_id),          -- 중복 찜 방지
-  KEY idx_wishes_listing_id (listing_id),     -- 매물별 찜 수 집계
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,   -- 찜한 시각
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (user_id, listing_id),                        -- 중복 찜 방지
   CONSTRAINT fk_wishes_user    FOREIGN KEY (user_id)    REFERENCES users (id)    ON DELETE CASCADE,
   CONSTRAINT fk_wishes_listing FOREIGN KEY (listing_id) REFERENCES listings (id) ON DELETE CASCADE
 );
 ```
 
-> `listings` 테이블이 먼저 있어야 한다. 매물 API 담당자와 테이블 생성 순서를 맞출 것.
+- 찜 수는 매번 세지 않고 `listings.wish_count`에 저장한다 (검색 인기순 정렬에도 쓴다).
+- 찜이 실제로 추가·삭제됐을 때만 같은 트랜잭션에서 `wish_count`를 ±1 한다. 이미 찜한 상태에서 다시 찜하거나, 찜하지 않은 상태에서 해제하면 그대로 둔다.
+- 동시에 같은 매물을 찜해도 숫자가 어긋나지 않도록 트랜잭션 시작 시 `listings` 행을 `SELECT ... FOR UPDATE`로 잠근다.
 
 ### 8. 보안 주의사항
 
 - 요청 본문이나 쿼리로 받은 `userId`를 쓰지 않는다. 사용자는 **토큰으로만** 식별한다.
-- `wishCount`는 클라이언트가 보낸 값이 아니라 **서버가 DB에서 센 값**을 돌려준다.
+- `wishCount`는 클라이언트가 보낸 값이 아니라 **서버의 `listings.wish_count` 값**을 돌려준다.
 - 버튼 연타로 같은 요청이 여러 번 와도 DB PK 덕분에 찜이 중복 저장되지 않는다.
 
 ### 9. 테스트 체크리스트
@@ -1994,7 +1954,7 @@ CREATE TABLE wishes (
 ### 10. 팀 결정 필요
 
 1. 내 매물 찜 금지(403)와 거래완료 매물 찜 금지(409) 규칙을 유지할지
-2. 매물별 찜 수를 매번 `COUNT`로 셀지, `listings.wish_count` 컬럼에 저장해 둘지 (목록이 느려지면 컬럼 방식으로 전환)
+2. ~~매물별 찜 수를 매번 `COUNT`로 셀지, `listings.wish_count` 컬럼에 저장해 둘지~~ → `listings.wish_count` 컬럼에 저장 (#55, 7. DB 참고)
 
 ---
 
