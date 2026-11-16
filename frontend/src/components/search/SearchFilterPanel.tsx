@@ -1,6 +1,5 @@
 import React from 'react';
 import {
-  categoryOptions,
   conditionOptions,
   filterLabels,
   gradeOptions,
@@ -8,6 +7,7 @@ import {
   sizeOptions,
   tradeOptions,
 } from '../../data/search';
+import type { SearchCategories } from '../../hooks/search/useSearchCategories';
 import type { SearchFiltersState } from '../../hooks/search/useSearchFilters';
 import { Icon } from '../common/Icon';
 import { CategoryFilter } from './CategoryFilter';
@@ -17,51 +17,83 @@ import { PriceRangeFilter } from './PriceRangeFilter';
 
 interface SearchFilterPanelProps {
   readonly filters: SearchFiltersState;
+  /** DB 카테고리로 만든 칩과 등급 필터 사용 여부. */
+  readonly categories: SearchCategories;
 }
 
 /** Structural filter panel (category / grade / size / price / options rows). */
-export const SearchFilterPanel: React.FC<SearchFilterPanelProps> = ({ filters }) => (
+export const SearchFilterPanel: React.FC<SearchFilterPanelProps> = ({ filters, categories }) => (
   // data-component="FilterSidebarOrSection"
   <section className="bg-surface-container-lowest rounded shadow-sm overflow-hidden mb-space-xl">
     <FilterRow hoverable icon={filterLabels.category.icon} label={filterLabels.category.label}>
-      <CategoryFilter onSelect={filters.selectCategory} options={categoryOptions} selectedId={filters.categoryId} />
+      <CategoryFilter
+        onSelect={(id) => {
+          const { code, clearGrades, clearSizes } = categories.toSelection(id);
+          filters.selectCategory(code, { clearGrades, clearSizes });
+        }}
+        options={categories.options}
+        selectedId={categories.selectedId}
+      />
     </FilterRow>
 
     <FilterRow
-      badge={filterLabels.grade.badge}
+      badge={categories.gradeEnabled ? filterLabels.grade.badge : filterLabels.grade.disabledBadge}
       contentClassName="gap-space-md"
       icon={filterLabels.grade.icon}
       label={filterLabels.grade.label}
-      variant="active"
+      variant={categories.gradeEnabled ? 'active' : 'disabled'}
     >
       {gradeOptions.map((option) => (
         <FilterCheckbox
-          checked={filters.grades.includes(option.id)}
+          checked={categories.gradeEnabled && filters.grades.includes(option.id)}
+          disabled={!categories.gradeEnabled}
           key={option.id}
           label={option.label}
-          onToggle={() => filters.toggleGrade(option.id)}
+          onToggle={categories.gradeEnabled ? () => filters.toggleGrade(option.id) : undefined}
         />
       ))}
-      <span className="font-caption text-caption text-muted ml-auto hidden lg:inline-flex items-center gap-1">
-        <Icon className="text-[14px]" name="info" />
-        {filterLabels.grade.hint}
-      </span>
+      {categories.gradeEnabled ? (
+        <span className="font-caption text-caption text-muted ml-auto hidden lg:inline-flex items-center gap-1">
+          <Icon className="text-[14px]" name="info" />
+          {filterLabels.grade.hint}
+        </span>
+      ) : (
+        <span className="font-caption text-caption text-faint ml-auto">{filterLabels.grade.disabledHint}</span>
+      )}
     </FilterRow>
 
     <FilterRow
-      badge={filterLabels.size.badge}
+      badge={categories.sizeEnabled ? filterLabels.size.badge : filterLabels.size.disabledBadge}
       contentClassName="gap-space-md"
       icon={filterLabels.size.icon}
       label={filterLabels.size.label}
-      variant="disabled"
+      variant={categories.sizeEnabled ? 'active' : 'disabled'}
     >
       {sizeOptions.map((option) => (
-        <FilterCheckbox checked={false} disabled key={option.id} label={option.label} />
+        <FilterCheckbox
+          checked={categories.sizeEnabled && filters.sizes.includes(option.id)}
+          disabled={!categories.sizeEnabled}
+          key={option.id}
+          label={option.label}
+          onToggle={categories.sizeEnabled ? () => filters.toggleSize(option.id) : undefined}
+        />
       ))}
-      <span className="font-caption text-caption text-faint ml-auto">{filterLabels.size.hint}</span>
+      {categories.sizeEnabled ? (
+        <span className="font-caption text-caption text-muted ml-auto hidden lg:inline-flex items-center gap-1">
+          <Icon className="text-[14px]" name="info" />
+          {filterLabels.size.hint}
+        </span>
+      ) : (
+        <span className="font-caption text-caption text-faint ml-auto">{filterLabels.size.disabledHint}</span>
+      )}
     </FilterRow>
 
-    <FilterRow contentClassName="gap-space-sm" hoverable icon={filterLabels.price.icon} label={filterLabels.price.label}>
+    <FilterRow
+      contentClassName="gap-space-sm"
+      hoverable
+      icon={filterLabels.price.icon}
+      label={filterLabels.price.label}
+    >
       <PriceRangeFilter
         activePresetId={filters.activePresetId}
         applyLabel={filterLabels.price.apply}
@@ -76,6 +108,12 @@ export const SearchFilterPanel: React.FC<SearchFilterPanelProps> = ({ filters })
         presets={pricePresets}
         unit={filterLabels.price.unit}
       />
+      {filters.priceError ? (
+        <span className="font-caption text-caption text-error flex items-center gap-1" role="alert">
+          <Icon className="text-[14px]" name="error" />
+          {filterLabels.price.rangeError}
+        </span>
+      ) : null}
     </FilterRow>
 
     <FilterRow contentClassName="gap-space-lg" icon={filterLabels.options.icon} label={filterLabels.options.label}>

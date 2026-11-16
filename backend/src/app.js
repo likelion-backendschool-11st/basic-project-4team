@@ -17,6 +17,9 @@ const uploadRoutes = require('./sell/upload.routes');
 const itemRoutes = require('./sell/item.routes');
 const categoryRoutes = require('./sell/category.routes');
 const postUploadRoutes = require('./upload/upload.routes');
+const newSubscriberItemRoutes = require('./newsubscriber/newsubscriber.item.routes');
+const newSubscriberMeRoutes = require('./newsubscriber/newsubscriber.me.routes');
+const chatRoutes = require('./chat/chat.routes');
 const errorHandler = require('./middlewares/errorHandler');
 const HttpError = require('./utils/HttpError');
 
@@ -46,14 +49,17 @@ app.use('/api/listings', sellRoutes);
 app.use('/api/listings', wishRoutes);
 app.use('/api/categories', categoryRoutes); // GET / (ITEM-01)
 app.use('/api/items', itemRoutes); // GET / 품목 검색 (ITEM-02) — itemCommunityRoutes보다 먼저
+app.use('/api/items', newSubscriberItemRoutes); // GET /:itemId/market-price (ITEM-04)
 app.use('/api/items', itemCommunityRoutes); // GET /trending, GET /:itemId (ITEM-03)
 app.use('/api/users/me', myWishRoutes); // GET /wishes
 app.use('/api/users/me', mypageRoutes); // 마이페이지: summary, listings, purchases, posts, comments, nickname, password
+app.use('/api/users/me', newSubscriberMeRoutes); // GET /listing-limit
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/community', commentRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/uploads', uploadRoutes); // POST /images (판매글)
-app.use('/api/uploads', postUploadRoutes); // POST /post-images (토론글)
+app.use('/api/uploads', postUploadRoutes); // POST /post-images (토론글), /chat-images (채팅)
+app.use('/api/chat', chatRoutes); // 채팅 REST (실시간 수신은 server.js의 /ws/chat)
 app.use('/api/communityVote', communityVoteRoutes);
 
 app.use((req, res, next) => next(new HttpError(404, 'NOT_FOUND', '요청한 API를 찾을 수 없습니다.')));

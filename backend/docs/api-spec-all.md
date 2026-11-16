@@ -16,6 +16,7 @@
 | [7](#7-통일이-필요한-항목) | — | 문서 간 충돌 정리 |
 | [8](#8-시세-전망-투표-communityvote) | 시세 전망 투표 (CommunityVote) | 투표 집계 조회, 오른다/내린다 투표 |
 | [9](#9-알림-notification) | 알림 (Notification) | 알림 목록, 안 읽은 수, 읽음 처리 |
+| [10](#10-채팅-chat) | 채팅 (Chat) | 채팅방 만들기·목록, 메시지 목록·보내기, 읽음, 사진 업로드, WebSocket 실시간 수신 |
 
 ## 공통 응답 형식 (모든 문서 공통)
 
@@ -857,8 +858,10 @@ GET /api/v1/items/{itemId}?condition=graded&gradingService=PSA&grade=10
 판매글 등록·수정 화면에서 입력한 가격이 시세와 얼마나 차이 나는지 보여주는 데 씁니다. 판매글 상세의 "최근 30일 평균 체결가"에도 씁니다.
 
 ```
-GET /api/v1/items/{itemId}/market-price?condition=graded&gradingService=PSA&grade=10&days=30
+GET /api/items/{itemId}/market-price?condition=graded&gradingService=PSA&grade=10&days=30
 ```
+
+> 구현됨 (#54): `backend/src/newsubscriber/`. `itemId`는 ITEM-03과 같이 `id` 또는 `slug`. 저가 경고 기준(`lowPriceRatio`, `lowPriceThreshold`)을 응답에 추가했다.
 
 #### Query Parameters
 
@@ -883,10 +886,20 @@ GET /api/v1/items/{itemId}/market-price?condition=graded&gradingService=PSA&grad
     "minPrice": 255000,
     "maxPrice": 365000,
     "lastSoldPrice": 310000,
-    "lastSoldAt": "2025-11-09T14:20:00+09:00"
+    "lastSoldAt": "2025-11-09T05:20:00.000Z",
+    "lowPriceRatio": 0.3,
+    "lowPriceThreshold": 224000
   }
 }
 ```
+
+| 필드 | 타입 | 설명 |
+|---|---|---|
+| `condition`, `gradingService`, `grade` | string \| null | 적용한 필터. 생략했으면 `null` (전체) |
+| `averagePrice` | number \| null | 기간 평균 체결가 (원 단위 반올림) |
+| `medianPrice` | number \| null | 중앙값. 짝수 건이면 가운데 두 값의 평균 |
+| `lowPriceRatio` | number | 저가 경고 기준 비율. DB `settings.low_price_warning_ratio` (기본 `0.3`) |
+| `lowPriceThreshold` | number \| null | `averagePrice × (1 − lowPriceRatio)`. 이보다 싸면 저가 경고. 시세가 없으면 `null` |
 
 거래 이력이 없는 경우:
 
@@ -904,7 +917,9 @@ GET /api/v1/items/{itemId}/market-price?condition=graded&gradingService=PSA&grad
     "minPrice": null,
     "maxPrice": null,
     "lastSoldPrice": null,
-    "lastSoldAt": null
+    "lastSoldAt": null,
+    "lowPriceRatio": 0.3,
+    "lowPriceThreshold": null
   }
 }
 ```
@@ -913,12 +928,13 @@ GET /api/v1/items/{itemId}/market-price?condition=graded&gradingService=PSA&grad
 
 | 상태 | code | 상황 |
 |---|---|---|
-| 400 | `INVALID_PARAMETER` | `days`가 허용값이 아님, `condition`이 `graded`가 아닌데 `grade` 지정 |
-| 404 | `ITEM_NOT_FOUND` | 없는 품목 |
+| 400 | `VALIDATION_ERROR` | `days`가 7·30·90이 아님, `condition`·`gradingService`·`grade` 값 오류, `condition=graded`가 아닌데 `gradingService`·`grade` 지정 (7장 #9에 따라 `INVALID_PARAMETER` 대신 사용) |
+| 404 | `ITEM_NOT_FOUND` | 없는 품목, 숨김 품목 |
 
 #### 비고
-- 사기 의심 경고(시세 대비 ±30% 이상)는 프론트에서 `averagePrice`로 계산
-- 기간 필터를 위해 `listings`에 **`sold_at` 컬럼이 필요**합니다 (현재 ERD에 없음)
+- 저가(사기 의심) 경고(REQ-POST-013): 입력 가격 < `lowPriceThreshold`이면 프론트가 경고. 등록을 막지는 않음
+- 시세 계산 기준은 ITEM-03과 같음: `status = 'sold'`, `deleted_at IS NULL`, `sold_at`이 최근 `days`일 이내
+- 판매글 등록·수정 화면은 선택한 품목·상태(그레이딩이면 그레이딩사·등급까지)로 이 API를 부른다
 
 ---
 
@@ -1033,7 +1049,7 @@ GET /api/v1/items/{itemId}/listings?excludeListingId=882194&sort=priceAsc&size=1
 | `ItemCondition` | `unopened` / `opened_raw` / `graded` | 미개봉 / 개봉 노슬랩 / 그레이딩 슬랩 |
 | `GradingService` | `PSA` / `BGS` / `CGC` / `BRG` | `condition = graded`일 때만 값이 있음 |
 | `Grade` | `10` / `9.5` / `9` / `8.5` / `8` / `7` | 문자열. `7`은 "7 이하" |
-| `ListingSort` | `latest` / `priceAsc` / `priceDesc` / `popular` | `popular` = 찜 수 많은 순 |
+| `ListingSort` | `latest` / `priceAsc` / `priceDesc` / `popular` | `popular` = 찜 수 많은 순, 같으면 조회수 많은 순 |
 
 > 값은 [2장 카테고리·품목](#2-카테고리품목-item)의 시세 필터 파라미터, 프론트 `data/listingForm.ts`와 같은 소문자 값을 씁니다.
 
@@ -1051,7 +1067,7 @@ LISTING-01, LISTING-10, ITEM-05가 **같은 형식**으로 응답합니다. 프�
 | `condition` | ItemCondition | | `"graded"` |
 | `gradingService` | string \| null | | `"PSA"` |
 | `grade` | string \| null | | `"10"` |
-| `thumbnailUrl` | string \| null | `listing_images`에서 `sort_order = 0`인 이미지 | `"https://..."` |
+| `thumbnailUrl` | string \| null | `listing_images`에서 `sort_order = 0`인 사진. 없으면 품목 대표 이미지, 그것도 없으면 `null` | `"https://..."` |
 | `directLocation` | string \| null | 직거래 불가면 `null` | `"서울 관악구 남현동"` |
 | `wishCount` | number | 찜 수 | `38` |
 | `isWished` | boolean | 로그인 시 내 찜 여부, 비로그인이면 항상 `false` | `false` |
@@ -1086,7 +1102,7 @@ ListingSummary의 모든 필드에 아래 필드가 더해집니다.
 ### LISTING-01. 판매글 검색·목록
 
 ```
-GET /api/v1/listings?q=리자몽&category=pokemon&condition=graded&grades=PSA-10,BGS-9.5&minPrice=100000&maxPrice=500000&tradeMethod=direct&excludeSold=true&sort=latest&page=1&size=10
+GET /api/v1/listings?q=리자몽&category=pokemon&condition=graded&grades=PSA-10,BGS-9.5&minPrice=100000&maxPrice=500000&tradeMethod=direct&itemState=used&excludeSold=true&sort=latest&page=1&size=10
 ```
 
 #### Query Parameters
@@ -1101,12 +1117,17 @@ GET /api/v1/listings?q=리자몽&category=pokemon&condition=graded&grades=PSA-10
 | `minPrice` | number | N | - | 최소 가격 (이상) |
 | `maxPrice` | number | N | - | 최대 가격 (이하) |
 | `tradeMethod` | string | N | - | `delivery` / `direct`. 둘 다면 쉼표로 구분 (하나라도 만족하면 포함) |
+| `itemState` | string | N | - | `new`(새상품 = `unopened`) / `used`(중고 = `opened_raw`, `graded`). 둘 다면 제한 없음. 등급 조건과는 AND |
+| `sizes` | string | N | - | 운동화 사이즈 구간 `le230`(230 이하) / `235-250` / `255-265` / `270-280` / `ge285`(285 이상), 쉼표로 여러 개. `attributes.sizeMm` 기준이라 사이즈가 없는 글은 빠짐 |
 | `excludeSold` | boolean | N | `true` | `true`면 `sold` 제외 |
 | `sort` | string | N | `latest` | `ListingSort` |
 | `page` | number | N | `1` | 1부터 시작 |
 | `size` | number | N | `10` | 최대 50 |
 
 > 검색 화면의 등급 필터 "미개봉"은 `condition=unopened`, "그레이딩 없음"은 `condition=opened_raw`로 보냅니다.
+> 옵션의 "새상품/중고"는 `itemState`로 보냅니다. 사이즈 필터는 운동화 카테고리를 골랐을 때만 켜지고 `sizes`로 보냅니다.
+> 운동화 사이즈는 `listings.attributes`의 `{ "sizeMm": 275 }`에 저장합니다. 시드 데이터는 제목의 `275mm`에서 채우고, 판매글 등록 화면에는 아직 사이즈 입력이 없습니다.
+> 검색 화면 주소(`/search?q=&category=&grades=psa10&size=270-280&state=new&trade=direct&minPrice=&maxPrice=&includeSold=1&sort=&page=`)에 조건을 모두 남겨 새로고침·뒤로가기 때 유지합니다.
 
 #### Response `200 OK`
 
@@ -1162,9 +1183,9 @@ GET /api/v1/listings?q=리자몽&category=pokemon&condition=graded&grades=PSA-10
   | `latest` | 등록일 최신 → `id` 큰 순 |
   | `priceAsc` | 가격 낮은 순 → `id` 큰 순 |
   | `priceDesc` | 가격 높은 순 → `id` 큰 순 |
-  | `popular` | 찜 수(`wish_count`) 많은 순 → 등록일 최신 → `id` 큰 순. **조회수는 보지 않는다** |
+  | `popular` | 찜 수(`wish_count`) 많은 순 → 조회수(`view_count`) 많은 순 → 등록일 최신 → `id` 큰 순 |
 - `page`가 마지막 페이지보다 크면 `items: []`와 실제 `totalCount`로 200 응답. 화면(P-009)은 마지막 페이지로 다시 요청한다
-- 화면(P-009)은 `sort`·`page`·필터를 화면 URL 쿼리에 남겨 새로고침·뒤로가기 후에도 유지한다 (`/search?q=리자몽&sort=priceAsc&page=2`)
+- 화면(P-009) 페이지 번호는 5개 묶음(1~5, 6~10)으로 보여주고, 화살표는 앞·뒤 묶음으로 이동한다 (REQ-LIST-011)
 
 ---
 
@@ -1309,6 +1330,7 @@ Content-Type: application/json
 |---|---|---|
 | 400 | `VALIDATION_ERROR` | 위 규칙 위반 (필드별 사유는 `error.details`에 담음). `imageIds`에 `type=auth` 이미지, `authImageId`에 `type=photo` 이미지를 넣은 경우도 포함 |
 | 401 | `UNAUTHORIZED` | 비로그인 |
+| 403 | `NEW_USER_PRICE_LIMIT` | 신규 가입자가 제한 금액 이상으로 등록 (아래 [신규 가입자 제한](#신규-가입자-등록-제한-req-post-018)) |
 | 404 | `ITEM_NOT_FOUND` | 없는 `itemId` |
 | 404 | `IMAGE_NOT_FOUND` | 없는 이미지이거나 내가 올린 이미지가 아님 |
 | 409 | `IMAGE_ALREADY_USED` | 다른 판매글에 이미 연결된 이미지 |
@@ -1332,7 +1354,64 @@ Content-Type: application/json
 - 새 판매글의 `status`는 `selling`
 - 판매글 저장과 `listing_images` 연결은 **한 트랜잭션**으로 처리
 - 같은 사진을 `imageIds`에 두 번 넣을 수 없고, `authImageId`는 `imageIds`와 다른 이미지여야 함
-- 시세 대비 ±30% 경고는 등록을 막지 않음 (프론트에서 ITEM-04로 계산해 안내만)
+- 시세 대비 저가 경고(기본 30%)는 등록을 막지 않음 (프론트가 ITEM-04 `lowPriceThreshold`로 안내만)
+- 검사 순서: 품목 → 신규 가입자 제한 → 이미지
+
+#### 신규 가입자 등록 제한 (REQ-POST-018)
+
+> 구현 (#54): `backend/src/newsubscriber/`. 처음 스펙(1장 확인 사항 #14 "제한 없음")에서 요구사항대로 바꿨다.
+
+- 가입 후 `settings.new_user_limit_days`(기본 **7일**)가 지나지 않은 회원은 `settings.new_user_price_limit`(기본 **1,000,000원**) **이상**으로 판매글을 등록할 수 없다 (`price < 제한 금액`만 허용).
+- LISTING-04 수정에서 **가격을 올릴 때**도 같은 검사를 한다. 내리는 수정은 막지 않는다.
+- 기준값은 DB `settings` 테이블에 있다 (REQ-COMMON-005, `docs/erd.md` 2.17). 관리자 화면이 생기기 전까지 DB에서 직접 바꾸며, 서버 재시작 없이 바로 반영된다. 행이 없거나 값이 잘못되면 기본값을 쓴다.
+- 등록·수정 화면 안내는 `GET /api/users/me/listing-limit`(아래 LIMIT-01)로 미리 보여준다.
+
+```json
+{
+  "error": {
+    "code": "NEW_USER_PRICE_LIMIT",
+    "message": "가입 후 7일이 지나지 않은 회원은 1,000,000원 이상의 판매글을 등록할 수 없습니다. (2026-11-23 14:14부터 가능)",
+    "details": [{ "field": "price", "message": "1,000,000원 미만으로 입력해 주세요." }]
+  }
+}
+```
+
+### LIMIT-01. 내 신규 가입자 제한 조회
+
+```
+GET /api/users/me/listing-limit
+```
+
+로그인 필요. 판매글 등록·수정 화면의 "신규 가입 회원 안내"에 쓴다.
+
+#### Response `200 OK`
+
+```json
+{
+  "data": {
+    "isNewUser": true,
+    "newUserDays": 7,
+    "limitPrice": 1000000,
+    "joinedAt": "2026-11-16T05:14:11.000Z",
+    "limitEndsAt": "2026-11-23T05:14:11.000Z"
+  }
+}
+```
+
+| 필드 | 타입 | 설명 |
+|---|---|---|
+| `isNewUser` | boolean | 지금 제한을 받는지 (`현재 < limitEndsAt`) |
+| `newUserDays` | number | 신규 가입자 기간(일) |
+| `limitPrice` | number | 이 금액 **이상**은 등록·가격 인상 불가 |
+| `joinedAt` | string | 가입 시각 (UTC ISO) |
+| `limitEndsAt` | string | 제한이 풀리는 시각 = `joinedAt + newUserDays일` |
+
+#### Errors
+
+| 상태 | code | 상황 |
+|---|---|---|
+| 401 | `UNAUTHORIZED` | 비로그인, 탈퇴한 회원 |
+| 401 | `INVALID_TOKEN` | 만료·위조 토큰 |
 
 ---
 
@@ -1430,6 +1509,7 @@ Content-Type: application/json
 | 400 | `VALIDATION_ERROR` | 규칙 위반, `itemId` 포함, 허용되지 않는 `condition` 변경 |
 | 401 | `UNAUTHORIZED` | 비로그인 |
 | 403 | `FORBIDDEN` | 작성자가 아님 |
+| 403 | `NEW_USER_PRICE_LIMIT` | 신규 가입자가 가격을 제한 금액 이상으로 올림 (LISTING-03 [신규 가입자 제한](#신규-가입자-등록-제한-req-post-018)) |
 | 404 | `LISTING_NOT_FOUND` | 없는 판매글 |
 | 409 | `LISTING_ALREADY_SOLD` | 거래완료된 판매글은 수정 불가 |
 
@@ -2451,7 +2531,7 @@ curl -b cookie.txt -X DELETE http://localhost:4000/api/posts/1
 - 작성·삭제와 `posts.comment_count` ±1은 한 트랜잭션. 같은 댓글을 두 번 삭제해도 한 번만 줄어든다
 - 답글 더보기: 삭제됐어도 살아 있는 답글이 있는 댓글이면 조회 가능, 답글(`parentId` 있음)의 id로 요청하면 `404 COMMENT_NOT_FOUND`
 - `author.badges`: 보유자·거래 인증 데이터(테이블)가 아직 없어 **항상 `[]`**
-- 시드(`npm run db:seed` → `db/seed.sql`): 모든 테이블을 비우고 id를 고정해 다시 넣는다(팀원 모두 같은 데이터). 회원 10명, 품목 33종, 판매글 284건(거래완료 = 시세 이력), 토론글 56개(사진·희망 체결가·투표 포함), 댓글·답글 약 290개(삭제된 댓글 포함), 리액션·좋아요·시세 전망 투표·신고. 시각은 실행 시점 기준 상대값이고, 댓글 시각은 항상 글(답글은 부모 댓글)보다 늦다. 집계 컬럼은 마지막에 실제 행 수로 맞춘다
+- 시드(`npm run db:seed` → `db/seed.sql`): 모든 테이블을 비우고 id를 고정해 다시 넣는다(팀원 모두 같은 데이터). 회원 11명(신규 가입자 확인용 `newbie` — 하루 전 가입, 데이터 없음. 데이터를 지우지 않고 이 계정만 넣으려면 `npm run db:newbie`), 품목 33종, 판매글 284건(거래완료 = 시세 이력), 토론글 56개(사진·희망 체결가·투표 포함), 댓글·답글 약 290개(삭제된 댓글 포함), 리액션·좋아요·시세 전망 투표·신고. 시각은 실행 시점 기준 상대값이고, 댓글 시각은 항상 글(답글은 부모 댓글)보다 늦다. 집계 컬럼은 마지막에 실제 행 수로 맞춘다
 
 ### 미정 항목 (팀 결정 필요)
 
@@ -2710,3 +2790,217 @@ POST  /api/notifications/read-all                → 204
 
 `backend/db/schema.sql`의 `notifications` 테이블. 읽음은 `read_at`(NULL = 안 읽음)으로 표시한다.
 글·댓글·판매글·회원이 실제로 지워지면(FK CASCADE) 알림도 같이 지워진다. 시드는 시드 댓글에서 알림을 만들고, 회원마다 최근 5건만 안 읽음으로 둔다.
+
+---
+
+# 10. 채팅 (Chat)
+
+> 요구사항: REQ-DETAIL-005 판매글 상세 1:1 채팅창, REQ-HEADER-004 헤더 채팅 목록·안 읽은 수
+> API 정의서: `api-definition.md` 6장 CHAT-01~07
+> 공통 규칙(Base URL `/api`, `{ "data": ... }` / `{ "error": ... }` 응답, `accessToken` 쿠키 인증)은 5장 토론글과 같다. 🔒 = 로그인 필요 (이 장의 API는 모두 🔒).
+
+### 1. 규칙
+
+- 채팅방은 **판매글 1개 × 구매자 1명**에 하나다. 같은 구매자가 같은 판매글로 다시 채팅하면 기존 방을 쓴다.
+- 판매자는 자기 판매글로 채팅방을 만들 수 없다. 구매 문의를 받은 방에서 답한다.
+- 판매완료(`sold`)·삭제된 판매글로는 **새 방을 만들 수 없다.** 이미 있는 방은 계속 쓸 수 있다(거래 후 연락).
+- 메시지는 텍스트(1~1000자) 또는 사진 1장. 메시지 수정·삭제는 없다.
+- **보내기는 REST(`POST .../messages`)로, 받기는 WebSocket(`/ws/chat`)으로** 한다. WebSocket이 끊겨도 REST로 보낸 메시지는 저장되고, 다시 열면 목록 API로 받아온다.
+- 읽음은 방마다 "어디까지 읽었는지"(마지막으로 읽은 메시지 id)로 저장한다. 안 읽은 수 = 그보다 뒤에 상대가 보낸 메시지 수.
+- 내가 메시지를 보내면 그 방은 내 메시지까지 읽은 것으로 본다.
+
+**텍스트 필터** (저장 전에 바꾼다, 요청은 거절하지 않음):
+
+| 대상 | 예 | 결과 |
+|---|---|---|
+| 욕설 (REQ-COMMON-006, 토론글과 같은 규칙) | `존나 비싸네` | `** 비싸네` |
+| 전화번호 | `010-1234-5678`, `01012345678`, `010 1234 5678`, `02-123-4567` | 숫자를 `*`로 |
+| 외부 메신저 유도 | `카톡 abc123`, `카카오톡 아이디: abc`, `오픈채팅`, `텔레그램 @abc`, `open.kakao.com/o/xxx`, `t.me/xxx` | 단어와 뒤의 아이디·링크를 `*`로 |
+
+- 채팅창 안내 문구 "개인정보 보호를 위해 전화번호, 외부 메신저 유도는 자동 필터링됩니다."의 근거. 안전거래(에스크로) 밖으로 거래를 빼는 사기를 막기 위한 것.
+- 계좌번호는 가리지 않는다 (직거래 송금용, REQ-DETAIL-014 "연락처·계좌는 1:1 채팅에서만").
+- 응답의 `filtered: true`로 가려진 부분이 있었는지 알려준다 (프론트 안내 토스트용).
+- 규칙: `backend/src/utils/contactFilter.js`, `backend/src/utils/profanity.js`
+
+### 2. API 요약
+
+| ID | 메서드 | 경로 | 설명 | 성공 |
+|---|---|---|---|---|
+| CHAT-01 | POST | `/api/chat/rooms` | 채팅방 만들기 (있으면 기존 방) | 201 / 200 |
+| CHAT-02 | GET | `/api/chat/rooms` | 내 채팅방 목록 | 200 |
+| CHAT-06 | GET | `/api/chat/rooms/{roomId}` | 채팅방 하나 | 200 |
+| CHAT-03 | GET | `/api/chat/rooms/{roomId}/messages` | 메시지 목록 (과거 방향 페이지) | 200 |
+| CHAT-04 | POST | `/api/chat/rooms/{roomId}/messages` | 메시지 보내기 | 201 |
+| CHAT-07 | PUT | `/api/chat/rooms/{roomId}/read` | 이 방 모두 읽음 | 200 |
+| CHAT-08 | GET | `/api/chat/unread-count` | 안 읽은 메시지 수 (헤더 배지) | 200 |
+| UPLOAD-03 | POST | `/api/uploads/chat-images` | 채팅 사진 업로드 | 201 |
+| CHAT-05 | WS | `/ws/chat` | 새 메시지·읽음·안 읽은 수 실시간 수신 | — |
+
+### 3. 객체
+
+**ChatRoom**
+
+```json
+{
+  "id": 7,
+  "listing": {
+    "id": 16, "title": "[PSA 10] 리자몽 ex SAR", "price": 300000, "status": "selling",
+    "thumbnailUrl": "https://...", "isDeleted": false
+  },
+  "partner": { "id": 4, "nickname": "홀로마스터" },
+  "myRole": "buyer",
+  "lastMessage": { "id": 120, "senderId": 1, "type": "text", "body": "아직 구매 가능한가요?", "createdAt": "2026-11-16T05:10:00.000Z" },
+  "unreadCount": 2,
+  "partnerLastReadMessageId": 118,
+  "createdAt": "2026-11-16T05:00:00.000Z"
+}
+```
+
+| 필드 | 설명 |
+|---|---|
+| `listing.thumbnailUrl` | 대표 사진. 없으면 `null` |
+| `listing.isDeleted` | 판매글이 삭제됐으면 `true` (방은 남는다) |
+| `partner` | 상대방 (내가 구매자면 판매자, 판매자면 구매자) |
+| `myRole` | `buyer` \| `seller` |
+| `lastMessage` | 마지막 메시지. 메시지가 없으면 `null`. 사진이면 `type: "image"`, `body: null` |
+| `unreadCount` | 이 방에서 상대가 보낸, 내가 아직 안 읽은 메시지 수 |
+| `partnerLastReadMessageId` | 상대가 어디까지 읽었는지. 내 메시지의 "읽음" 표시에 쓴다. 안 읽었으면 `null` |
+
+**ChatMessage**
+
+```json
+{ "id": 121, "roomId": 7, "senderId": 1, "type": "image", "body": null, "imageUrl": "/uploads/chat/2f1c...e9.jpg", "createdAt": "2026-11-16T05:11:00.000Z" }
+```
+
+`type`: `text`(본문 `body`) \| `image`(`imageUrl`, 서버 기준 경로 — 프론트는 `toAssetUrl`로 API 서버 주소를 붙인다). 내 메시지인지는 `senderId`와 내 id(`GET /auth/me`)로 구분한다.
+
+### 4. CHAT-01 채팅방 만들기
+
+```
+POST /api/chat/rooms
+{ "listingId": 16 }
+```
+
+- 새로 만들었으면 `201`, 이미 있으면 `200` → `{ "data": { "room": ChatRoom } }`
+- 판매글 상세의 "1:1 채팅하기"가 부른다. 방만 만들고 메시지는 보내지 않으므로, 메시지가 없는 방은 CHAT-02 목록에 나오지 않는다.
+
+| 에러 | 상태 | 조건 |
+|---|---|---|
+| `VALIDATION_ERROR` | 400 | `listingId`가 1 이상 정수가 아님 |
+| `CANNOT_CHAT_OWN_LISTING` | 403 | 내 판매글 |
+| `LISTING_NOT_FOUND` | 404 | 없거나 삭제된 판매글 (새 방일 때) |
+| `LISTING_SOLD` | 409 | 판매완료 판매글 (새 방일 때) |
+
+### 5. CHAT-02 내 채팅방 목록 / CHAT-06 채팅방 하나 / CHAT-08 안 읽은 수
+
+```
+GET /api/chat/rooms               → { "data": { "items": ChatRoom[], "unreadCount": 3 } }
+GET /api/chat/rooms/{roomId}      → { "data": { "room": ChatRoom } }
+GET /api/chat/unread-count        → { "data": { "unreadCount": 3 } }
+```
+
+- 목록은 구매자·판매자로 참여한 방 모두, **메시지가 있는 방만**, 마지막 메시지가 최근인 순. 최대 100개.
+- `unreadCount`(목록·CHAT-08)는 모든 방의 안 읽은 수 합계 — 헤더 채팅 배지.
+- 내가 참여하지 않은 방은 `404 CHAT_ROOM_NOT_FOUND` (방이 있는지도 알려주지 않는다).
+
+### 6. CHAT-03 메시지 목록
+
+```
+GET /api/chat/rooms/{roomId}/messages?before=121&size=30
+```
+
+| 쿼리 | 기본값 | 설명 |
+|---|---|---|
+| `before` | - | 이 id보다 **이전** 메시지. 생략하면 최신부터 |
+| `size` | `30` | 1~100 |
+
+응답 `200` → `{ "data": { "items": ChatMessage[], "hasMore": true } }`
+
+- `items`는 **오래된 순**(화면에 그대로 위→아래로 그린다). 더 이전 메시지는 `before`에 첫 메시지 id를 넣어 부른다.
+- 목록을 불러와도 읽음 처리는 하지 않는다 — 화면에서 CHAT-07을 부른다.
+
+### 7. CHAT-04 메시지 보내기
+
+```
+POST /api/chat/rooms/{roomId}/messages
+{ "type": "text", "body": "아직 구매 가능한가요?" }
+{ "type": "image", "imageId": 31 }
+```
+
+| 필드 | 규칙 |
+|---|---|
+| `type` | `text` \| `image` |
+| `body` | `text`일 때 필수. 앞뒤 공백 제거 후 1~1000자. 저장 전에 텍스트 필터 적용 |
+| `imageId` | `image`일 때 필수. UPLOAD-03으로 **내가 올렸고 아직 보내지 않은** 사진 |
+
+응답 `201` → `{ "data": { "message": ChatMessage, "filtered": false } }`
+
+- 저장 후 WebSocket으로 두 사람에게 `message` 이벤트를, 받는 사람에게 `unread` 이벤트를 보낸다.
+
+| 에러 | 상태 | 조건 |
+|---|---|---|
+| `VALIDATION_ERROR` | 400 | `type`·`body`·`imageId` 규칙 위반 |
+| `IMAGE_NOT_AVAILABLE` | 400 | 남의 사진, 이미 보낸 사진, 없는 사진 |
+| `CHAT_ROOM_NOT_FOUND` | 404 | 없거나 내가 참여하지 않은 방 |
+
+### 8. CHAT-07 모두 읽음
+
+```
+PUT /api/chat/rooms/{roomId}/read
+```
+
+응답 `200` → `{ "data": { "unreadCount": 1 } }` (읽음 처리 후 **전체** 안 읽은 수)
+
+- 이 방의 마지막 메시지까지 읽은 것으로 저장한다. 상대에게 `read` 이벤트를 보낸다.
+- 채팅창이 열려 있는 동안 새 메시지를 받으면 프론트가 다시 부른다.
+
+### 9. UPLOAD-03 채팅 사진 업로드
+
+```
+POST /api/uploads/chat-images   (multipart/form-data, 파일 필드 image)
+```
+
+- JPG·PNG·WebP, 5MB 이하, 1장씩 (토론글 사진 업로드와 같은 검사 — Content-Type + 파일 시그니처).
+- 파일은 `backend/uploads/chat/`에 UUID 이름으로 저장되고 `/uploads/chat/<파일명>`으로 제공된다.
+- 응답 `201` → `{ "data": { "image": { "id": 31, "url": "/uploads/chat/2f1c...e9.jpg" } } }`
+- 보내지 않은 사진 정리는 토론글 사진과 같이 나중 작업.
+
+에러: `400 INVALID_FILE_TYPE`, `400 FILE_TOO_LARGE`, `400 VALIDATION_ERROR`(파일 없음), `401`
+
+### 10. CHAT-05 WebSocket `/ws/chat`
+
+```
+ws://127.0.0.1:4000/ws/chat
+```
+
+- **인증**: 로그인 쿠키(`accessToken`)를 그대로 쓴다. 브라우저가 연결할 때 쿠키를 자동으로 붙인다.
+- **Origin 검사**: `CORS_ORIGIN`과 다른 사이트에서 연 연결은 거절한다 (쿠키 인증이라 다른 사이트가 대신 연결하는 것을 막는다).
+- 로그인이 없거나 만료되면 닫는 코드 `4401`, Origin이 다르면 `4403`. 프론트는 `4401`·`4403`이면 다시 연결하지 않는다.
+- 토큰이 만료되는 시각에 서버가 `4401`로 닫는다. 그 외에 끊기면 프론트가 점점 길게 기다리며 다시 연결한다.
+- 서버 → 클라이언트 메시지만 있다 (보내기는 REST). 30초마다 ping으로 끊긴 연결을 정리한다.
+
+| `type` | 받는 사람 | 내용 |
+|---|---|---|
+| `message` | 두 사람 모두 (보낸 사람의 다른 탭 포함) | `{ "type": "message", "roomId": 7, "message": ChatMessage }` |
+| `read` | 상대 | `{ "type": "read", "roomId": 7, "readerId": 4, "lastReadMessageId": 121 }` |
+| `unread` | 안 읽은 수가 바뀐 사람 | `{ "type": "unread", "unreadCount": 3 }` |
+
+### 11. 에러 코드
+
+| Code | 상태 | 의미 |
+|---|---|---|
+| `VALIDATION_ERROR` | 400 | 요청 값 규칙 위반 |
+| `IMAGE_NOT_AVAILABLE` | 400 | 보낼 수 없는 사진 |
+| `UNAUTHORIZED` / `INVALID_TOKEN` | 401 | 로그인 안 함 / 만료 |
+| `CANNOT_CHAT_OWN_LISTING` | 403 | 내 판매글로 채팅방 만들기 |
+| `LISTING_NOT_FOUND` | 404 | 없거나 삭제된 판매글 |
+| `CHAT_ROOM_NOT_FOUND` | 404 | 없거나 내가 참여하지 않은 방 |
+| `LISTING_SOLD` | 409 | 판매완료 판매글로 새 방 만들기 |
+
+### 12. DB
+
+`backend/db/schema.sql`의 `chat_rooms`, `chat_messages`, `chat_images` (erd.md 2.17~2.19).
+
+- `chat_rooms`: UNIQUE `(listing_id, buyer_id)`. 목록 정렬용 `last_message_id`·`last_message_at`, 읽음 위치 `buyer_read_message_id`·`seller_read_message_id`.
+- `chat_messages`: `type`이 `text`면 `body`, `image`면 `image_id`. `image_id` UNIQUE라 사진 한 장은 한 번만 보낼 수 있다.
+- `chat_images`: 업로드한 사진. 메시지에 쓰이기 전까지는 어떤 메시지도 가리키지 않는다.

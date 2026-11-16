@@ -10,9 +10,13 @@ export interface ListingSearchParams {
   readonly condition?: readonly ItemCondition[];
   /** `{그레이딩사}-{등급}` (예: PSA-10). */
   readonly grades?: readonly string[];
+  /** 운동화 사이즈 구간 (le230 · 235-250 · 255-265 · 270-280 · ge285). */
+  readonly sizes?: readonly string[];
   readonly minPrice?: number | null;
   readonly maxPrice?: number | null;
   readonly tradeMethod?: readonly ('delivery' | 'direct')[];
+  /** 새상품(미개봉) / 중고(개봉 노슬랩·그레이딩). 하나만 보낼 때 의미가 있다. */
+  readonly itemState?: readonly ('new' | 'used')[];
   readonly excludeSold?: boolean;
   readonly sort?: ListingSort;
   readonly page?: number;

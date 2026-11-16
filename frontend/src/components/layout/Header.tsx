@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { brand, headerData, navItems, ROUTES } from '../../data/layout';
+import { useChat } from '../../hooks/chat/useChat';
 import { useHeaderAuth } from '../../hooks/layout/useHeaderAuth';
 import { useNotifications } from '../../hooks/layout/useNotifications';
 import { useWishlistDrawer } from '../../hooks/layout/useWishlistDrawer';
@@ -25,6 +26,7 @@ export const Header: React.FC<HeaderProps> = ({ showNotice = true }) => {
   const headerAuth = useHeaderAuth();
   const notifications = useNotifications();
   const wishlist = useWishlistDrawer();
+  const chat = useChat();
   // 판매는 로그인 회원만 (REQ-HEADER-003). 로그인 확인 중에는 판매 화면으로 둔다.
   const sellTo = headerAuth.status === 'guest' ? ROUTES.login : ROUTES.sell;
 
@@ -67,16 +69,28 @@ export const Header: React.FC<HeaderProps> = ({ showNotice = true }) => {
               <Icon className="text-[18px]" name="add" />
               <span>{headerData.sellLabel}</span>
             </Link>
-            {/* 채팅 API가 아직 없어 숫자 없이 둔다 (REQ-HEADER-004). */}
-            <button
-              aria-disabled="true"
-              className="relative p-2 rounded text-muted cursor-not-allowed hidden md:flex items-center gap-1 font-ui-sm text-ui-sm"
-              title={headerData.chatSoon}
-              type="button"
-            >
-              <Icon className="text-[20px]" name="chat_bubble" />
-              <span>{headerData.chatLabel}</span>
-            </button>
+            {/* 채팅 목록·안 읽은 수 (REQ-HEADER-004). 비로그인이면 로그인 화면으로. */}
+            {headerAuth.status === 'guest' ? (
+              <Link
+                className="relative p-2 rounded text-on-surface-variant hover:text-on-surface hover:bg-canvas-soft hidden md:flex items-center gap-1 font-ui-sm text-ui-sm"
+                title={headerData.chatLoginTitle}
+                to={ROUTES.login}
+              >
+                <Icon className="text-[20px]" name="chat_bubble" />
+                <span>{headerData.chatLabel}</span>
+              </Link>
+            ) : (
+              <button
+                aria-expanded={chat.view.kind === 'list'}
+                className="relative p-2 rounded text-on-surface-variant hover:text-on-surface hover:bg-canvas-soft hidden md:flex items-center gap-1 font-ui-sm text-ui-sm"
+                onClick={chat.openList}
+                type="button"
+              >
+                <Icon className="text-[20px]" name="chat_bubble" />
+                <span>{headerData.chatLabel}</span>
+                <HeaderCountBadge count={chat.unreadCount} />
+              </button>
+            )}
             <NotificationMenu state={notifications} />
             <HeaderUserMenu
               loggingOut={headerAuth.loggingOut}

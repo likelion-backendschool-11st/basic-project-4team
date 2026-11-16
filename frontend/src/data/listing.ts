@@ -93,7 +93,6 @@ export const toastMessages = {
   copiedFallback: 'URL이 복사되었습니다.',
   wishAdded: '찜 목록에 추가되었습니다.',
   wishRemoved: '찜이 해제되었습니다.',
-  chatSent: '메시지가 전송되었습니다.',
   statusChanged: (status: string) => `상품 상태가 '${status}'(으)로 변경되었습니다.`,
   deleted: '판매글이 성공적으로 삭제되었습니다.',
   dealCompleted: (price: string) => `거래완료 처리되었습니다. (반영시세: ${price}원)`,
@@ -179,7 +178,6 @@ export const listingDetailCopy = {
   ratingEmpty: '-',
   ratingCountEmpty: '(리뷰 준비중)',
   otherTitle: '판매자의 다른 상품',
-  chatWelcome: (title: string) => `안녕하세요! [${title}] 문의 주셔서 감사합니다. 편하게 문의주세요!`,
   timeAgo: {
     justNow: '방금 전',
     minutes: (n: number) => `${n}분 전`,
@@ -231,8 +229,6 @@ const IMG = {
   holo: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBLyvGJdN3n_Qlhae5aMXkQKmNS7njyl9i0FyhU1P--1FXtZNKJfSi-jE6eqPtBJP678nRtnL5mysy9Jc8HxxbOOP8CQYj1TjHRKjBXt5Zq2yVW5ETy8BRwOEv946z8g8XIrSEtWcj__rGb71bqeX_ZkXOHGiZghFgV36-StZOEL3H_kqVBxYjRtWOxdSvjhk2DIWSqHwsbiC7MWFXKEE-rnCZW5VG1ECTecPrTH98',
   label:
     'https://lh3.googleusercontent.com/aida-public/AB6AXuBUkz3a_q2GLIzAbqIZo1sXBCNMQ6EZtJi9_0BGIHYR5tOUabKxlSJc8CnyBA1EdDfQl-FtqPNtbt6gsBA0cnQQX7rFZcA0lBkhsMysZt3NA-HtZ_M3Qegg6a8CIlVJw08qidBjntkmeS6BXV20kafuZTZ1lAUT7bg22YLTmarWmii1lFVx7pi_V7zSz7il2YLAUU2pUFq5-nl-N6KPDKzLczz4HdmT1lmw7VP_Zbo',
-  chatThumb:
-    'https://lh3.googleusercontent.com/aida-public/AB6AXuBH4RVB3a0FTyLcRIxlvUkveRavWLbU9_GuaSZJDQubOrl6x0KfQjXlrSW9YXRntzCHPhIEv-V6_4Vv4vw1V0BChOOAChgvWH31zEUbM8oV8ssCAuZQnX7qE1v1Z42qKby-1UMftselI8ByipKRuziAs1p4SrjfoCso4EZvm5NuHt1dvq0cuUliFqS3hPshrdS7aQEhvfN8lLwYeaq_JoQqP4tAemrkWzEOaeimDqo',
 };
 
 export const buyerListing = {
@@ -422,27 +418,6 @@ export const buyerListing = {
           'https://lh3.googleusercontent.com/aida-public/AB6AXuAfCyP-vzLTSU05nbIZqgbI1SxG-DtDcg6EInOo2LfKZ0irAQsoxVf6OHP17chgCknRIAQotOy05B23Knkhl9YxMwSTxwPeh4LNa2CqlmdHVJpzwfuvPLDG4S0ka0cROWRq3G0_tDKej-iwh6UP47wjQCuIeJEHIlFf8E1gFiJK2BHjKZg9VEqQHHQ7Xj8V834hg8oW9bKueWalbvaO8GNZ5cC64_9_9YLR-aInuWA',
       },
     ] as readonly RelatedListing[],
-  },
-  chat: {
-    responseTime: '평균 응답시간 5분 이내',
-    onlineTitle: '현재 온라인',
-    productTitle: '[PSA 10] 리자몽 ex SAR',
-    productPrice: '300,000원',
-    productThumb: IMG.chatThumb,
-    escrowBadge: '에스크로 보호',
-    privacyNotice: '개인정보 보호를 위해 전화번호, 외부 메신저 유도는 자동 필터링됩니다.',
-    welcomeMeta: '포케마스터99 · 오후 2:10',
-    welcomeMessage:
-      '안녕하세요! [PSA 10 리자몽 ex SAR] 문의 주셔서 감사합니다. 안전거래(에스크로) 및 서울 사당역 부근 직거래 모두 환영합니다. 편하게 문의주세요!',
-    quickReplies: [
-      { label: '💬 아직 구매 가능한가요?', message: '아직 구매 가능한가요?' },
-      { label: '📍 직거래 일정 조율', message: '직거래 일정 조율 가능한가요?' },
-      { label: '🛡️ 안심 검수 센터 경유 희망', message: '안심 검수 센터 경유로 신청하겠습니다.' },
-    ],
-    placeholder: '메시지를 입력하세요 (안전결제 지원)...',
-    photoTitle: '사진 전송',
-    closeLabel: '채팅 닫기',
-    sendLabel: '메시지 전송',
   },
 };
 

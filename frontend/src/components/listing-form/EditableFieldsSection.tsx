@@ -4,6 +4,7 @@ import { PriceField } from './PriceField';
 import { SectionCard } from './SectionCard';
 import { TitleField } from './TitleField';
 import { pricingCopy } from '../../data/listingForm';
+import type { PricePolicy } from '../../hooks/listing-form/usePricePolicy';
 
 interface EditableFieldsSectionProps {
   readonly step: number;
@@ -15,6 +16,7 @@ interface EditableFieldsSectionProps {
   readonly onTitleChange: (value: string) => void;
   readonly onPriceChange: (value: number) => void;
   readonly onAddPrice: (amount: number) => void;
+  readonly pricePolicy: PricePolicy;
   readonly onDescriptionChange: (value: string) => void;
   readonly titleError?: string;
   readonly priceError?: string;
@@ -36,6 +38,7 @@ export const EditableFieldsSection: React.FC<EditableFieldsSectionProps> = (prop
       onAdd={props.onAddPrice}
       onChange={props.onPriceChange}
       originalPrice={props.originalPrice}
+      policy={props.pricePolicy}
       value={props.price}
       variant="edit"
       wishCount={props.wishCount}

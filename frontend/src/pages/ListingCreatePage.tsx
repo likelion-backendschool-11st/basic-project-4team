@@ -15,6 +15,7 @@ import { emptyListingValues, submitCopy } from '../data/listingForm';
 import { useCatalogMapping } from '../hooks/listing-form/useCatalogMapping';
 import { submitCreateForm } from '../hooks/listing-form/submitListing';
 import { useListingForm } from '../hooks/listing-form/useListingForm';
+import { usePricePolicy } from '../hooks/listing-form/usePricePolicy';
 
 interface ListingCreatePageProps {
   readonly className?: string;
@@ -25,6 +26,7 @@ export const ListingCreatePage: React.FC<ListingCreatePageProps> = ({ className 
   const form = useListingForm(emptyListingValues, { variant: 'create', onSubmit: submitCreateForm });
   const { values, errors, setField } = form;
   const mapping = useCatalogMapping(form);
+  const pricePolicy = usePricePolicy(values.itemId, values.attributes);
 
   return (
     <div className={`flex flex-col w-full ${className}`}>
@@ -75,6 +77,7 @@ export const ListingCreatePage: React.FC<ListingCreatePageProps> = ({ className 
                 onPriceChange={(v) => setField('price', v)}
                 onTitleChange={(v) => setField('title', v)}
                 price={values.price}
+                pricePolicy={pricePolicy}
                 priceError={errors.price}
                 step={6}
                 title={values.title}

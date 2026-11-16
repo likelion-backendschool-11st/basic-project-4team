@@ -80,13 +80,19 @@
 
 ## 6. 채팅 (매물 상세 ChatDrawer, 헤더 채팅)
 
+> 요청·응답 형식은 `api-spec-all.md` 10장이 기준이다.
+
 | ID | 기능 | Method | URI | 화면 | 인증 | 비고 |
 |---|---|---|---|---|---|---|
-| CHAT-01 | 채팅방 생성/조회 | POST | `/chat/rooms` | 매물 상세 "1:1 채팅하기" | 필수 | `listingId` → 기존 방 있으면 반환. 매물 요약, 판매자 온라인 여부·평균 응답시간 포함 |
-| CHAT-02 | 내 채팅방 목록 | GET | `/chat/rooms` | 헤더 채팅 | 필수 | 안 읽은 수 포함 |
-| CHAT-03 | 메시지 목록 | GET | `/chat/rooms/{roomId}/messages` | ChatDrawer | 필수 | cursor 기반(과거 방향) |
-| CHAT-04 | 메시지 전송 | POST | `/chat/rooms/{roomId}/messages` | ChatDrawer | 필수 | `type`=`TEXT`/`IMAGE`, 이미지는 UPLOAD-01 URL 사용. 전화번호·외부 메신저 유도 문구 서버 필터링 |
-| CHAT-05 | 실시간 수신 | WS | `/ws/chat` | ChatDrawer | 필수 | WebSocket(STOMP 등) 구독 — 방식 확정 필요 |
+| CHAT-01 | 채팅방 생성/조회 | POST | `/chat/rooms` | 매물 상세 "1:1 채팅하기" | 필수 | `listingId` → 기존 방 있으면 200으로 반환. 내 판매글 403, 판매완료·삭제는 새 방만 막음 |
+| CHAT-02 | 내 채팅방 목록 | GET | `/chat/rooms` | 헤더 채팅 | 필수 | 메시지가 있는 방만, 최근 메시지 순. 방별·전체 안 읽은 수 포함 |
+| CHAT-03 | 메시지 목록 | GET | `/chat/rooms/{roomId}/messages` | ChatDrawer | 필수 | `before`(메시지 id) 기반, 과거 방향 |
+| CHAT-04 | 메시지 전송 | POST | `/chat/rooms/{roomId}/messages` | ChatDrawer | 필수 | `type`=`text`/`image`, 이미지는 UPLOAD-03의 `imageId`. 욕설·전화번호·외부 메신저 유도 문구 서버 필터링 |
+| CHAT-05 | 실시간 수신 | WS | `/ws/chat` | ChatDrawer, 헤더 | 필수 | **WebSocket(`ws`)으로 확정.** 쿠키 인증 + Origin 검사. 서버→클라이언트 `message`·`read`·`unread` 이벤트 |
+| CHAT-06 | 채팅방 하나 | GET | `/chat/rooms/{roomId}` | ChatDrawer | 필수 | 헤더 목록에서 방을 열 때 |
+| CHAT-07 | 읽음 처리 | PUT | `/chat/rooms/{roomId}/read` | ChatDrawer | 필수 | 방의 마지막 메시지까지 읽음. 전체 안 읽은 수 반환 |
+| CHAT-08 | 안 읽은 메시지 수 | GET | `/chat/unread-count` | 헤더 채팅 배지 | 필수 | |
+| UPLOAD-03 | 채팅 사진 업로드 | POST | `/uploads/chat-images` | ChatDrawer | 필수 | multipart `image` 1장, 5MB, JPG·PNG·WebP |
 
 ## 7. 내 매물 관리 — 판매자 (`/my/listings/:id`)
 
@@ -169,7 +175,7 @@
 ## 부록 B. 팀 결정이 필요한 항목
 
 1. **매물 상세 엔드포인트 분리 여부** — 구매자/판매자 화면을 `GET /listings/{id}` 하나로 쓰고 `isOwner`로 분기할지, `/my/listings/{id}`를 따로 둘지.
-2. **채팅 실시간 방식** — WebSocket(STOMP) / SSE / 폴링 중 선택.
+2. ~~**채팅 실시간 방식** — WebSocket(STOMP) / SSE / 폴링 중 선택.~~ → WebSocket(`ws`, STOMP 없이 JSON 이벤트)으로 결정 (`api-spec-all.md` 10장)
 3. **시세 데이터 산출** — 거래완료(MY-03)의 `finalPrice`만 반영할지, 외부 시세도 섞을지. 중앙값/평균 기준 통일 필요(화면에 둘 다 등장).
 4. **이미지 업로드 방식** — 서버 경유 multipart vs. Presigned URL 직접 업로드.
 5. **ID 형식** — 목업은 `P-010-882194`, `charizard-ex-sar-sv2a-201` 같은 문자열 ID 사용. 숫자 PK + 표시용 등록번호로 나눌지.

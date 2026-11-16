@@ -1,116 +1,168 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { conditionOptions, gradeOptions, tradeOptions, type PricePreset } from '../../data/search';
 import {
-  SEARCH_URL_KEYS,
-  formatWon,
-  parseFilterState,
-  parseWon,
-  presetIdFor,
-  writeFilterState,
-  type PriceRange,
-  type UrlFilterState,
-} from './searchUrlState';
+  conditionOptions,
+  gradeOptions,
+  pricePresets,
+  SEARCH_PARAM,
+  sizeOptions,
+  sortOptions,
+  tradeOptions,
+  type PricePreset,
+  type SortKey,
+} from '../../data/search';
 
-export type { PriceRange } from './searchUrlState';
+export interface PriceRange {
+  readonly min: number | null;
+  readonly max: number | null;
+}
+
+const parseWon = (value: string | null): number | null => {
+  const digits = (value ?? '').replace(/[^0-9]/g, '');
+  return digits.length > 0 ? Number(digits) : null;
+};
+
+const formatWon = (value: number | null): string => (value === null ? '' : value.toLocaleString('ko-KR'));
 
 const toggleIn = (list: readonly string[], id: string): readonly string[] =>
   list.includes(id) ? list.filter((item) => item !== id) : [...list, id];
 
-const ALLOWED = {
-  grades: gradeOptions.map((o) => o.id),
-  conditions: conditionOptions.map((o) => o.id),
-  trades: tradeOptions.map((o) => o.id),
+/** 쉼표 목록 → 허용된 id만 (주소를 손으로 고쳐도 잘못된 값은 무시). */
+const readList = (value: string | null, allowed: readonly { readonly id: string }[]): readonly string[] => {
+  const ids = new Set((value ?? '').split(','));
+  return allowed.filter((option) => ids.has(option.id)).map((option) => option.id);
 };
 
-const FILTER_KEYS = [
-  SEARCH_URL_KEYS.category,
-  SEARCH_URL_KEYS.grades,
-  SEARCH_URL_KEYS.minPrice,
-  SEARCH_URL_KEYS.maxPrice,
-  SEARCH_URL_KEYS.excludeSold,
-  SEARCH_URL_KEYS.conditions,
-  SEARCH_URL_KEYS.trades,
-];
+const isSortKey = (value: string | null): value is SortKey => sortOptions.some((option) => option.key === value);
+
+type ParamValue = string | number | readonly string[] | null | undefined;
 
 /**
- * 필터 패널 상태 (카테고리·등급·가격·옵션).
- * 적용된 필터는 URL 쿼리가 기준이다 (#27) — 새로고침·뒤로가기 후에도 유지되고,
- * 헤더 카테고리 메뉴(/search?category=코드)로 들어오면 그 카테고리로 시작한다.
- * 가격 입력칸은 "적용"을 누르기 전까지 화면에만 둔다.
+ * 검색 화면(P-009)의 모든 조건 — 검색어·카테고리·등급·가격·옵션·정렬·페이지.
+ * 상태는 주소(/search?...)에만 두고 여기서 읽고 쓴다. 가격 입력칸만 "적용" 전까지 화면 안에 둔다.
  */
 export const useSearchFilters = () => {
   const [params, setParams] = useSearchParams();
-  const state = parseFilterState(params, ALLOWED);
 
-  /** 필터를 바꾸면 URL에 쓰고 1페이지로 돌아간다 (기록은 남기지 않음 — 뒤로가기는 이전 화면으로). */
+  const q = params.get(SEARCH_PARAM.q)?.trim() ?? '';
+  const categoryCode = params.get(SEARCH_PARAM.category) ?? '';
+  const gradesParam = params.get(SEARCH_PARAM.grades);
+  const sizesParam = params.get(SEARCH_PARAM.sizes);
+  const statesParam = params.get(SEARCH_PARAM.states);
+  const tradesParam = params.get(SEARCH_PARAM.trades);
+  const grades = useMemo(() => readList(gradesParam, gradeOptions), [gradesParam]);
+  const sizes = useMemo(() => readList(sizesParam, sizeOptions), [sizesParam]);
+  const conditions = useMemo(() => readList(statesParam, conditionOptions), [statesParam]);
+  const trades = useMemo(() => readList(tradesParam, tradeOptions), [tradesParam]);
+  const minPrice = parseWon(params.get(SEARCH_PARAM.minPrice));
+  const maxPrice = parseWon(params.get(SEARCH_PARAM.maxPrice));
+  const appliedRange = useMemo<PriceRange>(() => ({ min: minPrice, max: maxPrice }), [minPrice, maxPrice]);
+  const excludeSold = params.get(SEARCH_PARAM.includeSold) !== '1';
+  const sortParam = params.get(SEARCH_PARAM.sort);
+  const sortKey: SortKey = isSortKey(sortParam) ? sortParam : 'latest';
+  const pageParam = Number(params.get(SEARCH_PARAM.page));
+  const page = Number.isInteger(pageParam) && pageParam >= 1 ? pageParam : 1;
+
+  /**
+   * 주소의 일부만 바꾼다. 조건이 바뀌면 1페이지로 돌아간다(page 키를 직접 넘길 때만 유지).
+   * 페이지 이동은 뒤로가기로 돌아올 수 있게 기록을 남기고, 필터 변경은 기록을 덮어쓴다.
+   */
   const update = useCallback(
-    (patch: Partial<UrlFilterState>) => {
+    (patch: Readonly<Partial<Record<keyof typeof SEARCH_PARAM, ParamValue>>>) => {
       setParams(
         (prev) => {
-          const next = writeFilterState(prev, { ...parseFilterState(prev, ALLOWED), ...patch });
-          next.delete(SEARCH_URL_KEYS.page);
+          const next = new URLSearchParams(prev);
+          if (!('page' in patch)) next.delete(SEARCH_PARAM.page);
+          Object.entries(patch).forEach(([key, value]) => {
+            const name = SEARCH_PARAM[key as keyof typeof SEARCH_PARAM];
+            const text = Array.isArray(value)
+              ? value.join(',')
+              : value === null || value === undefined
+                ? ''
+                : String(value);
+            if (text === '') next.delete(name);
+            else next.set(name, text);
+          });
           return next;
         },
-        { replace: true },
+        { replace: !('page' in patch) },
       );
     },
     [setParams],
   );
 
-  const [priceMin, setPriceMinRaw] = useState<string>(formatWon(state.appliedRange.min));
-  const [priceMax, setPriceMaxRaw] = useState<string>(formatWon(state.appliedRange.max));
-  // 적용된 가격이 바뀌면(프리셋·초기화·뒤로가기) 입력칸도 맞춘다.
+  // 가격 입력칸: 적용 전까지는 화면에만 둔다. 주소의 가격이 바뀌면(초기화·프리셋·뒤로가기) 맞춘다.
+  const [priceMin, setPriceMinRaw] = useState(formatWon(minPrice));
+  const [priceMax, setPriceMaxRaw] = useState(formatWon(maxPrice));
+  const [priceError, setPriceError] = useState(false);
   useEffect(() => {
-    setPriceMinRaw(formatWon(state.appliedRange.min));
-    setPriceMaxRaw(formatWon(state.appliedRange.max));
-  }, [state.appliedRange.min, state.appliedRange.max]);
+    setPriceMinRaw(formatWon(minPrice));
+    setPriceMaxRaw(formatWon(maxPrice));
+    setPriceError(false);
+  }, [minPrice, maxPrice]);
 
-  const setPriceMin = useCallback((value: string) => setPriceMinRaw(formatWon(parseWon(value))), []);
-  const setPriceMax = useCallback((value: string) => setPriceMaxRaw(formatWon(parseWon(value))), []);
+  const setPriceMin = useCallback((value: string) => {
+    setPriceMinRaw(formatWon(parseWon(value)));
+    setPriceError(false);
+  }, []);
 
+  const setPriceMax = useCallback((value: string) => {
+    setPriceMaxRaw(formatWon(parseWon(value)));
+    setPriceError(false);
+  }, []);
+
+  /** REQ-LIST-005: 최소 > 최대면 적용하지 않고 안내한다. */
   const applyPrice = useCallback(() => {
-    update({ appliedRange: { min: parseWon(priceMin), max: parseWon(priceMax) } });
-  }, [priceMin, priceMax, update]);
+    const min = parseWon(priceMin);
+    const max = parseWon(priceMax);
+    if (min !== null && max !== null && min > max) {
+      setPriceError(true);
+      return;
+    }
+    update({ minPrice: min, maxPrice: max });
+  }, [priceMax, priceMin, update]);
 
   const applyPreset = useCallback(
-    (preset: PricePreset) => update({ appliedRange: { min: preset.min, max: preset.max } }),
+    (preset: PricePreset) => update({ minPrice: preset.min, maxPrice: preset.max }),
     [update],
   );
 
-  const reset = useCallback(() => {
-    setParams(
-      (prev) => {
-        const next = new URLSearchParams(prev);
-        [...FILTER_KEYS, SEARCH_URL_KEYS.page].forEach((key) => next.delete(key));
-        return next;
-      },
-      { replace: true },
-    );
-  }, [setParams]);
-
-  const appliedRange: PriceRange = state.appliedRange;
-
   return {
-    categoryId: state.categoryId,
-    selectCategory: (id: string) => update({ categoryId: id }),
-    grades: state.grades,
-    toggleGrade: (id: string) => update({ grades: toggleIn(state.grades, id) }),
+    q,
+    categoryCode,
+    /** 다른 대분류로 옮기면 그 대분류에 없는 등급 조건은 빼야 하므로 함께 넘길 수 있다. */
+    /** 카테고리를 바꾼다. 새 카테고리에 맞지 않는 등급·사이즈 조건은 함께 지운다. */
+    selectCategory: (code: string, options?: { readonly clearGrades?: boolean; readonly clearSizes?: boolean }) =>
+      update({
+        category: code,
+        ...(options?.clearGrades ? { grades: null } : {}),
+        ...(options?.clearSizes ? { sizes: null } : {}),
+      }),
+    grades,
+    toggleGrade: (id: string) => update({ grades: toggleIn(grades, id) }),
+    sizes,
+    toggleSize: (id: string) => update({ sizes: toggleIn(sizes, id) }),
     priceMin,
     priceMax,
+    priceError,
     setPriceMin,
     setPriceMax,
     applyPrice,
     appliedRange,
-    activePresetId: presetIdFor(appliedRange),
+    activePresetId: pricePresets.find((p) => p.min === minPrice && p.max === maxPrice)?.id ?? null,
     applyPreset,
-    excludeSold: state.excludeSold,
-    toggleExcludeSold: () => update({ excludeSold: !state.excludeSold }),
-    conditions: state.conditions,
-    toggleCondition: (id: string) => update({ conditions: toggleIn(state.conditions, id) }),
-    trades: state.trades,
-    toggleTrade: (id: string) => update({ trades: toggleIn(state.trades, id) }),
-    reset,
+    excludeSold,
+    toggleExcludeSold: () => update({ includeSold: excludeSold ? '1' : null }),
+    conditions,
+    toggleCondition: (id: string) => update({ states: toggleIn(conditions, id) }),
+    trades,
+    toggleTrade: (id: string) => update({ trades: toggleIn(trades, id) }),
+    sortKey,
+    setSortKey: (key: SortKey) => update({ sort: key === 'latest' ? null : key }),
+    page,
+    setPage: (next: number) => update({ page: next > 1 ? next : null }),
+    /** 검색어는 남기고 나머지 조건을 모두 지운다. */
+    reset: () => setParams(q ? { [SEARCH_PARAM.q]: q } : {}, { replace: true }),
   };
 };
 
