@@ -2,6 +2,8 @@ import React from 'react';
 import { Route, Routes } from 'react-router-dom';
 import { AppLayout } from './components/layout/AppLayout';
 import { CommunityFeedPage } from './pages/CommunityFeedPage';
+import { FindIdPage } from './pages/FindIdPage';
+import { FindPasswordPage } from './pages/FindPasswordPage';
 import { HomePage } from './pages/HomePage';
 import { ItemDiscussionPage } from './pages/ItemDiscussionPage';
 import { ListingCreatePage } from './pages/ListingCreatePage';
@@ -12,6 +14,7 @@ import { MarketDashboardPage } from './pages/MarketDashboardPage';
 import { MyListingDetailPage } from './pages/MyListingDetailPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { SearchResultsPage } from './pages/SearchResultsPage';
+import { SignupPage } from './pages/SignupPage';
 
 interface AppProps {
   readonly basename?: string;
@@ -20,6 +23,9 @@ interface AppProps {
 export const App: React.FC<AppProps> = () => (
   <Routes>
     <Route element={<LoginPage />} path="/login" />
+    <Route element={<SignupPage />} path="/signup" />
+    <Route element={<FindIdPage />} path="/find-id" />
+    <Route element={<FindPasswordPage />} path="/find-password" />
     <Route element={<AppLayout />}>
       <Route element={<HomePage />} index />
       <Route element={<SearchResultsPage />} path="/search" />

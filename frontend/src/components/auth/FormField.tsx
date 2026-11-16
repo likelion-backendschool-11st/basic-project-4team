@@ -4,7 +4,7 @@ interface FormFieldProps {
   readonly id: string;
   readonly name: string;
   readonly label: string;
-  readonly type: 'text' | 'password';
+  readonly type: 'text' | 'password' | 'email';
   readonly value: string;
   readonly placeholder: string;
   readonly autoComplete: string;
@@ -13,6 +13,10 @@ interface FormFieldProps {
   readonly onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   /** Optional trailing control rendered inside the input (e.g. password visibility toggle). */
   readonly trailing?: React.ReactNode;
+  /** 에러가 없을 때 입력칸 아래에 보여줄 도움말. */
+  readonly hint?: string;
+  readonly inputMode?: React.HTMLAttributes<HTMLInputElement>['inputMode'];
+  readonly maxLength?: number;
 }
 
 /* data-component="FormField" */
@@ -28,6 +32,9 @@ export const FormField: React.FC<FormFieldProps> = ({
   errorText,
   onChange,
   trailing,
+  hint,
+  inputMode,
+  maxLength,
 }) => (
   <div data-field-name={name}>
     <label className="block font-caption text-caption font-bold text-ink tracking-wider uppercase mb-1.5" htmlFor={id}>
@@ -41,6 +48,8 @@ export const FormField: React.FC<FormFieldProps> = ({
           hasError ? 'border-error' : 'border-hairline-strong'
         }`}
         id={id}
+        inputMode={inputMode}
+        maxLength={maxLength}
         name={name}
         onChange={onChange}
         placeholder={placeholder}
@@ -51,6 +60,7 @@ export const FormField: React.FC<FormFieldProps> = ({
       {trailing}
     </div>
     {hasError && <span className="block font-caption text-caption text-error mt-1">{errorText}</span>}
+    {!hasError && hint && <span className="block font-caption text-caption text-muted mt-1">{hint}</span>}
   </div>
 );
 

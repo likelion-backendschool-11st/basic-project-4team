@@ -45,6 +45,7 @@ TRUNCATE TABLE listing_images;
 TRUNCATE TABLE listings;
 TRUNCATE TABLE items;
 TRUNCATE TABLE categories;
+TRUNCATE TABLE password_reset_codes;
 TRUNCATE TABLE refresh_tokens;
 TRUNCATE TABLE users;
 SET FOREIGN_KEY_CHECKS = 1;

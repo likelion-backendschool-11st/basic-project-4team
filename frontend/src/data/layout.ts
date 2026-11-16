@@ -1,6 +1,9 @@
 export const ROUTES = {
   home: '/',
   login: '/login',
+  signup: '/signup',
+  findId: '/find-id',
+  findPassword: '/find-password',
   search: '/search',
   listingDetail: (id: string) => `/listings/${id}`,
   myListingDetail: (id: string) => `/my/listings/${id}`,

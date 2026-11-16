@@ -63,6 +63,9 @@ docs/             컨벤션, API 정의서
 | 경로 | 화면 | 페이지 |
 |---|---|---|
 | `/login` | P-000 로그인 | LoginPage |
+| `/signup` | 회원가입 | SignupPage |
+| `/find-id` | 아이디 찾기 | FindIdPage |
+| `/find-password` | 비밀번호 찾기 | FindPasswordPage |
 | `/` | P-001 메인 | HomePage |
 | `/search?q=` | P-009 검색 결과 | SearchResultsPage |
 | `/listings/:id` | P-010 상품 상세(구매자) | ListingDetailPage |

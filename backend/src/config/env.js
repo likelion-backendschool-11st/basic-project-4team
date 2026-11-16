@@ -31,4 +31,16 @@ module.exports = {
     secret: required('JWT_SECRET'),
     expiresIn: process.env.JWT_EXPIRES_IN ?? '1h',
   },
+  // 아이디·비밀번호 찾기 메일. SMTP_HOST가 비어 있으면 실제로 보내지 않고 서버 콘솔에 내용을 출력한다(로컬 개발용).
+  mail: {
+    from: process.env.MAIL_FROM || 'RE:PICK <no-reply@repick.dev>',
+    smtp: process.env.SMTP_HOST
+      ? {
+        host: process.env.SMTP_HOST,
+        port: Number(process.env.SMTP_PORT ?? 587),
+        secure: process.env.SMTP_SECURE === 'true',
+        auth: process.env.SMTP_USER ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS ?? '' } : undefined,
+      }
+      : null,
+  },
 };

@@ -31,7 +31,7 @@
 | 14 | 신규 가입자 등록 제한 | LISTING-03에 검증·에러 코드 없음 | LISTING-03에 검증·에러 코드 없음 |  |
 | 15 | 판매자 정보 | `seller {id, nickname, soldCount}`  | `seller {id, nickname, soldCount}` |  |
 | 16 | 판매글 삭제 | 확인 모달 후 삭제 (MYPOST-006), 예외 없음 | 확인 모달 후 삭제 (MYPOST-006), 예외 없음 | |
-| 17 | 아이디 찾기 | API 없음, | API 없음 | 미구현예정 |
+| 17 | 아이디 찾기 | API 없음, | API 없음 | #45에서 구현 — 이메일로 아이디 발송, 비밀번호는 이메일 인증코드로 재설정 |
 | 18 | 품목 등록 요청 | POST-005 | POST-005 | 화면 설계 필요 |
 | 19 | 시세 산출 방식 | ITEM-04에 30일 평균(+중앙값) 확정 | ITEM-04에 30일 평균(+중앙값) 확정 | API 결정을 요구사항에 반영 |
 | 20 | 이미지 업로드 | 형식·용량 미정 (COMMON-007) | 형식·용량 미정 (COMMON-007 | PEG·PNG·WebP 형식을 허용하고, 용량은 게시판 글이나 상품 이미지 기준 5MB~10MB|
@@ -56,7 +56,7 @@
 |---|---|---|---|---|
 | 공통 | 문자셋·시간 |  모든 테이블 `utf8mb4` / `utf8mb4_0900_ai_ci` (이모지 저장, 대소문자 구분 없는 비교). 시간은 `DATETIME`에 **UTC로 저장**(DB 연결 `timezone: 'Z'`), API는 `...Z` ISO 문자열로 응답, KST 변환은 프론트 | — |사용자가 만든 데이터는 소프트 삭제(`deleted_at`), 관계 테이블(찜·리액션·좋아요·차단)은 하드 삭제 |
 | `users` | `login_id` / `nickname` | ✓ 30 / ✓ 30 | ✓ unique. `login_id`는 소문자로 바꿔 저장. 닉네임은 앞뒤 공백 제거, 연속 공백·줄바꿈 불가, 2~30자. 대소문자만 다른 닉네임은 같은 것으로 취급(`_ci` 정렬 규칙으로 자동). 닉네임 변경은 허용하되 **30일에 1번** (`nickname_changed_at` 컬럼 추가) | ✓ 소프트 삭제, 탈퇴 후에도 재사용 불가.  탈퇴 **즉시** `email`·`profile_image_url`을 NULL로, `password_hash`는 무작위 값으로 바꿔 익명화(`login_id`·`nickname`은 재사용 방지를 위해 DB에 남기되 화면에는 "탈퇴한 회원"). 같은 트랜잭션에서 refresh 토큰 삭제(A6). 탈퇴 회원의 판매중·예약중 판매글은 함께 소프트 삭제, 거래완료 판매글은 시세 데이터라 유지. 토론글·댓글은 유지하고 작성자를 "탈퇴한 회원"으로 표시. **예약중 판매글이 있으면 탈퇴 불가**(409) |
-| `users` | `email` | 255 ✓ | unique지만 nullable. 신규 가입 시 **필수**, 소문자로 바꿔 저장(아이디 찾기는 미구현이지만 비밀번호 찾기·나중 기능 대비). 탈퇴 시 NULL로 비우므로 컬럼 자체는 nullable 유지 | 위와 같음 |
+| `users` | `email` | 255 ✓ | unique지만 nullable. 신규 가입 시 **필수**, 소문자로 바꿔 저장(아이디·비밀번호 찾기에 사용, #45). 탈퇴 시 NULL로 비우므로 컬럼 자체는 nullable 유지 | 위와 같음 |
 | `users` | `name`, 프로필 이미지, `role`, 뱃지 | `name`은 만들지 않음(개인정보 최소 수집, 화면에 쓰는 곳 없음). `profile_image_url` VARCHAR(500) NULL. `role` VARCHAR(20) NOT NULL DEFAULT `'user'` (`user` / `admin`). ~~뱃지 계산~~ → 뱃지 없음(1-#9) | — | — |
 | `refresh_tokens` | 전체 | ✓ | ✓ `token_hash` |  만료됐거나 폐기된 지 **7일 지난 행을 하루 1번 삭제**(탈취 재사용 감지를 위해 7일은 남김). 배치가 생기기 전까지는 로그인할 때 그 회원의 지난 행을 지움 |
 | `categories` | `code`, `name`, `sort_order` | `code` VARCHAR(30) (영문 소문자·숫자·`-`), `name` VARCHAR(50), `sort_order` INT NOT NULL DEFAULT 0 | `code` unique ✓ |  삭제하지 않고 `is_active` TINYINT(1)로 숨김. 품목이 참조 중이면 FK `ON DELETE RESTRICT`로 DB가 삭제를 막음 |

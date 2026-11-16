@@ -29,6 +29,32 @@ async function findById(id) {
   return rows.length === 0 ? null : toUser(rows[0]);
 }
 
+/** 아이디 찾기용. 탈퇴 회원은 이메일이 NULL이라 자연히 빠지지만 조건으로도 막는다. */
+async function findByEmail(email) {
+  const [rows] = await pool.execute(
+    'SELECT * FROM users WHERE email = ? AND deleted_at IS NULL',
+    [email],
+  );
+  return rows.length === 0 ? null : toUser(rows[0]);
+}
+
+/** 비밀번호 찾기용: 아이디와 이메일이 모두 맞는 회원. */
+async function findByLoginIdAndEmail(loginId, email) {
+  const [rows] = await pool.execute(
+    'SELECT * FROM users WHERE login_id = ? AND email = ? AND deleted_at IS NULL',
+    [loginId, email],
+  );
+  return rows.length === 0 ? null : toUser(rows[0]);
+}
+
+async function findByLoginId(loginId) {
+  const [rows] = await pool.execute(
+    'SELECT * FROM users WHERE login_id = ? AND deleted_at IS NULL',
+    [loginId],
+  );
+  return rows.length === 0 ? null : toUser(rows[0]);
+}
+
 /** 중복 검사용. 탈퇴 회원도 UNIQUE 제약에 걸리므로 deleted_at 조건 없이 조회. */
 async function findDuplicate({ loginId, nickname, email }) {
   const [rows] = await pool.execute(
@@ -46,4 +72,12 @@ async function create({ loginId, passwordHash, nickname, email }) {
   return findById(result.insertId);
 }
 
-module.exports = { findByLoginIdWithPassword, findById, findDuplicate, create };
+module.exports = {
+  findByLoginIdWithPassword,
+  findById,
+  findByEmail,
+  findByLoginIdAndEmail,
+  findByLoginId,
+  findDuplicate,
+  create,
+};

@@ -50,6 +50,20 @@ CREATE TABLE IF NOT EXISTS refresh_tokens (
   CONSTRAINT fk_refresh_tokens_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '발급한 Refresh Token (기기마다 1행)';
 
+CREATE TABLE IF NOT EXISTS password_reset_codes (
+  id            BIGINT   NOT NULL AUTO_INCREMENT,
+  user_id       BIGINT   NOT NULL,
+  code_hash     CHAR(64) NOT NULL COMMENT '6자리 인증코드의 HMAC-SHA256 (원문은 저장하지 않음)',
+  expires_at    DATETIME NOT NULL COMMENT '발급 후 10분',
+  attempt_count TINYINT  NOT NULL DEFAULT 0 COMMENT '틀린 횟수. 5회가 되면 이 코드는 더 쓸 수 없음',
+  used_at       DATETIME NULL     COMMENT '비밀번호 변경에 쓰였거나 새 코드 발급으로 무효가 된 시각',
+  created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_password_reset_codes_user (user_id, created_at),
+  CONSTRAINT fk_password_reset_codes_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '비밀번호 찾기 이메일 인증코드';
+
 -- ─────────────────────────────────────────────
 -- 카테고리·품목
 -- ─────────────────────────────────────────────

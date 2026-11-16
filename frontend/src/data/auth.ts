@@ -39,10 +39,116 @@ export const loginCopy = {
 };
 
 export const utilityLinks: readonly AuthLink[] = [
-  { label: '아이디 찾기', to: '/find-id' },
-  { label: '비밀번호 찾기', to: '/find-password' },
-  { label: '회원가입', to: '/signup', strong: true },
+  { label: '아이디 찾기', to: ROUTES.findId },
+  { label: '비밀번호 찾기', to: ROUTES.findPassword },
+  { label: '회원가입', to: ROUTES.signup, strong: true },
 ];
+
+/** 회원가입·비밀번호 규칙 — 백엔드 auth.controller.js와 같은 값 (api-spec POST /auth/signup). */
+export const AUTH_RULES = {
+  loginIdPattern: /^[a-z0-9_]{4,30}$/,
+  emailPattern: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+  passwordMin: 8,
+  passwordMaxBytes: 72,
+  nicknameMax: 30,
+  resetCodePattern: /^\d{6}$/,
+} as const;
+
+/** 공통 에러 문구 (회원가입·찾기 화면). */
+export const authErrorCopy = {
+  network: '서버에 연결할 수 없습니다. 백엔드 서버가 실행 중인지 확인해 주세요.',
+  unknown: '요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.',
+};
+
+/** 다른 화면에서 로그인 화면으로 보낼 때 함께 넘기는 안내 (location.state). */
+export interface LoginRedirectState {
+  readonly loginId?: string;
+  readonly noticeTitle: string;
+  readonly noticeMessage: string;
+}
+
+export const signupCopy = {
+  title: '회원가입',
+  description: '아이디·비밀번호 찾기는 가입한 이메일로 진행됩니다.',
+  loginIdLabel: '아이디',
+  loginIdPlaceholder: '영문 소문자·숫자·밑줄(_) 4~30자',
+  loginIdError: '아이디는 영문 소문자·숫자·밑줄(_) 4~30자로 입력해 주세요.',
+  passwordLabel: '비밀번호',
+  passwordPlaceholder: '8자 이상',
+  passwordError: '비밀번호는 8자 이상으로 입력해 주세요. (최대 72바이트)',
+  passwordConfirmLabel: '비밀번호 확인',
+  passwordConfirmPlaceholder: '비밀번호를 한 번 더 입력해 주세요',
+  passwordConfirmError: '비밀번호가 일치하지 않습니다.',
+  passwordToggleLabel: '비밀번호 표시 전환',
+  nicknameLabel: '닉네임',
+  nicknamePlaceholder: '커뮤니티·거래에 표시되는 이름 (30자 이내)',
+  nicknameError: '닉네임은 1~30자로 입력해 주세요.',
+  emailLabel: '이메일',
+  emailPlaceholder: 'example@repick.dev',
+  emailError: '올바른 이메일 주소를 입력해 주세요.',
+  submit: '가입하기',
+  submitting: '가입 중...',
+  invalidFields: '입력한 내용을 다시 확인해 주세요.',
+  loginPrompt: '이미 계정이 있으신가요?',
+  loginLink: '로그인',
+  /** 가입 성공 후 로그인 화면에 보여줄 안내. */
+  doneTitle: '가입이 완료되었습니다!',
+  doneMessage: '가입한 아이디로 로그인해 주세요.',
+};
+
+export const findIdCopy = {
+  title: '아이디 찾기',
+  description: '가입할 때 등록한 이메일을 입력하면 해당 메일로 아이디를 보내드립니다.',
+  emailLabel: '이메일',
+  emailPlaceholder: 'example@repick.dev',
+  emailError: '올바른 이메일 주소를 입력해 주세요.',
+  submit: '확인',
+  submitting: '확인 중...',
+  cancel: '취소',
+  sentTitle: '메일을 확인해 주세요',
+  sentMessage: (email: string) =>
+    `${email} 으로 가입된 계정이 있다면 아이디를 보내드렸습니다. 메일이 오지 않으면 스팸함을 확인하거나 이메일 주소를 다시 확인해 주세요.`,
+  toLogin: '로그인하러 가기',
+  toFindPassword: '비밀번호 찾기',
+  retry: '다른 이메일로 찾기',
+};
+
+export const findPasswordCopy = {
+  title: '비밀번호 찾기',
+  requestDescription: '아이디와 가입한 이메일을 입력하면 비밀번호 재설정 인증코드를 메일로 보내드립니다.',
+  confirmDescription: (email: string) =>
+    `${email} 으로 보낸 6자리 인증코드와 새 비밀번호를 입력해 주세요. 인증코드는 10분 동안 유효합니다.`,
+  loginIdLabel: '아이디',
+  loginIdPlaceholder: '아이디를 입력해 주세요',
+  loginIdError: '아이디를 입력해 주세요.',
+  emailLabel: '이메일',
+  emailPlaceholder: 'example@repick.dev',
+  emailError: '올바른 이메일 주소를 입력해 주세요.',
+  requestSubmit: '인증코드 받기',
+  requestSubmitting: '요청 중...',
+  cancel: '취소',
+  codeLabel: '인증코드',
+  codePlaceholder: '숫자 6자리',
+  codeError: '메일로 받은 6자리 숫자를 입력해 주세요.',
+  newPasswordLabel: '새 비밀번호',
+  newPasswordPlaceholder: '8자 이상',
+  newPasswordError: '비밀번호는 8자 이상으로 입력해 주세요. (최대 72바이트)',
+  newPasswordConfirmLabel: '새 비밀번호 확인',
+  newPasswordConfirmPlaceholder: '새 비밀번호를 한 번 더 입력해 주세요',
+  newPasswordConfirmError: '비밀번호가 일치하지 않습니다.',
+  passwordToggleLabel: '비밀번호 표시 전환',
+  confirmSubmit: '비밀번호 변경',
+  confirmSubmitting: '변경 중...',
+  resend: '인증코드 다시 받기',
+  resendWait: (seconds: number) => `${seconds}초 후 다시 받기`,
+  resent: '인증코드를 다시 보냈습니다. 가장 최근 메일의 코드만 사용할 수 있습니다.',
+  sentNotice: '입력한 정보와 일치하는 계정이 있다면 인증코드를 보냈습니다. 메일이 오지 않으면 아이디와 이메일을 다시 확인해 주세요.',
+  invalidFields: '입력한 내용을 다시 확인해 주세요.',
+  back: '아이디·이메일 다시 입력',
+  /** 변경 성공 후 로그인 화면에 보여줄 안내. */
+  doneTitle: '비밀번호가 변경되었습니다!',
+  doneMessage: '새 비밀번호로 로그인해 주세요.',
+};
 
 export type SocialProviderId = 'kakao' | 'naver' | 'google';
 
