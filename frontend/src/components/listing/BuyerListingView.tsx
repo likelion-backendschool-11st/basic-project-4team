@@ -2,9 +2,9 @@ import React, { useCallback } from 'react';
 import type { ListingDetail } from '../../api/types';
 import { ROUTES } from '../../data/layout';
 import { buyerListing, listingCore, listingDetailCopy, ownerActionCopy, sellerListing, toastMessages, wishCopy } from '../../data/listing';
+import { useChat } from '../../hooks/chat/useChat';
 import { useLoginGate } from '../../hooks/itemcommunity/useLoginGate';
 import { useBuyerListingView } from '../../hooks/listing/useBuyerListingView';
-import { useChatDrawer } from '../../hooks/listing/useChatDrawer';
 import { useItemDiscussionCount } from '../../hooks/listing/useItemDiscussionCount';
 import { useOwnerListingActions } from '../../hooks/listing/useOwnerListingActions';
 import { useToast } from '../../hooks/listing/useToast';
@@ -13,7 +13,6 @@ import { Icon } from '../common/Icon';
 import { LoginRequiredModal } from '../itemcommunity/LoginRequiredModal';
 import { BuyerActionBar } from './BuyerActionBar';
 import { BuyerDescriptionSection } from './BuyerDescriptionSection';
-import { ChatDrawer } from './ChatDrawer';
 import { DeleteConfirmModal } from './DeleteConfirmModal';
 import { ListingAttributeGrid } from './ListingAttributeGrid';
 import { ListingCategoryHeader } from './ListingCategoryHeader';
@@ -43,7 +42,6 @@ export const BuyerListingView: React.FC<BuyerListingViewProps> = ({ listing }) =
     (copied: boolean) => showToast(copied ? toastMessages.copied : toastMessages.copiedFallback),
     [showToast],
   );
-  const onChatSent = useCallback(() => showToast(toastMessages.chatSent), [showToast]);
 
   const loginGate = useLoginGate();
   const wishlist = useWishlist({
@@ -54,7 +52,16 @@ export const BuyerListingView: React.FC<BuyerListingViewProps> = ({ listing }) =
     onLoginRequired: loginGate.prompt,
     showToast,
   });
-  const chat = useChatDrawer(onChatSent);
+  // 1:1 채팅 (REQ-DETAIL-005) — 방을 만들거나 기존 방을 열어 오른쪽 채팅 창을 띄운다.
+  const { startChat } = useChat();
+  const { ensureLogin, prompt } = loginGate;
+  const onOpenChat = useCallback(async () => {
+    if (!ensureLogin()) return;
+    const outcome = await startChat(listing.id);
+    if (outcome.ok) return;
+    if (outcome.reason === 'login') prompt();
+    else showToast(outcome.message, 'info');
+  }, [ensureLogin, prompt, startChat, listing.id, showToast]);
   // 작성자 본인이면 찜·채팅 대신 수정·삭제·관리 버튼을 보여준다.
   const owner = useOwnerListingActions(String(listing.id), showToast);
 
@@ -118,7 +125,7 @@ export const BuyerListingView: React.FC<BuyerListingViewProps> = ({ listing }) =
                 discussionLabel={actions.discussionLabel}
                 discussionTitle={actions.discussionTitle}
                 itemId={view.itemSlug}
-                onOpenChat={chat.openDrawer}
+                onOpenChat={() => void onOpenChat()}
                 onToggleWish={wishlist.toggle}
                 wishCount={wishlist.count}
                 wishLabel={actions.wishLabel}
@@ -137,17 +144,6 @@ export const BuyerListingView: React.FC<BuyerListingViewProps> = ({ listing }) =
         {/* 같은 품목의 다른 매물 캐러셀은 ITEM-05 API가 생기면 연결한다. */}
       </div>
 
-      <ChatDrawer
-        content={view.chat}
-        draft={chat.draft}
-        onClose={chat.closeDrawer}
-        onDraftChange={chat.setDraft}
-        onQuickReply={chat.insertQuick}
-        onSend={chat.send}
-        open={chat.open}
-        sellerInitial={view.seller.initial}
-        sellerName={view.seller.name}
-      />
       {listing.isOwner && (
         <DeleteConfirmModal
           labels={sellerListing.deleteModal}

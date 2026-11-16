@@ -9,4 +9,10 @@ async function createPostImage(uploaderId, url) {
   return { id: result.insertId, url };
 }
 
-module.exports = { createPostImage };
+/** 채팅 사진 행을 만든다. 메시지가 image_id로 가리키기 전까지는 보내지 않은 사진이다. */
+async function createChatImage(uploaderId, url) {
+  const [result] = await pool.execute('INSERT INTO chat_images (uploader_id, url) VALUES (?, ?)', [uploaderId, url]);
+  return { id: result.insertId, url };
+}
+
+module.exports = { createPostImage, createChatImage };

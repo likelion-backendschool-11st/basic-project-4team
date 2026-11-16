@@ -20,19 +20,27 @@ async function readHead(filePath) {
   }
 }
 
-/** 저장된 업로드 파일을 검사하고 post_images에 등록한다. 이미지가 아니면 파일을 지우고 400. */
-async function registerPostImage(uploaderId, file, publicUrl) {
+/** 저장된 업로드 파일을 검사하고 save(publicUrl)로 DB에 등록한다. 이미지가 아니거나 등록에 실패하면 파일을 지운다. */
+async function registerImage(file, publicUrl, save) {
   const head = await readHead(file.path);
   if (!SIGNATURES[file.mimetype]?.(head)) {
     await fs.unlink(file.path).catch(() => undefined);
     throw new HttpError(400, 'INVALID_FILE_TYPE', 'JPG, PNG, WebP 이미지만 올릴 수 있습니다.');
   }
   try {
-    return await uploadRepository.createPostImage(uploaderId, publicUrl);
+    return await save(publicUrl);
   } catch (err) {
     await fs.unlink(file.path).catch(() => undefined);
     throw err;
   }
 }
 
-module.exports = { registerPostImage };
+/** 토론글 사진 — post_images에 글과 연결되지 않은 행으로 등록. */
+const registerPostImage = (uploaderId, file, publicUrl) =>
+  registerImage(file, publicUrl, (url) => uploadRepository.createPostImage(uploaderId, url));
+
+/** 채팅 사진 — chat_images에 등록. 메시지를 보낼 때 imageId로 쓴다. */
+const registerChatImage = (uploaderId, file, publicUrl) =>
+  registerImage(file, publicUrl, (url) => uploadRepository.createChatImage(uploaderId, url));
+
+module.exports = { registerPostImage, registerChatImage };
