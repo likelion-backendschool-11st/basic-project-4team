@@ -1,6 +1,7 @@
 const commentRepository = require('./comment.repository');
 const notificationService = require('../notification/notification.service');
 const HttpError = require('../utils/HttpError');
+const { maskProfanity } = require('../utils/profanity');
 
 // 댓글마다 함께 내려주는 답글 미리보기 개수. 나머지는 답글 더보기 API로.
 const REPLY_PREVIEW_SIZE = 3;
@@ -99,7 +100,7 @@ async function createComment(postId, userId, { body, parentId }) {
       throw new HttpError(400, 'INVALID_PARENT_COMMENT', '이 댓글에는 답글을 달 수 없습니다.');
     }
   }
-  const { id, commentCount } = await commentRepository.create({ postId, userId, parentId, body });
+  const { id, commentCount } = await commentRepository.create({ postId, userId, parentId, body: maskProfanity(body) });
   await notificationService.notifyComment({ postId, commentId: id, parentId, actorId: userId });
   return { comment: await getComment(id, userId), commentCount };
 }
@@ -122,7 +123,7 @@ async function getOwnComment(commentId, userId) {
 
 async function updateComment(commentId, userId, body) {
   await getOwnComment(commentId, userId);
-  await commentRepository.updateBody(commentId, body);
+  await commentRepository.updateBody(commentId, maskProfanity(body));
   return getComment(commentId, userId);
 }
 

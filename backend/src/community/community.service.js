@@ -3,8 +3,18 @@ const itemCommunityRepository = require('../itemcommunity/itemcommunity.reposito
 const itemCommunityService = require('../itemcommunity/itemcommunity.service');
 const badgeService = require('../badge/badge.service');
 const HttpError = require('../utils/HttpError');
+const { maskProfanity } = require('../utils/profanity');
 
 const { POLL_VOTE_RESULT } = communityRepository;
+
+/** 제목·본문·투표 선택지의 욕설을 가린다 (REQ-COMMON-006). 보내지 않은 필드는 그대로 둔다. */
+function maskPostText(fields) {
+  const masked = { ...fields };
+  if (fields.title !== undefined) masked.title = maskProfanity(fields.title);
+  if (fields.body !== undefined) masked.body = maskProfanity(fields.body);
+  if (fields.poll) masked.poll = { ...fields.poll, options: fields.poll.options.map(maskProfanity) };
+  return masked;
+}
 
 function postNotFound() {
   return new HttpError(404, 'POST_NOT_FOUND', '토론글을 찾을 수 없습니다.');
@@ -127,7 +137,8 @@ async function getPost(postId, viewerId) {
  * 글 등록. itemId(시세 태그)는 존재하는 품목 slug여야 한다.
  * imageIds는 내가 올렸고 아직 연결되지 않은 사진만 허용된다.
  */
-async function createPost(userId, fields) {
+async function createPost(userId, input) {
+  const fields = maskPostText(input);
   if (fields.priceTag !== null && fields.priceTag !== undefined && !fields.itemId) {
     throw new HttpError(400, 'VALIDATION_ERROR', '희망 체결가는 품목이 있는 글에만 붙일 수 있습니다.');
   }
@@ -146,9 +157,9 @@ async function createPost(userId, fields) {
 }
 
 /** 글 수정 (작성자만). priceTag는 품목 글에만, null이면 희망 체결가를 지운다. */
-async function updatePost(postId, userId, fields) {
+async function updatePost(postId, userId, input) {
   const own = await getOwnPost(postId, userId);
-  const { priceTag, imageIds, ...rest } = fields;
+  const { priceTag, imageIds, ...rest } = maskPostText(input);
   const priceChanged = priceTag !== undefined;
   if (priceChanged && priceTag !== null && !own.itemId) {
     throw new HttpError(400, 'VALIDATION_ERROR', '희망 체결가는 품목이 있는 글에만 붙일 수 있습니다.');
