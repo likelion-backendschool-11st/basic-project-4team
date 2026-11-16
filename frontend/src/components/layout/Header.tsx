@@ -1,12 +1,18 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { brand, headerData, liveTicker, navItems, ROUTES } from '../../data/layout';
+import { brand, headerData, navItems, ROUTES } from '../../data/layout';
 import { useHeaderAuth } from '../../hooks/layout/useHeaderAuth';
+import { useNotifications } from '../../hooks/layout/useNotifications';
+import { useWishlistDrawer } from '../../hooks/layout/useWishlistDrawer';
 import { useActiveRoute } from '../../hooks/useActiveRoute';
 import { useHeaderSearch } from '../../hooks/useHeaderSearch';
 import { Icon } from '../common/Icon';
+import { CategoryMenu } from './CategoryMenu';
+import { HeaderCountBadge } from './HeaderCountBadge';
 import { HeaderUserMenu } from './HeaderUserMenu';
 import { NoticeBar } from './NoticeBar';
+import { NotificationMenu } from './NotificationMenu';
+import { WishlistDrawer } from './WishlistDrawer';
 
 interface HeaderProps {
   readonly showNotice?: boolean;
@@ -17,6 +23,10 @@ export const Header: React.FC<HeaderProps> = ({ showNotice = true }) => {
   const isActive = useActiveRoute();
   const { query, setQuery, onSubmit } = useHeaderSearch();
   const headerAuth = useHeaderAuth();
+  const notifications = useNotifications();
+  const wishlist = useWishlistDrawer();
+  // 판매는 로그인 회원만 (REQ-HEADER-003). 로그인 확인 중에는 판매 화면으로 둔다.
+  const sellTo = headerAuth.status === 'guest' ? ROUTES.login : ROUTES.sell;
 
   return (
     <header className="sticky top-0 left-0 w-full z-50 bg-canvas">
@@ -52,21 +62,22 @@ export const Header: React.FC<HeaderProps> = ({ showNotice = true }) => {
           <div className="flex items-center gap-space-sm shrink-0">
             <Link
               className="bg-primary-container text-on-primary font-ui-label text-ui-label px-space-md py-2 rounded hover:bg-forest transition-colors flex items-center gap-1"
-              to={ROUTES.sell}
+              to={sellTo}
             >
               <Icon className="text-[18px]" name="add" />
               <span>{headerData.sellLabel}</span>
             </Link>
-            <button className="relative p-2 rounded hover:bg-canvas-soft text-body hover:text-ink transition-colors hidden md:flex items-center gap-1 font-ui-sm text-ui-sm" type="button">
+            {/* 채팅 API가 아직 없어 숫자 없이 둔다 (REQ-HEADER-004). */}
+            <button
+              aria-disabled="true"
+              className="relative p-2 rounded text-muted cursor-not-allowed hidden md:flex items-center gap-1 font-ui-sm text-ui-sm"
+              title={headerData.chatSoon}
+              type="button"
+            >
               <Icon className="text-[20px]" name="chat_bubble" />
               <span>{headerData.chatLabel}</span>
-              <span className="bg-error text-on-error font-micro text-micro px-1.5 rounded-full">{headerData.chatCount}</span>
             </button>
-            <button className="relative p-2 rounded hover:bg-canvas-soft text-body hover:text-ink transition-colors hidden md:flex items-center gap-1 font-ui-sm text-ui-sm" type="button">
-              <Icon className="text-[20px]" name="notifications" />
-              <span>{headerData.alertLabel}</span>
-              <span className="bg-primary-container text-on-primary font-micro text-micro px-1.5 rounded-full">{headerData.alertCount}</span>
-            </button>
+            <NotificationMenu state={notifications} />
             <HeaderUserMenu
               loggingOut={headerAuth.loggingOut}
               onLogout={headerAuth.onLogout}
@@ -77,10 +88,32 @@ export const Header: React.FC<HeaderProps> = ({ showNotice = true }) => {
         </div>
       </div>
 
-      <div className="bg-canvas border-b border-hairline">
-        <div className="h-11 max-w-7xl mx-auto px-gutter-desktop flex items-center justify-between gap-space-md">
+      <div className="relative bg-canvas border-b border-hairline">
+        <div className="h-11 max-w-7xl mx-auto px-gutter-desktop flex items-center gap-space-lg">
+          <CategoryMenu className="shrink-0" />
+          <span aria-hidden className="h-4 w-px bg-hairline shrink-0" />
           <nav className="flex items-center gap-space-lg h-full overflow-x-auto no-scrollbar">
             {navItems.map((item) => {
+              const content = (
+                <>
+                  {item.icon && <Icon className="text-[18px]" name={item.icon} />}
+                  <span>{item.label}</span>
+                </>
+              );
+              if (item.action === 'wishlist') {
+                return (
+                  <button
+                    aria-expanded={wishlist.open}
+                    className="h-full flex items-center gap-1 whitespace-nowrap font-ui-label text-ui-label text-on-surface-variant hover:text-on-surface transition-colors"
+                    key={item.label}
+                    onClick={wishlist.openDrawer}
+                    type="button"
+                  >
+                    {content}
+                    <HeaderCountBadge count={wishlist.totalCount ?? 0} tone="soft" />
+                  </button>
+                );
+              }
               const active = isActive(item.to);
               return (
                 <Link
@@ -93,26 +126,14 @@ export const Header: React.FC<HeaderProps> = ({ showNotice = true }) => {
                   key={item.label}
                   to={item.to}
                 >
-                  {item.icon && <Icon className="text-[18px]" name={item.icon} />}
-                  <span>{item.label}</span>
-                  {item.badge !== undefined && (
-                    <span className="bg-mint-100 text-forest font-micro text-micro px-1.5 py-0.5 rounded">{item.badge}</span>
-                  )}
+                  {content}
                 </Link>
               );
             })}
           </nav>
-          <div className="hidden lg:flex items-center gap-space-xs font-caption text-caption bg-mint-50 px-space-sm py-1 rounded border border-mint-200 shrink-0">
-            <span className="font-eyebrow text-eyebrow text-primary-container">{liveTicker.label}</span>
-            <span className="text-faint">:</span>
-            <span className="text-ink font-ui-sm text-ui-sm">{liveTicker.item}</span>
-            <span className="text-error font-ui-label text-ui-label flex items-center">
-              <Icon className="text-[14px]" name="arrow_drop_up" />
-              {liveTicker.change}
-            </span>
-          </div>
         </div>
       </div>
+      <WishlistDrawer state={wishlist} />
     </header>
   );
 };
