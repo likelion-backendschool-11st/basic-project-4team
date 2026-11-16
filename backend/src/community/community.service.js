@@ -1,6 +1,7 @@
 const communityRepository = require('./community.repository');
 const itemCommunityRepository = require('../itemcommunity/itemcommunity.repository');
 const itemCommunityService = require('../itemcommunity/itemcommunity.service');
+const badgeService = require('../badge/badge.service');
 const HttpError = require('../utils/HttpError');
 
 const { POLL_VOTE_RESULT } = communityRepository;
@@ -21,20 +22,19 @@ async function enrich(posts, viewerId) {
     communityRepository.countReactions(ids),
     communityRepository.findMyReactions(viewerId, ids),
     communityRepository.findImages(ids),
-    communityRepository.findAuthorBadges(pairs),
+    badgeService.getItemBadges(pairs),
     communityRepository.findPolls(ids),
     communityRepository.findMyPollVotes(viewerId, ids),
     findItemTags(slugs),
     communityRepository.findPriceTags(ids),
   ]);
   return posts.map((post) => {
-    const badge = post.itemId ? badges.get(`${post.itemId}:${post.author.id}`) : null;
     return {
       ...post,
       author: {
         ...post.author,
-        // owner = 이 품목 보유자, trade = 이 품목 거래완료 이력
-        badges: badge ? ['owner', 'trade'].filter((k) => badge[k]) : [],
+        // 품목 글만: owner 보유자, trade 거래 인증 (기준은 badge/badge.rules.js)
+        badges: post.itemId ? badges.get(post.itemId, post.author.id) : [],
       },
       reactions: reactions.get(post.id),
       myReaction: mine.get(post.id) ?? null,

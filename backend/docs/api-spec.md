@@ -137,9 +137,11 @@
 - `itemId`는 품목 식별자(현재는 프론트의 품목 slug). 품목 API가 생기면 그 ID로 맞춘다.
 - `editedAt`: 마지막으로 수정한 시각. 수정한 적이 없으면 `null`. 화면의 "(수정됨)" 표시에 쓴다 (REQ-BEDIT-004).
 - `isMine`: 로그인한 사용자가 작성자면 `true`. 비로그인이면 항상 `false`. 수정·삭제 버튼 노출에 쓴다.
-- `author.badges`: 글의 품목(`itemId`) 기준 작성자 배지. 품목 없는 글은 `[]`.
+- `author.badges`: 글의 품목(`itemId`) 기준 작성자 배지 (REQ-BOARD-012). 품목 없는 글은 `[]`. 순서는 `owner`, `trade`.
   - `owner` 보유자 — 이 품목의 판매중·예약중 판매글이 있거나, 거래완료 판매글의 구매자
-  - `trade` 거래 인증 — 이 품목 거래완료(판매 또는 구매) 이력이 있음
+  - `trade` 거래 인증 — 이 품목 거래완료(`status = sold`) 판매글의 판매자 또는 구매자로 **1건 이상**
+  - 삭제된 판매글은 세지 않는다. 배지는 저장하지 않고 조회할 때 판매글에서 계산하므로, 거래완료 처리 즉시 반영된다.
+  - 기준은 `backend/src/badge/badge.rules.js` 한 곳에서 관리한다 (`ownerOnly` 필터도 같은 기준).
 - `reactions`: 이모지 4종(`fire` 🔥 · `surprised` 😮 · `laugh` 😂 · `ice` 🧊)별 개수. `reactionCount`는 그 합(인기순 정렬용).
 - `myReaction`: 로그인 사용자가 이 글에 남긴 이모지. 없거나 비로그인이면 `null`.
 - `images`: 첨부 사진(`post_images`, 정렬 순서대로). 없으면 `[]`. `url`이 `/uploads/...`로 시작하면 API 서버 주소(예: `http://127.0.0.1:4000`)를 붙여 쓴다.
