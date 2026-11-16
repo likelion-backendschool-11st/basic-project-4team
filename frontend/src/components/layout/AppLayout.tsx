@@ -1,5 +1,6 @@
 import React from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
+import { ChatProvider } from '../chat/ChatProvider';
 import { RouteErrorBoundary } from '../common/RouteErrorBoundary';
 import { Footer } from './Footer';
 import { Header } from './Header';
@@ -8,10 +9,11 @@ interface AppLayoutProps {
   readonly showNotice?: boolean;
 }
 
-/** Shared shell (GNB + footer) for all marketplace pages. */
+/** Shared shell (GNB + footer) for all marketplace pages. 채팅 창은 ChatProvider가 한 곳에 그린다. */
 export const AppLayout: React.FC<AppLayoutProps> = ({ showNotice = true }) => {
   const { pathname } = useLocation();
   return (
+    <ChatProvider>
     <div className="min-h-screen flex flex-col bg-canvas">
       <Header showNotice={showNotice} />
       <main className="flex-1">
@@ -22,6 +24,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ showNotice = true }) => {
       </main>
       <Footer />
     </div>
+    </ChatProvider>
   );
 };
 

@@ -3,7 +3,6 @@ import type { ListingDetail } from '../../api/types';
 import { ROUTES } from '../../data/layout';
 import {
   buyerListing,
-  listingCore,
   listingDetailCopy as copy,
   type BreadcrumbItem,
   type DescriptionParagraph,
@@ -159,14 +158,6 @@ export const useBuyerListingView = (listing: ListingDetail) =>
         otherAllTo: `/users/${seller.id}/listings`,
         // 판매자의 다른 판매글(LISTING-10)은 아직 API가 없다.
         otherItems: [],
-      },
-      chat: {
-        ...buyerListing.chat,
-        productTitle: listing.title,
-        productPrice: `${price}${listingCore.currency}`,
-        productThumb: listing.thumbnailUrl ?? item.imageUrl ?? '',
-        welcomeMeta: seller.nickname,
-        welcomeMessage: copy.chatWelcome(listing.title),
       },
     };
   }, [listing]);

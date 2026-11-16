@@ -40,7 +40,7 @@ export const headerData = {
   searchLabel: '검색',
   sellLabel: '판매',
   chatLabel: '채팅',
-  chatSoon: '채팅은 준비 중이에요',
+  chatLoginTitle: '로그인하면 채팅을 볼 수 있어요',
   alertLabel: '알림',
   /** 안 읽은 수가 이보다 크면 "99+". */
   badgeMax: 99,

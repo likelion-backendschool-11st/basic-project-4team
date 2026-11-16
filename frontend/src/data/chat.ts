@@ -1,0 +1,61 @@
+import type { ChatRole, ListingStatus } from '../api/types';
+
+/** 1:1 채팅 화면 문구 (REQ-DETAIL-005, REQ-HEADER-004). */
+export const chatCopy = {
+  listTitle: '채팅',
+  closeLabel: '채팅 닫기',
+  backLabel: '채팅 목록으로',
+  loading: '불러오는 중...',
+  loadError: '채팅을 불러오지 못했습니다.',
+  retry: '다시 시도',
+  listEmptyTitle: '아직 채팅이 없어요',
+  listEmptyBody: '판매글 상세에서 "1:1 채팅하기"를 눌러 판매자와 대화를 시작해 보세요.',
+  roles: { buyer: '구매 문의', seller: '내 판매글' } satisfies Record<ChatRole, string>,
+  statuses: { selling: '판매중', reserved: '예약중', sold: '판매완료' } satisfies Record<ListingStatus, string>,
+  deletedListing: '삭제된 판매글',
+  imagePreview: '사진',
+  noMessages: '대화를 시작해 보세요',
+  price: (formatted: string) => `${formatted}원`,
+  unreadLabel: (count: number) => `안 읽은 메시지 ${count}개`,
+
+  privacyNotice: '개인정보 보호를 위해 전화번호, 외부 메신저 유도는 자동 필터링됩니다.',
+  escrowBadge: '에스크로 보호',
+  viewListing: '판매글 보기',
+  loadOlder: '이전 메시지 보기',
+  loadingOlder: '이전 메시지를 불러오는 중...',
+  read: '읽음',
+  emptyRoom: (nickname: string) => `${nickname}님에게 첫 메시지를 보내 보세요.`,
+  quickReplies: [
+    { label: '💬 아직 구매 가능한가요?', message: '아직 구매 가능한가요?' },
+    { label: '📍 직거래 일정 조율', message: '직거래 일정 조율 가능한가요?' },
+    { label: '🛡️ 안심 검수 센터 경유 희망', message: '안심 검수 센터 경유로 거래하고 싶어요.' },
+  ],
+  placeholder: '메시지를 입력하세요 (Enter 전송, Shift+Enter 줄바꿈)',
+  sendLabel: '메시지 전송',
+  photoLabel: '사진 보내기',
+  imageAlt: (nickname: string) => `${nickname}님이 보낸 사진`,
+  myImageAlt: '내가 보낸 사진',
+  openImage: '사진 크게 보기',
+  maxLength: 1000,
+  counter: (length: number, max: number) => `${length}/${max}`,
+
+  filteredNotice: '욕설·전화번호·외부 메신저 아이디는 가려서 보냈어요.',
+  sendError: '메시지를 보내지 못했습니다. 잠시 후 다시 시도해 주세요.',
+  imageTypeError: 'JPG, PNG, WebP 사진만 보낼 수 있어요.',
+  imageSizeError: '사진은 5MB 이하만 보낼 수 있어요.',
+  imageMaxBytes: 5 * 1024 * 1024,
+  imageTypes: ['image/jpeg', 'image/png', 'image/webp'] as readonly string[],
+  startError: '채팅방을 열지 못했습니다. 잠시 후 다시 시도해 주세요.',
+  loginRequired: {
+    icon: 'lock',
+    title: '로그인이 필요합니다',
+    message: '로그인하면 판매자와 1:1로 채팅하며 안전하게 거래할 수 있습니다.',
+    confirmLabel: '로그인하기',
+    cancelLabel: '닫기',
+  },
+
+  time: {
+    today: (hhmm: string) => hhmm,
+    yesterday: '어제',
+  },
+} as const;
