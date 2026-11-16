@@ -92,6 +92,113 @@ async function getListingDetail(listingId, { viewerId, ip }) {
   };
 }
 
+/**
+ * 원본 이미지 → 긴 변 1600px 이하 WebP.
+ * 확장자·MIME은 클라이언트가 속일 수 있어서 실제 파일 내용(sharp metadata)으로 형식을 다시 확인한다.
+ * sharp는 기본으로 EXIF(촬영 위치 등)를 지우므로, 회전 정보만 먼저 픽셀에 반영한다.
+ */
+async function resizeImage(buffer) {
+  let format;
+  try {
+    ({ format } = await sharp(buffer).metadata());
+  } catch {
+    format = null;
+  }
+  if (!ALLOWED_IMAGE_FORMATS.includes(format)) {
+    throw new HttpError(415, 'UNSUPPORTED_IMAGE_TYPE', 'JPEG, PNG, WebP 이미지만 올릴 수 있습니다.');
+  }
+  try {
+    return await sharp(buffer)
+      .rotate()
+      .resize({ width: IMAGE_MAX_SIDE, height: IMAGE_MAX_SIDE, fit: 'inside', withoutEnlargement: true })
+      .webp({ quality: IMAGE_WEBP_QUALITY })
+      .toBuffer();
+  } catch {
+    throw new HttpError(400, 'INVALID_IMAGE', '이미지 파일이 손상되어 읽을 수 없습니다.');
+  }
+}
+
+/** UPLOAD-01 이미지 업로드. 리사이즈한 파일을 저장하고 아직 판매글에 연결되지 않은 이미지 행을 만든다. */
+async function uploadImage({ uploaderId, type, buffer }) {
+  const resized = await resizeImage(buffer);
+  const fileName = `${crypto.randomUUID()}.webp`;
+  const dir = path.join(env.uploadDir, LISTING_IMAGE_DIR);
+  const filePath = path.join(dir, fileName);
+  await fs.mkdir(dir, { recursive: true });
+  await fs.writeFile(filePath, resized);
+
+  const url = `${env.publicBaseUrl}/uploads/${LISTING_IMAGE_DIR}/${fileName}`;
+  try {
+    const imageId = await sellRepository.insertImage({ uploaderId, type, url });
+    return { imageId, url, type };
+  } catch (err) {
+    // DB 저장에 실패하면 주인 없는 파일이 남지 않게 지운다.
+    await fs.unlink(filePath).catch(() => {});
+    throw err;
+  }
+}
+
+function imageNotFound() {
+  return new HttpError(404, 'IMAGE_NOT_FOUND', '없는 이미지이거나 내가 올린 이미지가 아닙니다.');
+}
+
+function imageAlreadyUsed() {
+  return new HttpError(409, 'IMAGE_ALREADY_USED', '이미 다른 판매글에 사용된 이미지입니다.');
+}
+
+/** 등록 전에 이미지 소유자·종류·연결 여부를 확인해 상황에 맞는 에러를 낸다. */
+async function assertImagesLinkable(sellerId, { imageIds, authImageId }) {
+  const rows = await sellRepository.findImagesByIds([...imageIds, authImageId]);
+  const byId = new Map(rows.map((row) => [row.id, row]));
+  const expected = [
+    ...imageIds.map((id) => ({ id, type: 'photo' })),
+    { id: authImageId, type: 'auth' },
+  ];
+  for (const { id, type } of expected) {
+    const row = byId.get(id);
+    if (!row || row.uploaderId !== sellerId) throw imageNotFound();
+    if (row.type !== type) {
+      const field = type === 'auth' ? 'authImageId' : 'imageIds';
+      const label = type === 'auth' ? '실물 인증 사진(type=auth)' : '상품 사진(type=photo)';
+      throw new HttpError(400, 'VALIDATION_ERROR', `${field}에는 ${label}으로 올린 이미지만 쓸 수 있습니다.`, [
+        { field, message: `이미지 ${id}의 type이 ${row.type}입니다.` },
+      ]);
+    }
+    if (row.listingId !== null) throw imageAlreadyUsed();
+  }
+}
+
+/** LISTING-03 판매글 등록. 카테고리는 품목에서 정해진다. */
+async function createListing(sellerId, input) {
+  const item = await sellRepository.findActiveItem(input.itemId);
+  if (!item) throw new HttpError(404, 'ITEM_NOT_FOUND', '존재하지 않는 품목입니다.');
+
+  await assertImagesLinkable(sellerId, input);
+
+  const created = await sellRepository.createListing(
+    {
+      sellerId,
+      itemId: item.id,
+      categoryId: item.categoryId,
+      title: input.title,
+      description: input.description,
+      price: input.price,
+      condition: input.condition,
+      gradingService: input.gradingService,
+      grade: input.grade,
+      delivery: input.delivery,
+      direct: input.direct,
+      directLocation: input.directLocation,
+      registrationYear: todayKst().slice(0, 4),
+    },
+    { imageIds: input.imageIds, authImageId: input.authImageId },
+  );
+  // 위 검사 이후 같은 이미지로 동시에 등록한 요청이 먼저 연결한 경우
+  if (!created) throw imageAlreadyUsed();
+  return created;
+}
+
+
 function badRequest(message) {
   return new HttpError(400, 'VALIDATION_ERROR', message);
 }
@@ -189,4 +296,4 @@ async function deleteListing(listingId, userId) {
   });
 }
 
-module.exports = { listListings, getListingDetail, updateListing, deleteListing };
+module.exports = { listListings, getListingDetail, uploadImage, createListing, updateListing, deleteListing };
