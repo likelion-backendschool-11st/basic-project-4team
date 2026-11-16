@@ -54,7 +54,7 @@ cd backend
 # backend 폴더에서
 npm install
 npm run db:init    # repick DB와 테이블 생성 (여러 번 실행해도 안전)
-npm run db:seed    # 테스트 계정 test1, test2, test3 생성 (이미 있으면 건너뜀)
+npm run db:seed    # 팀 공용 더미 데이터(db/seed.sql) — ⚠️ 기존 데이터를 지우고 다시 넣음. 계정 test1~3 등 10개, 비밀번호 test1234
 
 # 프론트엔드
 cd ../frontend
