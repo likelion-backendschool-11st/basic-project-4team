@@ -13,7 +13,8 @@ import {
 } from '../../data/community';
 import { ROUTES } from '../../data/layout';
 import { useAuth } from '../auth/useAuth';
-import { toBadges, toImages, toReactionSeeds } from './postMapping';
+import type { FeedComposerPayload } from './useFeedComposer';
+import { toBadges, toFeedPoll, toImages, toItemTag, toPriceTag, toReactionSeeds } from './postMapping';
 
 const PAGE_SIZE = 10;
 
@@ -37,8 +38,11 @@ const toFeedPost = (post: Post): FeedPost => {
     title: post.title ?? '',
     body: post.body,
     images: toImages(post),
+    poll: toFeedPoll(post),
+    itemTag: toItemTag(post),
     reactions: toReactionSeeds(post),
     myReaction: post.myReaction,
+    priceTag: toPriceTag(post),
     commentCount: post.commentCount,
     isMine: post.isMine,
     edited: post.editedAt !== null,
@@ -105,16 +109,26 @@ export const useCommunityFeed = () => {
   /** 이모지처럼 로그인이 필요한 동작 전에 호출. 비로그인이면 로그인 화면으로 보내고 false. */
   const ensureLogin = useCallback(() => !requireLogin(), [requireLogin]);
 
+  /** 글 등록 — 사진·투표·시세 태그 포함. 성공하면 true (글쓰기 입력을 비운다). */
   const addPost = useCallback(
-    async (text: string) => {
-      if (requireLogin()) return;
+    async (payload: FeedComposerPayload): Promise<boolean> => {
+      if (requireLogin()) return false;
       try {
-        const created = await createPost({ board: board as PostBoard, tag: tag as PostTag, body: text });
+        const created = await createPost({
+          board: board as PostBoard,
+          tag: tag as PostTag,
+          body: payload.body,
+          imageIds: payload.imageIds,
+          itemId: payload.itemId,
+          poll: payload.poll,
+        });
         const visible = category === 'all' || created.board === category;
         if (visible) setPosts((prev) => [created, ...prev]);
         setError(null);
+        return true;
       } catch (e) {
         setError(errorMessage(e, feedErrorCopy.create));
+        return false;
       }
     },
     [requireLogin, board, tag, category],

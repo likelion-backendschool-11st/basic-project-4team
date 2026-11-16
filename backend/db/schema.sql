@@ -235,6 +235,55 @@ CREATE TABLE IF NOT EXISTS post_images (
   CONSTRAINT chk_post_images_sort CHECK (sort_order BETWEEN 0 AND 3)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '토론글 사진';
 
+-- ───────────────────────── 토론글 투표 (#40, api-definition COMM-02·03) ─────────────────────────
+CREATE TABLE IF NOT EXISTS post_polls (
+  post_id     BIGINT   NOT NULL,
+  deadline_at DATETIME NOT NULL COMMENT '마감 시각(UTC). 지나면 투표 불가',
+  created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (post_id),
+  CONSTRAINT fk_post_polls_post FOREIGN KEY (post_id) REFERENCES posts (id) ON DELETE CASCADE
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '토론글 투표 (글당 1개)';
+
+CREATE TABLE IF NOT EXISTS post_poll_options (
+  id         BIGINT           NOT NULL AUTO_INCREMENT,
+  post_id    BIGINT           NOT NULL,
+  sort_order TINYINT UNSIGNED NOT NULL COMMENT '0~3 (선택지 2~4개)',
+  label      VARCHAR(40)      NOT NULL,
+  vote_count INT UNSIGNED     NOT NULL DEFAULT 0 COMMENT '득표 집계 (투표와 같은 트랜잭션에서 +1)',
+  created_at DATETIME         NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME         NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_post_poll_options_order (post_id, sort_order),
+  CONSTRAINT fk_post_poll_options_poll FOREIGN KEY (post_id) REFERENCES post_polls (post_id) ON DELETE CASCADE,
+  CONSTRAINT chk_post_poll_options_sort CHECK (sort_order BETWEEN 0 AND 3)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '토론글 투표 선택지';
+
+CREATE TABLE IF NOT EXISTS post_poll_votes (
+  user_id    BIGINT   NOT NULL,
+  post_id    BIGINT   NOT NULL,
+  option_id  BIGINT   NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (user_id, post_id) COMMENT '글당 1인 1표. 두 번째 INSERT는 중복 키 → 409',
+  KEY idx_post_poll_votes_option (option_id),
+  CONSTRAINT fk_post_poll_votes_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+  CONSTRAINT fk_post_poll_votes_poll FOREIGN KEY (post_id) REFERENCES post_polls (post_id) ON DELETE CASCADE,
+  CONSTRAINT fk_post_poll_votes_option FOREIGN KEY (option_id) REFERENCES post_poll_options (id) ON DELETE CASCADE
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '토론글 투표 참여 (1인 1표, 변경 불가)';
+
+-- ───────────────────────── 토론글 희망 체결가 (#40, api-definition DISC-04 priceTag) ─────────────────────────
+-- posts에 컬럼을 더하면 db:init(IF NOT EXISTS)으로 기존 DB에 반영되지 않아 별도 테이블로 둔다.
+CREATE TABLE IF NOT EXISTS post_price_tags (
+  post_id    BIGINT       NOT NULL,
+  price      INT UNSIGNED NOT NULL COMMENT '희망 체결가(원). 1원 ~ 10억',
+  created_at DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (post_id),
+  CONSTRAINT fk_post_price_tags_post FOREIGN KEY (post_id) REFERENCES posts (id) ON DELETE CASCADE,
+  CONSTRAINT chk_post_price_tags_price CHECK (price BETWEEN 1 AND 1000000000)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '토론글 희망 체결가 (글당 1개, 품목 글만)';
+
 CREATE TABLE IF NOT EXISTS post_reactions (
   user_id    BIGINT      NOT NULL,
   post_id    BIGINT      NOT NULL,

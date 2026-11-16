@@ -38,7 +38,48 @@ export interface ReactionSummary {
 
 export interface PostImage {
   readonly id: number;
+  /** /uploads/... 경로 또는 전체 URL. 화면에서는 toAssetUrl()로 바꿔 쓴다. */
   readonly url: string;
+}
+
+/** 시세 태그 — 글에 붙인 품목과 최근 체결가. */
+export interface PostItemTag {
+  readonly id: number;
+  readonly slug: string;
+  readonly name: string;
+  readonly imageUrl: string | null;
+  /** 거래 이력이 없으면 null. */
+  readonly latestPrice: number | null;
+  readonly changeRate: number;
+}
+
+export interface PostPollOption {
+  readonly id: number;
+  readonly label: string;
+  readonly votes: number;
+}
+
+/** 토론글 투표. 글당 1인 1표, 변경 불가. */
+export interface PostPoll {
+  readonly options: readonly PostPollOption[];
+  readonly totalVotes: number;
+  /** 내가 고른 선택지. 안 했거나 비로그인이면 null. */
+  readonly myOptionId: number | null;
+  readonly deadlineAt: string;
+  readonly closed: boolean;
+}
+
+/** 품목 검색 결과 (GET /items?q=). */
+export interface ItemSearchResult {
+  readonly id: number;
+  readonly slug: string;
+  readonly name: string;
+  readonly setName: string | null;
+  readonly rarity: string | null;
+  readonly imageUrl: string | null;
+  readonly category: { readonly id: number; readonly code: string; readonly name: string };
+  readonly latestPrice: number | null;
+  readonly changeRate: number;
 }
 
 export interface Post {
@@ -53,6 +94,11 @@ export interface Post {
   readonly reactions: ReactionCounts;
   readonly myReaction: ReactionType | null;
   readonly images: readonly PostImage[];
+  /** 시세 태그. itemId가 없거나 품목이 숨김이면 null. */
+  readonly item: PostItemTag | null;
+  readonly poll: PostPoll | null;
+  /** 희망 체결가(원). 없으면 null. 품목 글에만 붙는다. */
+  readonly priceTag: number | null;
   readonly commentCount: number;
   readonly isMine: boolean;
   /** 수정한 적이 없으면 null. "(수정됨)" 표시용. */

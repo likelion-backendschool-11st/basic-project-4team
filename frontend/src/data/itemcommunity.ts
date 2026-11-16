@@ -39,8 +39,11 @@ export const loginRequiredCopy = {
 export const boardByCategory: Readonly<Record<string, PostBoard>> = {
   pokemon: 'pokemon',
   onepiece: 'onepiece',
-  nike: 'sneakers',
+  jordan: 'sneakers',
+  collab: 'sneakers',
+  dunk: 'sneakers',
   watch: 'watch',
+  bags: 'watch',
 };
 
 export const DISCUSSION_PAGE_SIZE = 10;

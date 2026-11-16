@@ -40,7 +40,11 @@ export const ItemDiscussionPage: React.FC<ItemDiscussionPageProps> = ({ classNam
                 </section>
               )}
               {/* 비로그인이면 글 등록 대신 로그인 팝업 */}
-              <DiscussionComposer onSubmit={(text) => loginGate.ensureLogin() && d.addPost(text)} />
+              <DiscussionComposer
+                ensureLogin={loginGate.ensureLogin}
+                marketPrice={d.item?.latestPrice ?? null}
+                onSubmit={async (payload) => loginGate.ensureLogin() && d.addPost(payload)}
+              />
               {d.error && <p className="font-body-sm text-body-sm text-error">{d.error}</p>}
               <DiscussionFeedControls
                 onSortChange={d.setSort}

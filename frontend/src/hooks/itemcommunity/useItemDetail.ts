@@ -19,6 +19,7 @@ const toDiscussionItem = (detail: ItemDetail, routeId: string): DiscussionItem =
     certNo: itemSummaryCopy.subLabel(detail.setName, detail.cardNo),
     image: { src: detail.imageUrl ?? '', alt: itemSummaryCopy.imageAlt(detail.name) },
     price: summary ? itemSummaryCopy.price(summary.latestPrice) : itemSummaryCopy.noPrice,
+    latestPrice: summary?.latestPrice ?? null,
     changePct: summary ? itemSummaryCopy.changePct(summary.changeRate) : '',
     changeAmount: summary ? itemSummaryCopy.changeAmount(change) : '',
     trend: change > 0 ? 'up' : change < 0 ? 'down' : 'flat',

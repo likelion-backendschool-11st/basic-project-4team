@@ -38,7 +38,7 @@ cd backend
 npm install
 cp .env.example .env   # DB_PASSWORD만 채우기 (Windows: copy)
 npm run db:init        # DB·테이블 생성 — .env 정보로 db/schema.sql 실행, 반복 실행 안전
-npm run db:seed        # 테스트 계정 test1~3 / test1234 (이미 있으면 건너뜀)
+npm run db:seed        # 팀 공용 더미 데이터(db/seed.sql) — 모든 데이터를 지우고 다시 넣음. 계정 test1~3 등 / test1234
 npm run dev            # 개발 서버 (http://localhost:4000, 파일 변경 시 자동 재시작)
 npm start              # 일반 실행
 ```

@@ -8,6 +8,8 @@ import { FeedPoll } from './FeedPoll';
 import { FeedPostActions } from './FeedPostActions';
 import { FeedPostHeader } from './FeedPostHeader';
 import { PostImages } from './PostImages';
+import { PostItemTag } from './PostItemTag';
+import { PostPriceTag } from './PostPriceTag';
 import { ReactionBar } from './ReactionBar';
 
 export interface FeedPostCardProps {
@@ -20,7 +22,7 @@ export interface FeedPostCardProps {
   readonly ensureLogin?: () => boolean;
 }
 
-/** Community feed card — renders poll (PollWidget) or regular post (FeedCard) layout. */
+/** 커뮤니티 피드 글 카드 — 본문, 시세 태그, 사진, 투표, 이모지·댓글. */
 export const FeedPostCard: React.FC<FeedPostCardProps> = ({ post, onEdit, onDelete, ensureLogin }) => {
   const isPoll = Boolean(post.poll);
   const { postId } = post;
@@ -87,37 +89,23 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({ post, onEdit, onDele
         <p className="font-body-md text-body-md text-body mb-space-md leading-relaxed whitespace-pre-line">{post.body}</p>
       )}
 
-      {post.poll ? (
-        <FeedPoll
-          actions={
-            <FeedPostActions
-              commentIcon="chat_bubble"
-              commentLabel={feedCopy.pollCommentLabel(comments.totalCount)}
-              commentsOpen={comments.open}
-              itemId={post.board.itemId}
-              onCommentToggle={commentToggle}
-            />
-          }
-          poll={post.poll}
+      {post.priceTag && <PostPriceTag tag={post.priceTag} />}
+      {post.itemTag && <PostItemTag tag={post.itemTag} />}
+      {post.images && post.images.length > 0 && <PostImages images={post.images} />}
+      {post.poll && <FeedPoll ensureLogin={ensureLogin} poll={post.poll} />}
+      {/* Bottom Actions */}
+      <div className="flex flex-wrap items-center justify-between gap-space-xs pt-space-xs font-ui-sm text-ui-sm">
+        {postId !== undefined && (
+          <ReactionBar canToggle={ensureLogin} postId={postId} seeds={post.reactions ?? []} selected={post.myReaction} />
+        )}
+        <FeedPostActions
+          commentIcon="chat"
+          commentLabel={feedCopy.commentLabel(comments.totalCount)}
+          commentsOpen={comments.open}
+          itemId={post.board.itemId}
+          onCommentToggle={commentToggle}
         />
-      ) : (
-        <>
-          {post.images && post.images.length > 0 && <PostImages images={post.images} />}
-          {/* Bottom Actions */}
-          <div className="flex flex-wrap items-center justify-between gap-space-xs pt-space-xs font-ui-sm text-ui-sm">
-            {postId !== undefined && (
-              <ReactionBar canToggle={ensureLogin} postId={postId} seeds={post.reactions ?? []} selected={post.myReaction} />
-            )}
-            <FeedPostActions
-              commentIcon="chat"
-              commentLabel={feedCopy.commentLabel(comments.totalCount)}
-              commentsOpen={comments.open}
-              itemId={post.board.itemId}
-              onCommentToggle={commentToggle}
-            />
-          </div>
-        </>
-      )}
+      </div>
       {comments.open && <CommentSection canWrite={status === 'authenticated'} state={comments} />}
     </article>
   );

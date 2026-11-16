@@ -11,7 +11,8 @@ import {
 } from '../../data/community';
 import { boardByCategory, DISCUSSION_PAGE_SIZE, discussionErrorCopy } from '../../data/itemcommunity';
 import { useItemDetail } from '../itemcommunity/useItemDetail';
-import { toBadges, toImages, toReactionSeeds } from './postMapping';
+import type { DiscussionComposerPayload } from './useDiscussionComposer';
+import { toBadges, toImages, toPriceTag, toReactionSeeds } from './postMapping';
 
 /** API Post → 토론방 카드용 DiscussionPost. */
 const toDiscussionPost = (post: Post): DiscussionPost => ({
@@ -30,6 +31,7 @@ const toDiscussionPost = (post: Post): DiscussionPost => ({
   images: toImages(post),
   reactions: toReactionSeeds(post),
   myReaction: post.myReaction,
+  priceTag: toPriceTag(post),
   commentCount: post.commentCount,
   order: post.id,
 });
@@ -90,16 +92,25 @@ export const useItemDiscussion = () => {
   }, [loading, hasMore, page, fetchPage]);
 
   /** 글 등록 — 이 토론방의 품목으로 고정. 로그인 확인은 페이지에서 한다. */
+  /** 글 등록 — 이 토론방 품목으로 고정, 사진·희망 체결가 포함. 성공하면 true. 로그인 확인은 페이지에서 한다. */
   const addPost = useCallback(
-    async (text: string) => {
+    async (payload: DiscussionComposerPayload): Promise<boolean> => {
       try {
         const board = (item?.categoryCode && boardByCategory[item.categoryCode]) || 'free';
-        const created = await createPost({ board, itemId, body: text });
+        const created = await createPost({
+          board,
+          itemId,
+          body: payload.body,
+          imageIds: payload.imageIds,
+          priceTag: payload.priceTag,
+        });
         setPosts((prev) => [created, ...prev]);
         setTotalCount((n) => n + 1);
         setError(null);
+        return true;
       } catch (e) {
         setError(errorMessage(e, discussionErrorCopy.create));
+        return false;
       }
     },
     [item, itemId],
