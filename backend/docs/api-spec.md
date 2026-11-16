@@ -151,6 +151,98 @@
 
 ---
 
+# 마이페이지 🔒
+
+> 화면 `/my`. 모두 로그인 필요(`401 UNAUTHORIZED` / `INVALID_TOKEN`). 회원은 토큰으로만 식별한다.
+> 목록 API는 `page`(기본 1)·`size`(기본 10, 최대 50)를 받고 `{ items, page, size, totalCount }`로 응답한다. 잘못된 값은 `400 VALIDATION_ERROR`.
+> 찜 목록은 기존 `GET /users/me/wishes`를 그대로 쓴다.
+
+## GET /users/me/summary — 프로필 + 활동 숫자
+
+```json
+{
+  "data": {
+    "profile": {
+      "id": 1, "loginId": "test1", "nickname": "테스트유저1", "email": "test1@repick.dev",
+      "profileImageUrl": null, "createdAt": "2025-10-12T03:21:15.000Z",
+      "nicknameChangedAt": null, "nicknameChangeAvailableAt": null
+    },
+    "counts": {
+      "selling": 10, "reserved": 0, "sold": 24, "purchased": 19,
+      "wishes": 24, "posts": 7, "comments": 43, "soldAmount": 60435000
+    }
+  }
+}
+```
+
+- `nicknameChangeAvailableAt`: 닉네임을 다시 바꿀 수 있는 시각. `null`이면 지금 바로 가능.
+- `soldAmount`: 내 거래완료 판매글의 `sold_price` 합계(원).
+- `wishes`·`comments`는 삭제된 판매글·글에 달린 것을 세지 않는다(목록 API와 같은 기준).
+
+## GET /users/me/listings — 내 판매글
+
+쿼리: `status`(선택, `selling` | `reserved` | `sold`), `page`, `size`. 판매중 → 예약중 → 거래완료 순, 같은 상태 안에서는 최신순. 삭제한 글은 빠진다.
+
+```json
+{ "listingId": 240, "registrationNo": "RPC-2026-000240", "title": "...", "itemName": "리자몽 초판 섀도리스",
+  "price": 3929000, "status": "sold", "thumbnailUrl": "...", "viewCount": 297, "wishCount": 0,
+  "soldPrice": 3929000, "soldAt": "2026-11-14T22:33:15.000Z", "createdAt": "..." }
+```
+
+## GET /users/me/purchases — 구매 내역
+
+내가 `buyer_id`인 거래완료 판매글. 최근 거래순. 거래 기록이라 판매자가 지운 글도 포함한다(`isDeleted: true` → 상세로 이동 불가).
+
+```json
+{ "listingId": 241, "registrationNo": "...", "title": "...", "itemName": "...", "thumbnailUrl": "...",
+  "soldPrice": 4150000, "soldAt": "...", "isDeleted": false, "seller": { "id": 6, "nickname": "리셀러J" } }
+```
+
+`seller.nickname`이 `null`이면 탈퇴한 회원.
+
+## GET /users/me/posts — 내 토론글
+
+```json
+{ "postId": 56, "board": "free", "tag": "analysis", "itemId": null, "itemName": null,
+  "title": "이번 주 리셀 시장 정리", "body": "...", "reactionCount": 6, "commentCount": 0, "createdAt": "..." }
+```
+
+## GET /users/me/comments — 내 댓글·답글
+
+글이 삭제된 댓글은 뺀다. 글 제목이 없으면 `post.title`에 본문 앞 40자를 넣는다.
+
+```json
+{ "commentId": 63, "body": "맞아요 ㅎㅎ", "isReply": true, "likeCount": 1, "createdAt": "...",
+  "post": { "id": 14, "board": "pokemon", "itemId": "charizard-ex-sar", "title": "PSA 10 2장 수령했습니다..." } }
+```
+
+## PATCH /users/me/nickname — 닉네임 변경
+
+요청 `{ "nickname": "새닉네임" }` — 앞뒤 공백 제거 후 1~30자, 연속 공백·줄바꿈 불가.
+
+응답 `200` → `{ "data": { "profile": Profile } }` (summary의 `profile`과 같은 모양)
+
+| 에러 코드 | 상태 | 의미 |
+|---|---|---|
+| `VALIDATION_ERROR` | 400 | 형식 오류 |
+| `SAME_NICKNAME` | 400 | 지금 닉네임과 같음 |
+| `DUPLICATE_NICKNAME` | 409 | 이미 사용 중 (탈퇴 회원 포함) |
+| `NICKNAME_CHANGE_TOO_SOON` | 409 | 30일 안에 이미 바꿈. `details.availableAt`에 다음 가능 시각 |
+
+## PATCH /users/me/password — 비밀번호 변경
+
+요청 `{ "currentPassword": "...", "newPassword": "..." }` — `newPassword`는 회원가입과 같은 규칙.
+
+응답 `204 No Content`. 로그인 상태는 유지된다.
+
+| 에러 코드 | 상태 | 의미 |
+|---|---|---|
+| `VALIDATION_ERROR` | 400 | 형식 오류 |
+| `INVALID_CURRENT_PASSWORD` | 400 | 현재 비밀번호가 틀림 (401은 "로그아웃됨"으로 처리되므로 400) |
+| `SAME_PASSWORD` | 400 | 새 비밀번호가 현재와 같음 |
+
+---
+
 # 토론글 (커뮤니티)
 
 > 커뮤니티 피드(P-017)와 품목별 토론방(P-018)이 같은 `posts`를 쓴다. 피드는 `board`로, 토론방은 `itemId`로 걸러서 조회한다.

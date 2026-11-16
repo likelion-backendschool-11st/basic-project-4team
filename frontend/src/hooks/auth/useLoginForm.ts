@@ -45,7 +45,11 @@ export const useLoginForm = () => {
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<LoginFieldErrors>({ userId: false, password: false });
   const [feedback, setFeedback] = useState<LoginFeedback | null>(
-    redirect ? { kind: 'success', title: redirect.noticeTitle, message: redirect.noticeMessage } : null,
+    redirect
+      ? redirect.noticeKind === 'info'
+        ? { kind: 'info', message: `${redirect.noticeTitle} ${redirect.noticeMessage}` }
+        : { kind: 'success', title: redirect.noticeTitle, message: redirect.noticeMessage }
+      : null,
   );
   const timers = useRef<number[]>([]);
   const mounted = useRef(true);
@@ -80,7 +84,7 @@ export const useLoginForm = () => {
         signIn(user);
         if (!mounted.current) return;
         setFeedback({ kind: 'success', title: loginCopy.success, message: loginCopy.successDetail });
-        timers.current.push(window.setTimeout(() => navigate(loginCopy.redirectTo), 600));
+        timers.current.push(window.setTimeout(() => navigate(redirect?.redirectTo ?? loginCopy.redirectTo, { replace: true }), 600));
       } catch (err) {
         if (!mounted.current) return;
         setFeedback({ kind: 'error', message: toErrorMessage(err) });
@@ -88,7 +92,7 @@ export const useLoginForm = () => {
         if (mounted.current) setSubmitting(false);
       }
     },
-    [navigate, password, signIn, submitting, userId],
+    [navigate, password, redirect?.redirectTo, signIn, submitting, userId],
   );
 
   const onSocialLogin = useCallback((providerLabel: string) => {

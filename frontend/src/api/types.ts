@@ -459,3 +459,94 @@ export interface CreateListingResponse {
   readonly id: number;
   readonly registrationNo: string;
 }
+
+/* 마이페이지 — backend/docs/api-spec.md "마이페이지" */
+
+export type MyListingStatus = 'selling' | 'reserved' | 'sold';
+
+export interface MyProfile {
+  readonly id: number;
+  readonly loginId: string;
+  readonly nickname: string;
+  readonly email: string | null;
+  readonly profileImageUrl: string | null;
+  readonly createdAt: string;
+  readonly nicknameChangedAt: string | null;
+  /** 닉네임을 다시 바꿀 수 있는 시각. null이면 지금 바로 가능. */
+  readonly nicknameChangeAvailableAt: string | null;
+}
+
+export interface MyActivityCounts {
+  readonly selling: number;
+  readonly reserved: number;
+  readonly sold: number;
+  readonly purchased: number;
+  readonly wishes: number;
+  readonly posts: number;
+  readonly comments: number;
+  /** 거래완료 판매글의 최종 거래가 합계(원). */
+  readonly soldAmount: number;
+}
+
+export interface MySummary {
+  readonly profile: MyProfile;
+  readonly counts: MyActivityCounts;
+}
+
+export interface PagedList<T> {
+  readonly items: readonly T[];
+  readonly page: number;
+  readonly size: number;
+  readonly totalCount: number;
+}
+
+export interface MyListing {
+  readonly listingId: number;
+  readonly registrationNo: string | null;
+  readonly title: string;
+  readonly itemName: string;
+  readonly price: number;
+  readonly status: MyListingStatus;
+  readonly thumbnailUrl: string | null;
+  readonly viewCount: number;
+  readonly wishCount: number;
+  readonly soldPrice: number | null;
+  readonly soldAt: string | null;
+  readonly createdAt: string;
+}
+
+export interface MyPurchase {
+  readonly listingId: number;
+  readonly registrationNo: string | null;
+  readonly title: string;
+  readonly itemName: string;
+  readonly thumbnailUrl: string | null;
+  readonly soldPrice: number;
+  readonly soldAt: string;
+  /** 판매자가 글을 지웠으면 true (상세로 이동 불가). */
+  readonly isDeleted: boolean;
+  /** nickname이 null이면 탈퇴한 회원. */
+  readonly seller: { readonly id: number; readonly nickname: string | null };
+}
+
+export interface MyPost {
+  readonly postId: number;
+  readonly board: PostBoard;
+  readonly tag: PostTag | null;
+  readonly itemId: string | null;
+  readonly itemName: string | null;
+  readonly title: string | null;
+  readonly body: string;
+  readonly reactionCount: number;
+  readonly commentCount: number;
+  readonly createdAt: string;
+}
+
+export interface MyComment {
+  readonly commentId: number;
+  readonly body: string;
+  readonly isReply: boolean;
+  readonly likeCount: number;
+  readonly createdAt: string;
+  readonly post: { readonly id: number; readonly board: PostBoard; readonly itemId: string | null; readonly title: string };
+}

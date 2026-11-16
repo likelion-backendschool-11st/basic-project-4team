@@ -6,6 +6,30 @@ const { env, connect, exitWithHint } = require('./db-common');
 
 const SCHEMA_PATH = path.join(__dirname, '..', 'db', 'schema.sql');
 
+// schema.sql은 CREATE TABLE IF NOT EXISTS라서, 테이블이 먼저 만들어진 DB에는 나중에 추가된 컬럼이 안 생긴다.
+// MySQL에는 ADD COLUMN IF NOT EXISTS가 없으므로 여기서 빠진 컬럼만 추가한다. 정의는 schema.sql과 같게 유지한다.
+const LATE_COLUMNS = [
+  { table: 'users', column: 'nickname_changed_at', definition: "DATETIME NULL COMMENT '닉네임 변경 시각 (30일에 1번)' AFTER nickname" },
+  { table: 'users', column: 'profile_image_url', definition: 'VARCHAR(500) NULL AFTER email' },
+  { table: 'users', column: 'role', definition: "VARCHAR(20) NOT NULL DEFAULT 'user' COMMENT 'user | admin' AFTER profile_image_url" },
+];
+
+/** 빠진 컬럼을 추가하고, 추가한 목록을 돌려준다. */
+async function addMissingColumns(connection, dbName) {
+  const added = [];
+  for (const { table, column, definition } of LATE_COLUMNS) {
+    const [rows] = await connection.query(
+      'SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND COLUMN_NAME = ?',
+      [dbName, table, column],
+    );
+    if (rows.length === 0) {
+      await connection.query(`ALTER TABLE ${escapeId(table)} ADD COLUMN ${escapeId(column)} ${definition}`);
+      added.push(`${table}.${column}`);
+    }
+  }
+  return added;
+}
+
 async function main() {
   const connection = await connect({ withDatabase: false, multipleStatements: true });
   try {
@@ -15,6 +39,8 @@ async function main() {
     );
     await connection.query(`USE ${dbName}`);
     await connection.query(fs.readFileSync(SCHEMA_PATH, 'utf8'));
+    const added = await addMissingColumns(connection, env.db.database);
+    if (added.length > 0) console.log(`🔧 빠진 컬럼 추가: ${added.join(', ')}`);
 
     const [tables] = await connection.query('SHOW TABLES');
     const names = tables.map((row) => Object.values(row)[0]);

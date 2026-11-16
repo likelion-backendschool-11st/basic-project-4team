@@ -4,6 +4,7 @@ export const ROUTES = {
   signup: '/signup',
   findId: '/find-id',
   findPassword: '/find-password',
+  my: '/my',
   search: '/search',
   listingDetail: (id: string) => `/listings/${id}`,
   myListingDetail: (id: string) => `/my/listings/${id}`,
@@ -50,6 +51,7 @@ export const headerData = {
   loggingOutLabel: '로그아웃 중...',
   logoutError: '로그아웃하지 못했습니다. 잠시 후 다시 시도해 주세요.',
   nicknameSuffix: (nickname: string) => `${nickname}님`,
+  myPageAria: '마이페이지로 이동',
 };
 
 export interface NavItem {

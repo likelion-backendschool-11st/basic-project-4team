@@ -12,7 +12,7 @@ interface HeaderUserMenuProps {
   readonly onLogout: () => void;
 }
 
-/** 헤더 우측: 로그인 확인 중이면 자리만, 비로그인이면 로그인 링크, 로그인이면 닉네임 + 로그아웃. */
+/** 헤더 우측: 로그인 확인 중이면 자리만, 비로그인이면 로그인 링크, 로그인이면 닉네임(마이페이지 링크) + 로그아웃. */
 export const HeaderUserMenu: React.FC<HeaderUserMenuProps> = ({ user, status, loggingOut, onLogout }) => {
   if (status === 'loading') {
     return <span aria-hidden className="w-8 h-8 rounded-[9999px] bg-canvas-soft ml-space-xs" />;
@@ -32,14 +32,19 @@ export const HeaderUserMenu: React.FC<HeaderUserMenuProps> = ({ user, status, lo
 
   return (
     <div className="flex items-center gap-space-xs pl-space-xs">
-      <span className="flex items-center gap-space-xs" title={user.loginId}>
+      <Link
+        aria-label={headerData.myPageAria}
+        className="flex items-center gap-space-xs rounded px-1 py-0.5 hover:bg-canvas-soft transition-colors"
+        title={user.loginId}
+        to={ROUTES.my}
+      >
         <span className="w-8 h-8 rounded-[9999px] bg-primary flex items-center justify-center">
           <Icon className="text-on-primary text-[18px]" name="person" />
         </span>
         <span className="hidden md:inline font-ui-sm text-ui-sm text-ink max-w-[8rem] truncate">
           {headerData.nicknameSuffix(user.nickname)}
         </span>
-      </span>
+      </Link>
       <button
         className="p-2 rounded hover:bg-canvas-soft text-body hover:text-ink transition-colors flex items-center gap-1 font-ui-sm text-ui-sm disabled:opacity-50"
         disabled={loggingOut}
