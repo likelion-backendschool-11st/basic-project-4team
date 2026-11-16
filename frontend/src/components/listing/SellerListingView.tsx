@@ -28,7 +28,7 @@ interface SellerListingViewProps {
   readonly listing: ListingDetail;
 }
 
-/** P-013 내 판매글 상세 화면. 판매글 정보와 삭제는 API, 상태 변경·거래완료는 아직 목 동작. */
+/** P-013 내 판매글 상세 화면. 판매글 정보·삭제·상태 변경·거래완료 모두 API로 처리한다. */
 export const SellerListingView: React.FC<SellerListingViewProps> = ({ listing }) => {
   const view = useSellerListingView(listing);
   const data = sellerListing;
@@ -38,7 +38,7 @@ export const SellerListingView: React.FC<SellerListingViewProps> = ({ listing })
     (copied: boolean) => showToast(copied ? toastMessages.copied : toastMessages.copiedFallback),
     [showToast],
   );
-  const manage = useListingStatus(view.status, view.price, toastMessages, showToast);
+  const manage = useListingStatus(view.id, view.status, view.price, toastMessages, showToast);
   const onDeleted = useCallback(() => showToast(toastMessages.deleted, 'delete'), [showToast]);
   const { remove, deleteError } = useDeleteListing(view.id, { onDeleted, redirectDelayMs: DELETE_REDIRECT_MS });
   const { closeDelete } = manage;
