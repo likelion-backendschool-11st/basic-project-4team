@@ -1,32 +1,34 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type React from 'react';
 import { useNavigate } from 'react-router-dom';
+import type { ItemSummary } from '../../api/types';
 import { ROUTES } from '../../data/layout';
 import {
   MAX_DESCRIPTION,
   NEW_LISTING_ID,
-  catalogLookup,
+  languageOptions,
+  rarityOptions,
   validationMessages,
   type FormVariant,
   type ListingAttributes,
   type ListingFormValues,
   type ListingPhoto,
 } from '../../data/listingForm';
-import { firstSubCategory } from './useCategorySelection';
 
 export type ListingErrorKey = keyof typeof validationMessages;
 export type ListingErrors = Partial<Record<ListingErrorKey, string>>;
 
 export interface UseListingFormOptions {
   readonly variant: FormVariant;
-  /** Listing id (edit mode). Create mode navigates to a mock new id. */
+  /** Listing id (edit mode). 저장 후 기본 이동 위치(내 판매글 상세)에 쓴다. */
   readonly listingId?: string;
   readonly redirectDelayMs?: number;
   /**
    * 실제 저장. 실패하면 화면에 보여줄 문구를 담은 Error를 던진다.
-   * 없으면 저장 없이 상세로 이동한다 (등록 화면 목 동작).
+   * 이동할 경로를 돌려주면 저장 후 그 경로로 간다 (등록: 새 판매글 상세 P-010).
+   * 돌려주지 않으면 내 판매글 상세(listingId)로 간다 (수정).
    */
-  readonly onSubmit?: (values: ListingFormValues) => Promise<void>;
+  readonly onSubmit?: (values: ListingFormValues) => Promise<string | void>;
 }
 
 export interface ListingFormApi {
@@ -39,18 +41,22 @@ export interface ListingFormApi {
   readonly submitError: string | null;
   readonly setField: <K extends keyof ListingFormValues>(key: K, value: ListingFormValues[K]) => void;
   readonly setAttribute: <K extends keyof ListingAttributes>(key: K, value: ListingAttributes[K]) => void;
-  readonly setMainCategory: (main: string) => void;
+  /** 카테고리 변경. 선택해 둔 품목과 카테고리가 달라지면 품목 선택을 풀어준다. */
+  readonly setCategory: (main: string, sub: string) => void;
+  /** 공식 품목(ITEM-02 검색 결과) 선택 — itemId·카테고리·카드 속성을 채운다. mainCategory는 품목 소분류의 대분류. */
+  readonly selectCatalogItem: (item: ItemSummary, mainCategory: string) => void;
   readonly setPhotos: (photos: readonly ListingPhoto[]) => void;
   readonly setAuthPhoto: (photo: ListingPhoto | null) => void;
   readonly addPrice: (amount: number) => void;
-  readonly searchCatalog: () => void;
   readonly handleSubmit: (e?: React.FormEvent) => void;
 }
 
-export const validateListing = (v: ListingFormValues): ListingErrors => {
+export const validateListing = (v: ListingFormValues, variant: FormVariant = 'create'): ListingErrors => {
   const e: ListingErrors = {};
   if (v.photos.length === 0) e.photos = validationMessages.photos;
   if (!v.authPhoto) e.authPhoto = validationMessages.authPhoto;
+  // 등록은 공식 품목 연결이 필수(LISTING-03 itemId). 수정은 품목을 바꿀 수 없어 검사하지 않는다.
+  if (variant === 'create' && v.itemId === null) e.catalog = validationMessages.catalog;
   if (!v.title.trim()) e.title = validationMessages.title;
   if (v.price <= 0) e.price = validationMessages.price;
   if (v.description.length > MAX_DESCRIPTION) e.description = validationMessages.description;
@@ -59,6 +65,19 @@ export const validateListing = (v: ListingFormValues): ListingErrors => {
   if (!v.agreed) e.agreed = validationMessages.agreed;
   return e;
 };
+
+/** 선택한 품목의 표시 이름 — "리자몽 ex SAR (포켓몬 151 #201/165)". */
+const toCatalogLabel = (item: ItemSummary): string => {
+  const detail = [item.setName, item.cardNo ? `#${item.cardNo}` : null].filter(Boolean).join(' ');
+  return detail ? `${item.name} (${detail})` : item.name;
+};
+
+/** DB 값이 선택지에 있으면 그 값, 없으면(null 포함) 기존 값을 유지한다. */
+const pickOption = (
+  options: readonly { readonly value: string }[],
+  value: string | null,
+  fallback: string,
+): string => (value && options.some((o) => o.value === value) ? value : fallback);
 
 /**
  * Controlled state + validation + submit for the listing form.
@@ -81,8 +100,8 @@ export const useListingForm = (
 
   // After the first submit attempt, re-validate live so errors clear as the user fixes them.
   useEffect(() => {
-    if (attempted) setErrors(validateListing(values));
-  }, [attempted, values]);
+    if (attempted) setErrors(validateListing(values, variant));
+  }, [attempted, values, variant]);
 
   const setField = useCallback(<K extends keyof ListingFormValues>(key: K, value: ListingFormValues[K]) => {
     setValues((prev) => ({ ...prev, [key]: value }));
@@ -92,8 +111,35 @@ export const useListingForm = (
     setValues((prev) => ({ ...prev, attributes: { ...prev.attributes, [key]: value } }));
   }, []);
 
-  const setMainCategory = useCallback((main: string) => {
-    setValues((prev) => ({ ...prev, mainCategory: main, subCategory: firstSubCategory(main) }));
+  const setCategory = useCallback((main: string, sub: string) => {
+    setValues((prev) => {
+      if (prev.mainCategory === main && prev.subCategory === sub) return prev;
+      const keepItem = prev.subCategory === sub;
+      return {
+        ...prev,
+        mainCategory: main,
+        subCategory: sub,
+        itemId: keepItem ? prev.itemId : null,
+        catalogMatch: keepItem ? prev.catalogMatch : null,
+      };
+    });
+  }, []);
+
+  const selectCatalogItem = useCallback((item: ItemSummary, mainCategory: string) => {
+    setValues((prev) => ({
+      ...prev,
+      itemId: item.id,
+      catalogMatch: toCatalogLabel(item),
+      mainCategory,
+      subCategory: item.category.code,
+      attributes: {
+        ...prev.attributes,
+        setName: item.setName ?? '',
+        cardNo: item.cardNo ?? '',
+        language: pickOption(languageOptions, item.language, prev.attributes.language),
+        rarity: pickOption(rarityOptions, item.rarity, prev.attributes.rarity),
+      },
+    }));
   }, []);
 
   const setPhotos = useCallback((photos: readonly ListingPhoto[]) => {
@@ -108,23 +154,20 @@ export const useListingForm = (
     setValues((prev) => ({ ...prev, price: prev.price + amount }));
   }, []);
 
-  const searchCatalog = useCallback(() => {
-    setValues((prev) => ({ ...prev, catalogMatch: catalogLookup(prev.catalogQuery) }));
-  }, []);
-
   const handleSubmit = useCallback(
     async (e?: React.FormEvent) => {
       e?.preventDefault();
-      if (submitting) return;
+      if (submitting || saved) return;
       setAttempted(true);
-      const nextErrors = validateListing(values);
+      const nextErrors = validateListing(values, variant);
       setErrors(nextErrors);
       if (Object.keys(nextErrors).length > 0) return;
       setSubmitting(true);
       setSubmitError(null);
+      let redirectTo: string | void = undefined;
       if (onSubmit) {
         try {
-          await onSubmit(values);
+          redirectTo = await onSubmit(values);
         } catch (err) {
           setSubmitError(err instanceof Error ? err.message : String(err));
           setSubmitting(false);
@@ -132,10 +175,10 @@ export const useListingForm = (
         }
       }
       setSaved(true);
-      const id = variant === 'edit' && listingId ? listingId : NEW_LISTING_ID;
-      timer.current = window.setTimeout(() => navigate(ROUTES.myListingDetail(id)), redirectDelayMs);
+      const path = redirectTo || ROUTES.myListingDetail(variant === 'edit' && listingId ? listingId : NEW_LISTING_ID);
+      timer.current = window.setTimeout(() => navigate(path), redirectDelayMs);
     },
-    [submitting, values, variant, listingId, navigate, redirectDelayMs, onSubmit],
+    [submitting, saved, values, variant, listingId, navigate, redirectDelayMs, onSubmit],
   );
 
   return {
@@ -146,11 +189,11 @@ export const useListingForm = (
     submitError,
     setField,
     setAttribute,
-    setMainCategory,
+    setCategory,
+    selectCatalogItem,
     setPhotos,
     setAuthPhoto,
     addPrice,
-    searchCatalog,
     handleSubmit,
   };
 };

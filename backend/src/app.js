@@ -11,6 +11,8 @@ const reportRoutes = require('./report/report.routes');
 const communityVoteRoutes = require('./communityVote/communityVote.routes');
 const wishRoutes = require('./wish/wish.routes');
 const uploadRoutes = require('./sell/upload.routes');
+const itemRoutes = require('./sell/item.routes');
+const categoryRoutes = require('./sell/category.routes');
 const postUploadRoutes = require('./upload/upload.routes');
 const errorHandler = require('./middlewares/errorHandler');
 const HttpError = require('./utils/HttpError');
@@ -39,7 +41,9 @@ app.use('/api/auth', authRoutes);
 app.use('/api/posts', communityRoutes);
 app.use('/api/listings', sellRoutes);
 app.use('/api/listings', wishRoutes);
-app.use('/api/items', itemCommunityRoutes);
+app.use('/api/categories', categoryRoutes); // GET / (ITEM-01)
+app.use('/api/items', itemRoutes); // GET / 품목 검색 (ITEM-02) — itemCommunityRoutes보다 먼저
+app.use('/api/items', itemCommunityRoutes); // GET /trending, GET /:itemId (ITEM-03)
 app.use('/api/community', commentRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/uploads', uploadRoutes); // POST /images (판매글)
