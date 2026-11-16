@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ChangeEvent, FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { login } from '../../api/auth';
 import { ApiError } from '../../api/client';
-import { loginCopy } from '../../data/auth';
+import { loginCopy, type LoginRedirectState } from '../../data/auth';
 import { useAuth } from './useAuth';
 
 export type LoginFeedbackKind = 'error' | 'success' | 'info';
@@ -28,17 +28,25 @@ const toErrorMessage = (err: unknown): string => {
   return loginCopy.unknownError;
 };
 
+const isLoginRedirectState = (state: unknown): state is LoginRedirectState =>
+  typeof state === 'object' && state !== null && 'noticeTitle' in state && 'noticeMessage' in state;
+
 /** Form state, validation and API submit for the login card. */
 export const useLoginForm = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  // 회원가입·비밀번호 변경 후 넘어온 경우: 아이디를 채우고 완료 안내를 띄운다.
+  const redirect = isLoginRedirectState(location.state) ? location.state : null;
   const { signIn } = useAuth();
-  const [userId, setUserId] = useState('');
+  const [userId, setUserId] = useState(redirect?.loginId ?? '');
   const [password, setPassword] = useState('');
   const [rememberId, setRememberId] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<LoginFieldErrors>({ userId: false, password: false });
-  const [feedback, setFeedback] = useState<LoginFeedback | null>(null);
+  const [feedback, setFeedback] = useState<LoginFeedback | null>(
+    redirect ? { kind: 'success', title: redirect.noticeTitle, message: redirect.noticeMessage } : null,
+  );
   const timers = useRef<number[]>([]);
   const mounted = useRef(true);
 

@@ -50,6 +50,25 @@ CREATE TABLE IF NOT EXISTS refresh_tokens (
   CONSTRAINT fk_refresh_tokens_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '발급한 Refresh Token (기기마다 1행)';
 
+CREATE TABLE IF NOT EXISTS verification_codes (
+  id               BIGINT      NOT NULL AUTO_INCREMENT,
+  user_id          BIGINT      NOT NULL,
+  purpose          VARCHAR(20) NOT NULL COMMENT 'find_id | reset_password',
+  code_hash        CHAR(64)    NOT NULL COMMENT '6자리 인증코드의 HMAC-SHA256 (원문은 저장하지 않음)',
+  expires_at       DATETIME    NOT NULL COMMENT '코드 발급 후 10분. 비밀번호 찾기는 인증 성공 시 재설정 토큰 만료(+10분)로 갱신',
+  attempt_count    TINYINT     NOT NULL DEFAULT 0 COMMENT '틀린 횟수. 5회가 되면 이 코드는 더 쓸 수 없음',
+  verified_at      DATETIME    NULL     COMMENT '인증코드 확인 성공 시각',
+  reset_token_hash CHAR(64)    NULL     COMMENT '비밀번호 찾기: 인증 성공 후 발급한 재설정 토큰의 SHA-256',
+  used_at          DATETIME    NULL     COMMENT '사용 완료 또는 새 코드 발급으로 무효가 된 시각',
+  created_at       DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at       DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_verification_codes_reset_token (reset_token_hash),
+  KEY idx_verification_codes_user (user_id, purpose, created_at),
+  CONSTRAINT fk_verification_codes_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+  CONSTRAINT chk_verification_codes_purpose CHECK (purpose IN ('find_id', 'reset_password'))
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '아이디·비밀번호 찾기 이메일 인증코드';
+
 -- ─────────────────────────────────────────────
 -- 카테고리·품목
 -- ─────────────────────────────────────────────

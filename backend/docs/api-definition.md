@@ -41,8 +41,8 @@
 | AUTH-04 | 토큰 재발급 | POST | `/auth/refresh` | 공통 | - | refresh 토큰 → 새 access 토큰 |
 | AUTH-05 | 로그아웃 | POST | `/auth/logout` | 공통(마이) | 필수 | refresh 토큰 무효화 |
 | AUTH-06 | 내 정보 조회 | GET | `/users/me` | 공통 헤더 | 필수 | 닉네임, 이니셜/아바타, 판매자 등급 |
-| AUTH-07 | 회원가입 | POST | `/users` | (화면 미구현 `/signup`) | - | 링크만 존재 — 화면 구현 시 확정 |
-| AUTH-08 | 아이디 찾기 / 비밀번호 재설정 | POST | `/auth/find-id`, `/auth/password-reset` | (화면 미구현) | - | 링크만 존재 — 화면 구현 시 확정 |
+| AUTH-07 | 회원가입 | POST | `/auth/signup` | `/signup` | - | #43 구현 |
+| AUTH-08 | 아이디 찾기 / 비밀번호 재설정 | POST | `/auth/find-id/request`·`/verify`, `/auth/password-reset/request`·`/verify`·`/confirm` | `/find-id`, `/find-password` | - | #45 구현 (이메일 인증코드 3단계) |
 
 ## 2. 공통 레이아웃 (Header / Nav)
 

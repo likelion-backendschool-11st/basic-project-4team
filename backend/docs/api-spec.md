@@ -46,10 +46,10 @@
 
 | 필드 | 필수 | 규칙 |
 |---|---|---|
-| `loginId` | O | 영문 소문자·숫자·`_`, 4~30자 |
+| `loginId` | O | 영문 소문자·숫자·`_`, 4~30자 (대문자는 소문자로 바꿔 저장) |
 | `password` | O | 8자 이상, 72바이트 이하 |
 | `nickname` | O | 1~30자 |
-| `email` | X | 이메일 형식 |
+| `email` | O | 이메일 형식, 255자 이하 (소문자로 바꿔 저장). 아이디·비밀번호 찾기에 쓰므로 필수 (#45) |
 
 응답 `201` → `{ "data": { "user": User } }` (회원가입만 하고 로그인 상태로 만들지는 않음)
 
@@ -78,6 +78,76 @@
 에러: `401 UNAUTHORIZED` / `INVALID_TOKEN`
 
 새로고침 후 로그인 상태 복원, 헤더의 로그인/로그아웃 버튼 전환에 쓴다.
+
+## 아이디·비밀번호 찾기 (#45) — 이메일 인증코드 3단계
+
+| 단계 | 아이디 찾기 | 비밀번호 찾기 |
+|---|---|---|
+| 1. 인증코드 받기 | `POST /auth/find-id/request` | `POST /auth/password-reset/request` |
+| 2. 인증코드 확인 | `POST /auth/find-id/verify` → 아이디 | `POST /auth/password-reset/verify` → 재설정 토큰 |
+| 3. | 화면에 아이디 표시 | `POST /auth/password-reset/confirm` → 새 비밀번호 저장 |
+
+공통 규칙
+
+- 인증코드는 숫자 6자리, **10분** 유효, **5회** 틀리면 그 코드는 무효(다시 받아야 함).
+- 새로 받으면 같은 용도의 이전 코드는 무효. 아이디 찾기 코드와 비밀번호 찾기 코드는 서로 쓸 수 없다.
+- 같은 회원·같은 용도로 **60초 안에 다시 요청하면 메일을 보내지 않는다**(응답은 같음).
+- **계정 존재 여부를 드러내지 않는다**: 1단계는 가입 여부와 관계없이 같은 `200`, 2단계는 "코드 틀림·만료·없는 계정"을 모두 같은 에러(`INVALID_VERIFICATION_CODE`)로 준다. 메일은 응답을 기다리지 않고 보낸다(응답 시간으로도 구분되지 않게).
+- `users`에 이름 컬럼이 없어(개인정보 최소 수집, spec-gaps 3장) REQ-LOGIN-004의 "이름 + 이메일" 대신 이메일만으로 찾는다.
+
+| 에러 코드 | 상태 | 의미 |
+|---|---|---|
+| `VALIDATION_ERROR` | 400 | 빈 값·형식 오류 (코드는 숫자 6자리) |
+| `INVALID_VERIFICATION_CODE` | 400 | 코드가 틀림·만료·이미 사용·5회 초과·없는 계정 (구분하지 않음) |
+| `INVALID_RESET_TOKEN` | 400 | 재설정 토큰이 없거나 만료(10분)·이미 사용 → 처음부터 다시 |
+
+### 1단계 응답 (두 요청 공통) `200`
+
+```json
+{ "data": { "sent": true, "resendAfterSeconds": 60, "expiresInSeconds": 600 } }
+```
+
+프론트는 `resendAfterSeconds` 동안 "다시 받기"를 막고, `expiresInSeconds`로 남은 시간을 보여준다.
+
+### POST /auth/find-id/request
+
+```json
+{ "email": "t@ex.com" }
+```
+
+### POST /auth/find-id/verify
+
+```json
+{ "email": "t@ex.com", "code": "123456" }
+```
+
+응답 `200` → `{ "data": { "loginId": "tester1", "createdAt": "2026-11-12T03:09:50.000Z" } }`
+
+### POST /auth/password-reset/request
+
+```json
+{ "loginId": "tester1", "email": "t@ex.com" }
+```
+
+### POST /auth/password-reset/verify
+
+```json
+{ "loginId": "tester1", "email": "t@ex.com", "code": "123456" }
+```
+
+응답 `200` → `{ "data": { "resetToken": "<일회용 토큰>", "expiresInSeconds": 600 } }`
+
+### POST /auth/password-reset/confirm
+
+```json
+{ "resetToken": "<verify에서 받은 토큰>", "newPassword": "newpassword123" }
+```
+
+`newPassword`는 회원가입 `password`와 같은 규칙. 응답 `204 No Content` (로그인 상태로 만들지 않음 → 프론트는 로그인 화면으로 이동). 토큰은 한 번만 쓸 수 있다.
+
+### 메일 발송
+
+`backend/.env`의 `SMTP_HOST`가 비어 있으면 실제로 보내지 않고 **백엔드 서버 콘솔에 메일 내용(인증코드)을 출력**한다. 서버를 켤 때 SMTP 연결 성공/실패도 콘솔에 표시한다. 로컬 개발·테스트는 콘솔을 보면 된다. 실제 발송은 `.env.example`의 SMTP 항목을 채운다.
 
 ---
 

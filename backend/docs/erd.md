@@ -13,7 +13,7 @@
 
 ## 0. 범위와 공통 규칙
 
-**만드는 테이블 (19개)**: `users`, `refresh_tokens`, `categories`, `items`, `listings`, `listing_images`, `listing_wishes`, `listing_views`, `posts`, `post_images`, `post_price_tags`, `post_polls`, `post_poll_options`, `post_poll_votes`, `post_reactions`, `comments`, `comment_likes`, `item_votes`, `reports`
+**만드는 테이블 (20개)**: `users`, `refresh_tokens`, `verification_codes`, `categories`, `items`, `listings`, `listing_images`, `listing_wishes`, `listing_views`, `posts`, `post_images`, `post_price_tags`, `post_polls`, `post_poll_options`, `post_poll_votes`, `post_reactions`, `comments`, `comment_likes`, `item_votes`, `reports`
 
 **만들지 않는 것**
 
@@ -44,6 +44,7 @@
 ```mermaid
 erDiagram
     users ||--o{ refresh_tokens : "로그인 기기"
+    users ||--o{ verification_codes : "아이디·비밀번호 찾기"
     users ||--o{ listings : "판매(seller_id)"
     users |o--o{ listings : "구매(buyer_id)"
     users ||--o{ posts : "작성"
@@ -86,7 +87,7 @@ erDiagram
 | `password_hash` | VARCHAR(255) | NOT NULL | bcrypt. 탈퇴하면 무작위 값으로 덮어씀 |
 | `nickname` | VARCHAR(30) | NOT NULL, UNIQUE | 2~30자, 앞뒤 공백 제거 |
 | `nickname_changed_at` | DATETIME | NULL | 닉네임은 30일에 1번만 변경 가능 |
-| `email` | VARCHAR(255) | NULL, UNIQUE | 가입할 때는 필수(앱에서 검사). 탈퇴하면 NULL |
+| `email` | VARCHAR(255) | NULL, UNIQUE | 가입할 때는 필수(앱에서 검사), 소문자로 바꿔 저장. 아이디·비밀번호 찾기에 쓴다. 탈퇴하면 NULL |
 | `profile_image_url` | VARCHAR(500) | NULL | |
 | `role` | VARCHAR(20) | NOT NULL DEFAULT `'user'`, CHECK (`user`, `admin`) | accessToken payload에 넣음(A3) |
 | `deleted_at` | DATETIME | NULL | 소프트 삭제(탈퇴) |
@@ -113,6 +114,27 @@ erDiagram
 | `idx_refresh_tokens_expires` | `expires_at` | 하루 1번 정리 작업: 만료되거나 폐기된 지 7일 지난 행 삭제 |
 
 > `user_id` 인덱스는 FK가 자동으로 만든다. 탈퇴할 때 `DELETE ... WHERE user_id = ?`(A6)에 쓰인다.
+
+### 2.2.1 `verification_codes` — 아이디·비밀번호 찾기 이메일 인증코드 (#45)
+
+| 컬럼 | 타입 | 제약 | 설명 |
+|---|---|---|---|
+| `id` | BIGINT | PK | |
+| `user_id` | BIGINT | NOT NULL, FK → `users` ON DELETE CASCADE | |
+| `purpose` | VARCHAR(20) | NOT NULL, CHECK (`find_id`, `reset_password`) | 용도. 다른 용도의 코드는 쓸 수 없음 |
+| `code_hash` | CHAR(64) | NOT NULL | 6자리 코드의 HMAC-SHA256(키 = `JWT_SECRET`, 용도·회원 id 포함). 6자리는 경우의 수가 적어 단순 해시면 DB 유출 시 바로 역산되므로 서버 비밀키를 섞는다 |
+| `expires_at` | DATETIME | NOT NULL | 발급 후 10분. 비밀번호 찾기는 인증 성공 시 재설정 토큰 만료(+10분)로 갱신 |
+| `attempt_count` | TINYINT | NOT NULL DEFAULT 0 | 틀린 횟수. 5회가 되면 그 코드는 무효 |
+| `verified_at` | DATETIME | NULL | 인증코드 확인 성공 시각 |
+| `reset_token_hash` | CHAR(64) | NULL, UNIQUE | 비밀번호 찾기: 인증 성공 후 발급한 일회용 재설정 토큰의 SHA-256 |
+| `used_at` | DATETIME | NULL | 사용 완료(아이디 확인·비밀번호 변경) 또는 새 코드 발급으로 무효가 된 시각 |
+
+| 인덱스 | 컬럼 | 이유 |
+|---|---|---|
+| `uk_verification_codes_reset_token` | `reset_token_hash` | 비밀번호 변경 시 토큰으로 바로 찾음 |
+| `idx_verification_codes_user` | `user_id, purpose, created_at` | 회원·용도별 최신 코드 조회, 재발송 대기(60초) 계산 |
+
+> 회원·용도별로 유효한 코드는 항상 1개(가장 최근 것). 새 코드를 발급할 때 같은 트랜잭션에서 이전 미사용 코드에 `used_at`을 채운다.
 
 ### 2.3 `categories` — 카테고리 (대분류-소분류)
 
