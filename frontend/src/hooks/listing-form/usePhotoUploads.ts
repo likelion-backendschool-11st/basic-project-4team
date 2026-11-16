@@ -12,6 +12,7 @@ const toPhoto = (file: File, index: number): ListingPhoto => {
     alt: file.name,
     label: `사진 ${index + 1}`,
     caption: file.name.length > 12 ? `${file.name.slice(0, 10)}…` : file.name,
+    file,
   };
 };
 

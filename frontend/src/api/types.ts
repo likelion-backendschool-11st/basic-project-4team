@@ -190,6 +190,32 @@ export interface ListingImage {
   readonly sortOrder: number;
 }
 
+/** UPLOAD-01 이미지 종류. photo = 상품 사진, auth = 실물 인증 사진. */
+export type ListingImageType = 'photo' | 'auth';
+
+/** UPLOAD-01 이미지 업로드 응답. */
+export interface UploadedImage {
+  readonly imageId: number;
+  readonly url: string;
+  readonly type: ListingImageType;
+}
+
+/** LISTING-04 판매글 수정 요청. 보낸 필드만 바뀐다. 품목·카테고리는 바꿀 수 없다. */
+export interface UpdateListingRequest {
+  /** 보내면 전체 교체. 배열 순서가 노출 순서. */
+  readonly imageIds?: readonly number[];
+  readonly authImageId?: number;
+  readonly condition?: ItemCondition;
+  readonly gradingService?: string | null;
+  readonly grade?: string | null;
+  readonly title?: string;
+  readonly price?: number;
+  readonly description?: string;
+  readonly delivery?: boolean;
+  readonly direct?: boolean;
+  readonly directLocation?: string | null;
+}
+
 /** LISTING-02 판매글 상세 응답. */
 export interface ListingDetail {
   readonly id: number;

@@ -11,6 +11,7 @@ import {
   languageOptions,
   rarityOptions,
   type FormVariant,
+  type ItemCondition,
   type ListingAttributes,
 } from '../../data/listingForm';
 
@@ -18,10 +19,19 @@ interface AttributeFieldsProps {
   readonly variant: FormVariant;
   readonly value: ListingAttributes;
   readonly onChange: <K extends keyof ListingAttributes>(key: K, value: ListingAttributes[K]) => void;
+  /** Edit mode: conditions shown / locked (defaults: sealed + graded, sealed locked). */
+  readonly conditionVisible?: readonly ItemCondition[];
+  readonly conditionDisabled?: readonly ItemCondition[];
 }
 
 /** Card-category attribute inputs (set, number, language, rarity, condition, grading). */
-export const AttributeFields: React.FC<AttributeFieldsProps> = ({ variant, value, onChange }) => {
+export const AttributeFields: React.FC<AttributeFieldsProps> = ({
+  variant,
+  value,
+  onChange,
+  conditionVisible = editConditionVisible,
+  conditionDisabled = editConditionDisabled,
+}) => {
   const isGraded = value.condition === 'graded';
 
   if (variant === 'create') {
@@ -74,11 +84,11 @@ export const AttributeFields: React.FC<AttributeFieldsProps> = ({ variant, value
         <div>
           <span className="block font-micro text-micro text-muted mb-1">{e.condition}</span>
           <ConditionSelector
-            disabledValues={editConditionDisabled}
+            disabledValues={conditionDisabled}
             onChange={(v) => onChange('condition', v)}
             value={value.condition}
             variant="edit"
-            visible={editConditionVisible}
+            visible={conditionVisible}
           />
         </div>
         <div>
