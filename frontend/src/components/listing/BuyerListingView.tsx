@@ -39,7 +39,8 @@ export const BuyerListingView: React.FC<BuyerListingViewProps> = ({ listing }) =
 
   const { toast, showToast } = useToast();
   const onCopied = useCallback(
-    (copied: boolean) => showToast(copied ? toastMessages.copied : toastMessages.copiedFallback),
+    (copied: boolean) =>
+      copied ? showToast(toastMessages.copied) : showToast(toastMessages.copyFailed, toastMessages.copyFailedIcon),
     [showToast],
   );
 
@@ -95,6 +96,7 @@ export const BuyerListingView: React.FC<BuyerListingViewProps> = ({ listing }) =
                 itemId={view.itemSlug}
                 onCopied={onCopied}
                 setLabel={view.setLabel}
+                sharePath={ROUTES.listingDetail(String(listing.id))}
               />
               {/* data-component="ProductSpecTable" */}
               <div className="mt-space-sm mb-space-xs">

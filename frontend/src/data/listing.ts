@@ -88,9 +88,17 @@ export const listingCore = {
   wishCount: 38,
 };
 
+/** URL 복사 버튼 (REQ-DETAIL-003). */
+export const copyUrlCopy = {
+  label: 'URL 복사',
+  buyerTitle: '판매글 링크 복사',
+  sellerTitle: '판매글 공유 링크 복사',
+};
+
 export const toastMessages = {
   copied: '판매글 링크가 클립보드에 복사되었습니다.',
-  copiedFallback: 'URL이 복사되었습니다.',
+  copyFailed: '링크를 복사하지 못했습니다. 주소창의 링크를 직접 복사해 주세요.',
+  copyFailedIcon: 'error',
   wishAdded: '찜 목록에 추가되었습니다.',
   wishRemoved: '찜이 해제되었습니다.',
   statusChanged: (status: string) => `상품 상태가 '${status}'(으)로 변경되었습니다.`,

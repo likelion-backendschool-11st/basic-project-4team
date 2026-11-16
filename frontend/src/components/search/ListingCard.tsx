@@ -62,12 +62,13 @@ export const ListingCard: React.FC<ListingCardProps> = ({
           aria-label={wishAria}
           aria-pressed={wished}
           className={`absolute bottom-2 right-2 w-8 h-8 rounded-full bg-canvas/80 backdrop-blur flex items-center justify-center hover:bg-canvas transition-colors shadow-sm ${
-            wished ? 'text-primary-container' : 'text-muted hover:text-primary-container'
+            wished ? 'text-error' : 'text-muted hover:text-error'
           }`}
           onClick={() => onToggleWish(listing.id)}
           type="button"
         >
-          <Icon className="text-[18px]" name="favorite" />
+          {/* 판매글 상세·찜 사이드바와 같이 찜하면 빨간 채운 하트 (REQ-LIST-008) */}
+          <Icon className="text-[18px]" filled={wished} name="favorite" />
         </button>
       </div>
       <div className="p-space-sm flex-1 flex flex-col justify-between">

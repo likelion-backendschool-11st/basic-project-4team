@@ -3,12 +3,14 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { getMyWishes, removeWish, type MyWish } from '../../api/layout';
 import { ROUTES, wishlistDrawerCopy as copy } from '../../data/layout';
 import { useAuth } from '../auth/useAuth';
+import { publishWishChange, subscribeWishChange } from '../listing/wishSync';
 
 type LoadStatus = 'idle' | 'loading' | 'error' | 'success';
 
 /**
  * 찜한 상품 사이드바 (REQ-HEADER-010).
- * 헤더 숫자는 로그인 시·페이지 이동 시 totalCount로 맞추고, 사이드바를 열 때 목록을 새로 불러온다.
+ * 헤더 숫자는 로그인 시·페이지 이동 시·다른 화면에서 찜을 바꿨을 때 totalCount로 맞추고, 사이드바를 열 때 목록을 새로 불러온다.
+ * 사이드바에서 찜을 해제하면 열린 판매글 상세·검색 결과의 하트도 같이 바뀐다.
  * 비로그인이면 로그인 화면으로 보낸다.
  */
 export const useWishlistDrawer = () => {
@@ -41,6 +43,16 @@ export const useWishlistDrawer = () => {
       cancelled = true;
     };
   }, [loggedIn, pathname]);
+
+  // 판매글 상세·검색 결과에서 찜을 바꾸면 헤더 숫자를 다시 센다.
+  useEffect(() => {
+    if (!loggedIn) return undefined;
+    return subscribeWishChange(() => {
+      getMyWishes(1, 1)
+        .then((res) => setTotalCount(res.totalCount))
+        .catch(() => undefined);
+    });
+  }, [loggedIn]);
 
   const load = useCallback(async (nextPage: number) => {
     setStatus('loading');
@@ -79,9 +91,9 @@ export const useWishlistDrawer = () => {
     setRemoving((prev) => new Set(prev).add(listingId));
     setError(null);
     try {
-      await removeWish(listingId);
+      const state = await removeWish(listingId);
       setItems((prev) => prev.filter((item) => item.listingId !== listingId));
-      setTotalCount((prev) => (prev === null ? prev : Math.max(prev - 1, 0)));
+      publishWishChange(state);
     } catch {
       setError(copy.removeError);
     } finally {
