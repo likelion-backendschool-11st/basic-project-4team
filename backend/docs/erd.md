@@ -13,13 +13,13 @@
 
 ## 0. 범위와 공통 규칙
 
-**만드는 테이블 (22개)**: `users`, `refresh_tokens`, `verification_codes`, `categories`, `items`, `listings`, `listing_images`, `listing_wishes`, `listing_views`, `posts`, `post_images`, `post_price_tags`, `post_polls`, `post_poll_options`, `post_poll_votes`, `post_reactions`, `comments`, `comment_likes`, `item_votes`, `reports`, `notifications`, `settings`
+**만드는 테이블 (25개)**: `users`, `refresh_tokens`, `verification_codes`, `categories`, `items`, `listings`, `listing_images`, `listing_wishes`, `listing_views`, `posts`, `post_images`, `post_price_tags`, `post_polls`, `post_poll_options`, `post_poll_votes`, `post_reactions`, `comments`, `comment_likes`, `item_votes`, `reports`, `notifications`, `settings`, `chat_rooms`, `chat_messages`, `chat_images`
 
 **만들지 않는 것**
 
 | 대상 | 이유 |
 |---|---|
-| 리뷰, 마이페이지 | 요구사항에서 미구현 (알림은 #19·#56에서 추가 — 2.16, 채팅은 2.17~2.19) |
+| 리뷰, 마이페이지 | 요구사항에서 미구현 (알림은 #19·#56에서 추가 — 2.16, 채팅은 2.18~2.20) |
 | 뱃지 | spec-gaps 1-#9 "뱃지 없음" |
 | 판매글 댓글 | spec-gaps 1-#6 "댓글은 토론글에만" |
 | `blocks` | API 없음·보류. 필요할 때 spec-gaps 3장 설계대로 추가 (`reports`는 #76 — 2.15, `settings`는 #54 — 2.17에서 추가) |
@@ -475,6 +475,55 @@ CHECK: `type = 'photo' OR sort_order = 0` (인증 사진은 항상 0번)
 
 > 키당 1행, 삭제하지 않고 값만 수정한다. 기본 행은 `schema.sql`의 `INSERT IGNORE`로 `db:init` 때 들어가며, 이미 바꾼 값은 덮어쓰지 않는다. `db:seed`는 이 테이블을 지우지 않는다.
 > 서버는 요청마다 읽으므로 값을 바꾸면 재시작 없이 바로 반영된다. 관리자 화면은 아직 없어서 DB에서 직접 `UPDATE`한다.
+### 2.18 `chat_rooms` — 1:1 채팅방 (REQ-DETAIL-005, api-spec-all.md 10장)
+
+| 컬럼 | 타입 | 제약 | 설명 |
+|---|---|---|---|
+| `id` | BIGINT | PK | |
+| `listing_id` | BIGINT | NOT NULL, FK → `listings` ON DELETE CASCADE | 판매글 (소프트 삭제돼도 방은 남음) |
+| `buyer_id` | BIGINT | NOT NULL, FK → `users` ON DELETE CASCADE | 채팅을 시작한 사람 |
+| `seller_id` | BIGINT | NOT NULL, FK → `users` ON DELETE CASCADE | `listings.seller_id` 복사본 — 판매자 쪽 목록을 조인 없이 찾기 위해 |
+| `last_message_id` | BIGINT | NULL | 목록 미리보기. `chat_messages`와 서로 참조라 FK 없음 |
+| `last_message_at` | DATETIME | NULL | 목록 정렬. NULL = 메시지 없음(목록에 안 나옴) |
+| `buyer_read_message_id` | BIGINT | NULL | 구매자가 마지막으로 읽은 메시지 id |
+| `seller_read_message_id` | BIGINT | NULL | 판매자가 마지막으로 읽은 메시지 id |
+
+CHECK `buyer_id <> seller_id` (내 판매글로 채팅 불가).
+
+| 인덱스 | 컬럼 | 이유 |
+|---|---|---|
+| `uk_chat_rooms_listing_buyer` | `listing_id, buyer_id` | 판매글 × 구매자당 방 1개. 동시에 만들어도 중복 키로 막고 기존 방을 돌려줌 |
+| `idx_chat_rooms_buyer_last` | `buyer_id, last_message_at` | 구매자로 참여한 방 목록 (최근 메시지 순) |
+| `idx_chat_rooms_seller_last` | `seller_id, last_message_at` | 판매자로 참여한 방 목록 |
+
+### 2.19 `chat_messages` — 채팅 메시지
+
+| 컬럼 | 타입 | 제약 | 설명 |
+|---|---|---|---|
+| `id` | BIGINT | PK | 순서·읽음 위치·페이지 기준 |
+| `room_id` | BIGINT | NOT NULL, FK → `chat_rooms` ON DELETE CASCADE | |
+| `sender_id` | BIGINT | NOT NULL, FK → `users` ON DELETE CASCADE | |
+| `type` | VARCHAR(10) | NOT NULL, CHECK (`text`, `image`) | |
+| `body` | VARCHAR(1000) | NULL | `text`일 때. 욕설·전화번호·외부 메신저 유도를 가린 뒤 저장 |
+| `image_id` | BIGINT | NULL, FK → `chat_images` ON DELETE RESTRICT, UNIQUE | `image`일 때. 사진 한 장은 한 번만 보낼 수 있음 |
+| `created_at` | DATETIME | NOT NULL | 수정·삭제 없음 |
+
+CHECK: `text`면 `body`만, `image`면 `image_id`만 있어야 한다.
+
+| 인덱스 | 컬럼 | 이유 |
+|---|---|---|
+| `idx_chat_messages_room` | `room_id, id` | 방의 메시지 목록(과거 방향 페이지), 안 읽은 수(`id > 읽은 위치`) |
+| `idx_chat_messages_sender` | `sender_id` | FK |
+| `uk_chat_messages_image` | `image_id` | 사진 재사용 방지 |
+
+### 2.20 `chat_images` — 채팅 사진
+
+| 컬럼 | 타입 | 제약 | 설명 |
+|---|---|---|---|
+| `id` | BIGINT | PK | |
+| `uploader_id` | BIGINT | NOT NULL, FK → `users` ON DELETE CASCADE | 올린 사람만 메시지로 보낼 수 있음 |
+| `url` | VARCHAR(500) | NOT NULL | `/uploads/chat/<UUID>.<확장자>` (서버 기준 경로) |
+| `created_at` | DATETIME | NOT NULL | 보내지 않은 사진 정리 기준 (정리 작업은 아직 없음) |
 
 ## 3. 확인이 필요한 사항(확인완료)
 

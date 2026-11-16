@@ -424,3 +424,56 @@ INSERT IGNORE INTO settings (setting_key, setting_value, description) VALUES
 ('low_price_warning_ratio', '0.3', '시세(30일 평균 체결가) 대비 이 비율 이상 싸면 저가(사기 주의) 경고. 0.3 = 30%'),
 ('new_user_limit_days', '7', '가입 후 이 기간(일) 동안은 신규 가입자'),
 ('new_user_price_limit', '1000000', '신규 가입자는 이 금액(원) 이상으로 판매글 등록·가격 인상 불가');
+
+-- ───────────────────────── 채팅 (REQ-DETAIL-005, REQ-HEADER-004, api-spec-all.md 10장) ─────────────────────────
+CREATE TABLE IF NOT EXISTS chat_rooms (
+  id                     BIGINT   NOT NULL AUTO_INCREMENT,
+  listing_id             BIGINT   NOT NULL,
+  buyer_id               BIGINT   NOT NULL COMMENT '채팅을 시작한 사람',
+  seller_id              BIGINT   NOT NULL COMMENT 'listings.seller_id 복사본 (목록 조회용)',
+  last_message_id        BIGINT   NULL     COMMENT '목록 미리보기용. chat_messages와 서로 참조라 FK 없음',
+  last_message_at        DATETIME NULL     COMMENT '목록 정렬용. NULL = 아직 메시지 없음 (목록에 안 나옴)',
+  buyer_read_message_id  BIGINT   NULL     COMMENT '구매자가 마지막으로 읽은 메시지 id',
+  seller_read_message_id BIGINT   NULL     COMMENT '판매자가 마지막으로 읽은 메시지 id',
+  created_at             DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at             DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_chat_rooms_listing_buyer (listing_id, buyer_id),
+  KEY idx_chat_rooms_buyer_last (buyer_id, last_message_at),
+  KEY idx_chat_rooms_seller_last (seller_id, last_message_at),
+  CONSTRAINT fk_chat_rooms_listing FOREIGN KEY (listing_id) REFERENCES listings (id) ON DELETE CASCADE,
+  CONSTRAINT fk_chat_rooms_buyer   FOREIGN KEY (buyer_id)   REFERENCES users (id)    ON DELETE CASCADE,
+  CONSTRAINT fk_chat_rooms_seller  FOREIGN KEY (seller_id)  REFERENCES users (id)    ON DELETE CASCADE,
+  CONSTRAINT chk_chat_rooms_members CHECK (buyer_id <> seller_id)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '1:1 채팅방 (판매글 × 구매자당 1개)';
+
+CREATE TABLE IF NOT EXISTS chat_images (
+  id          BIGINT       NOT NULL AUTO_INCREMENT,
+  uploader_id BIGINT       NOT NULL,
+  url         VARCHAR(500) NOT NULL,
+  created_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_chat_images_uploader (uploader_id),
+  CONSTRAINT fk_chat_images_uploader FOREIGN KEY (uploader_id) REFERENCES users (id) ON DELETE CASCADE
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '채팅 사진 (UPLOAD-03). 메시지에 쓰이면 chat_messages.image_id가 가리킨다';
+
+CREATE TABLE IF NOT EXISTS chat_messages (
+  id         BIGINT        NOT NULL AUTO_INCREMENT,
+  room_id    BIGINT        NOT NULL,
+  sender_id  BIGINT        NOT NULL,
+  type       VARCHAR(10)   NOT NULL COMMENT 'text | image',
+  body       VARCHAR(1000) NULL     COMMENT 'text일 때. 욕설·전화번호·외부 메신저 유도를 가린 뒤 저장',
+  image_id   BIGINT        NULL     COMMENT 'image일 때',
+  created_at DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_chat_messages_room (room_id, id),
+  KEY idx_chat_messages_sender (sender_id),
+  UNIQUE KEY uk_chat_messages_image (image_id),
+  CONSTRAINT fk_chat_messages_room   FOREIGN KEY (room_id)   REFERENCES chat_rooms (id)  ON DELETE CASCADE,
+  CONSTRAINT fk_chat_messages_sender FOREIGN KEY (sender_id) REFERENCES users (id)       ON DELETE CASCADE,
+  CONSTRAINT fk_chat_messages_image  FOREIGN KEY (image_id)  REFERENCES chat_images (id) ON DELETE RESTRICT,
+  CONSTRAINT chk_chat_messages_type CHECK (type IN ('text', 'image')),
+  CONSTRAINT chk_chat_messages_content CHECK (
+    (type = 'text' AND body IS NOT NULL AND image_id IS NULL) OR (type = 'image' AND body IS NULL AND image_id IS NOT NULL)
+  )
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '채팅 메시지 (수정·삭제 없음)';
