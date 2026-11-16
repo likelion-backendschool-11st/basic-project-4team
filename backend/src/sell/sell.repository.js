@@ -258,7 +258,89 @@ async function findMany(filter, { sort, limit, offset, viewerId }) {
   return { listings: rows.map(toListingSummary), totalCount };
 }
 
+/** 업로드 직후의 이미지 행. 판매글에 연결되기 전이라 listing_id는 NULL. 새 id 반환. */
+async function insertImage({ uploaderId, type, url }) {
+  const [result] = await pool.execute(
+    'INSERT INTO listing_images (uploader_id, type, url) VALUES (?, ?, ?)',
+    [uploaderId, type, url],
+  );
+  return result.insertId;
+}
+
+/** 판매글 등록에 쓸 활성 품목 (카테고리 복사용). 없거나 숨긴 품목이면 null. */
+async function findActiveItem(itemId) {
+  const [rows] = await pool.execute(
+    'SELECT id, category_id FROM items WHERE id = ? AND is_active = 1',
+    [itemId],
+  );
+  return rows.length === 0 ? null : { id: rows[0].id, categoryId: rows[0].category_id };
+}
+
+/** 이미지 id 목록 → 연결 검사용 행 (uploaderId, type, listingId). */
+async function findImagesByIds(imageIds) {
+  const [rows] = await pool.query(
+    'SELECT id, uploader_id, type, listing_id FROM listing_images WHERE id IN (?)',
+    [imageIds],
+  );
+  return rows.map((row) => ({ id: row.id, uploaderId: row.uploader_id, type: row.type, listingId: row.listing_id }));
+}
+
+/**
+ * 판매글 저장 + 등록번호 부여 + 이미지 연결을 한 트랜잭션으로 처리한다.
+ * 이미지는 "내가 올렸고 아직 어디에도 연결되지 않은" 행만 연결한다.
+ * 그 사이 다른 요청이 먼저 연결해 버렸으면 전부 되돌리고 null을 반환한다.
+ */
+async function createListing(listing, { imageIds, authImageId }) {
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    const [result] = await connection.execute(
+      `INSERT INTO listings
+         (seller_id, item_id, category_id, title, description, price, \`condition\`, grading_service, grade,
+          delivery, direct, direct_location, agreed_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
+      [
+        listing.sellerId, listing.itemId, listing.categoryId, listing.title, listing.description, listing.price,
+        listing.condition, listing.gradingService, listing.grade,
+        listing.delivery ? 1 : 0, listing.direct ? 1 : 0, listing.directLocation,
+      ],
+    );
+    const listingId = result.insertId;
+    const registrationNo = `RPC-${listing.registrationYear}-${String(listingId).padStart(6, '0')}`;
+    await connection.execute('UPDATE listings SET registration_no = ? WHERE id = ?', [registrationNo, listingId]);
+
+    // 배열 순서 = 노출 순서. 인증 사진은 sort_order 항상 0.
+    const links = [
+      ...imageIds.map((imageId, index) => ({ imageId, type: 'photo', sortOrder: index })),
+      { imageId: authImageId, type: 'auth', sortOrder: 0 },
+    ];
+    for (const { imageId, type, sortOrder } of links) {
+      const [linked] = await connection.execute(
+        `UPDATE listing_images SET listing_id = ?, sort_order = ?
+         WHERE id = ? AND uploader_id = ? AND type = ? AND listing_id IS NULL`,
+        [listingId, sortOrder, imageId, listing.sellerId, type],
+      );
+      if (linked.affectedRows !== 1) {
+        await connection.rollback();
+        return null;
+      }
+    }
+
+    await connection.commit();
+    return { id: listingId, registrationNo };
+  } catch (err) {
+    await connection.rollback();
+    throw err;
+  } finally {
+    connection.release();
+  }
+}
+
 module.exports = {
+  insertImage,
+  findActiveItem,
+  findImagesByIds,
+  createListing,
   findCategoryIdsByCode,
   findMany,
   findDetailById,

@@ -106,4 +106,136 @@ async function detail(req, res) {
   res.json({ data: listing });
 }
 
-module.exports = { list, detail };
+const IMAGE_TYPES = ['photo', 'auth'];
+
+/** POST /api/uploads/images — 이미지 업로드 (UPLOAD-01). multipart: image(파일), type(photo|auth). */
+async function uploadImage(req, res) {
+  const type = req.body?.type === undefined || req.body.type === '' ? 'photo' : req.body.type;
+  if (!IMAGE_TYPES.includes(type)) {
+    throw new HttpError(400, 'VALIDATION_ERROR', `type은 ${IMAGE_TYPES.join(' 또는 ')}이어야 합니다.`);
+  }
+  if (!req.file) {
+    throw new HttpError(400, 'VALIDATION_ERROR', 'image 필드에 이미지 파일을 담아 보내주세요.');
+  }
+  const image = await sellService.uploadImage({ uploaderId: req.user.id, type, buffer: req.file.buffer });
+  res.status(201).json({ data: image });
+}
+
+const MIN_IMAGES = 1;
+const MAX_IMAGES = 10;
+const TITLE_MAX = 100;
+const DESCRIPTION_MAX = 1000;
+const DIRECT_LOCATION_MAX = 100;
+const MIN_PRICE = 1;
+const MAX_PRICE = 1_000_000_000;
+
+const isPositiveInt = (value) => Number.isSafeInteger(value) && value > 0;
+
+/**
+ * LISTING-03 요청 본문 검사. 위반 사항을 모두 모아 details로 돌려준다.
+ * 통과하면 저장에 쓸 값(공백 제거, 조건부 필드 정리)을 반환한다.
+ */
+function parseCreateBody(body) {
+  if (typeof body !== 'object' || body === null || Array.isArray(body)) {
+    throw new HttpError(400, 'VALIDATION_ERROR', '요청 본문은 JSON 객체여야 합니다.');
+  }
+  const details = [];
+  const fail = (field, message) => details.push({ field, message });
+
+  if (!isPositiveInt(body.itemId)) fail('itemId', 'itemId는 양의 정수여야 합니다.');
+
+  const { imageIds } = body;
+  const isMissing = (value) => value === undefined || value === null;
+  if (isMissing(imageIds) || (Array.isArray(imageIds) && imageIds.length === 0)) {
+    fail('imageIds', '상품 사진을 1장 이상 등록해주세요.');
+  } else if (!Array.isArray(imageIds) || imageIds.length > MAX_IMAGES) {
+    fail('imageIds', `상품 사진은 ${MIN_IMAGES}~${MAX_IMAGES}장이어야 합니다.`);
+  } else if (!imageIds.every(isPositiveInt)) {
+    fail('imageIds', 'imageIds는 양의 정수 배열이어야 합니다.');
+  } else if (new Set(imageIds).size !== imageIds.length) {
+    fail('imageIds', '같은 사진을 두 번 넣을 수 없습니다.');
+  }
+
+  if (isMissing(body.authImageId)) {
+    fail('authImageId', '실물 인증 사진을 등록해주세요.');
+  } else if (!isPositiveInt(body.authImageId)) {
+    fail('authImageId', 'authImageId는 양의 정수여야 합니다.');
+  } else if (Array.isArray(imageIds) && imageIds.includes(body.authImageId)) {
+    fail('authImageId', '실물 인증 사진은 상품 사진과 다른 이미지여야 합니다.');
+  }
+
+  const { condition } = body;
+  if (!LIST_CONDITIONS.includes(condition)) {
+    fail('condition', `condition은 ${LIST_CONDITIONS.join(', ')} 중 하나여야 합니다.`);
+  }
+  const hasGradingService = body.gradingService !== undefined && body.gradingService !== null;
+  const hasGrade = body.grade !== undefined && body.grade !== null;
+  if (condition === 'graded') {
+    if (!LIST_GRADING_SERVICES.includes(body.gradingService)) {
+      fail('gradingService', `그레이딩 슬랩은 gradingService(${LIST_GRADING_SERVICES.join(', ')})가 필요합니다.`);
+    }
+    if (!LIST_GRADES.includes(body.grade)) {
+      fail('grade', `그레이딩 슬랩은 grade(${LIST_GRADES.join(', ')})가 필요합니다.`);
+    }
+  } else if (LIST_CONDITIONS.includes(condition)) {
+    if (hasGradingService) fail('gradingService', 'condition이 graded일 때만 gradingService를 보낼 수 있습니다.');
+    if (hasGrade) fail('grade', 'condition이 graded일 때만 grade를 보낼 수 있습니다.');
+  }
+
+  const title = typeof body.title === 'string' ? body.title.trim() : '';
+  if (title.length < 1 || title.length > TITLE_MAX) fail('title', `제목은 1~${TITLE_MAX}자여야 합니다.`);
+
+  if (!Number.isSafeInteger(body.price) || body.price < MIN_PRICE || body.price > MAX_PRICE) {
+    fail('price', `가격은 ${MIN_PRICE.toLocaleString('ko-KR')}원 이상 ${MAX_PRICE.toLocaleString('ko-KR')}원 이하의 정수여야 합니다.`);
+  }
+
+  let description = '';
+  if (body.description !== undefined && body.description !== null) {
+    if (typeof body.description !== 'string') fail('description', 'description은 문자열이어야 합니다.');
+    else if (body.description.length > DESCRIPTION_MAX) fail('description', `상세 설명은 ${DESCRIPTION_MAX}자 이하여야 합니다.`);
+    else description = body.description;
+  }
+
+  if (typeof body.delivery !== 'boolean') fail('delivery', 'delivery는 true 또는 false여야 합니다.');
+  if (typeof body.direct !== 'boolean') fail('direct', 'direct는 true 또는 false여야 합니다.');
+  if (body.delivery === false && body.direct === false) {
+    fail('tradeMethod', '택배 거래와 직거래 중 하나 이상 선택해야 합니다.');
+  }
+
+  let directLocation = null;
+  if (body.direct === true) {
+    directLocation = typeof body.directLocation === 'string' ? body.directLocation.trim() : '';
+    if (directLocation.length < 1 || directLocation.length > DIRECT_LOCATION_MAX) {
+      fail('directLocation', `직거래 지역은 1~${DIRECT_LOCATION_MAX}자여야 합니다.`);
+    }
+  }
+
+  if (body.agreed !== true) fail('agreed', '판매자 책임 동의가 필요합니다.');
+
+  if (details.length > 0) {
+    throw new HttpError(400, 'VALIDATION_ERROR', details[0].message, details);
+  }
+  return {
+    itemId: body.itemId,
+    imageIds,
+    authImageId: body.authImageId,
+    condition,
+    gradingService: condition === 'graded' ? body.gradingService : null,
+    grade: condition === 'graded' ? body.grade : null,
+    title,
+    price: body.price,
+    description,
+    delivery: body.delivery,
+    direct: body.direct,
+    directLocation,
+  };
+}
+
+/** POST /api/listings — 판매글 등록 (LISTING-03). */
+async function create(req, res) {
+  const input = parseCreateBody(req.body);
+  const created = await sellService.createListing(req.user.id, input);
+  res.status(201).json({ data: created });
+}
+
+module.exports = { list, detail, uploadImage, create };
