@@ -2235,6 +2235,7 @@ curl -b cookie.txt -X DELETE http://localhost:4000/api/posts/1
 - 정렬: 댓글은 **오래된 순**(작성 순), 답글도 오래된 순.
 - 삭제는 **소프트 삭제**. 답글이 남아 있는 댓글은 목록에 `isDeleted: true`, `body: null`로 남겨 "삭제된 댓글입니다"를 표시하고, 답글이 없으면 목록에서 빠진다.
 - 게시글의 `commentCount`는 삭제되지 않은 댓글 + 답글 수의 합이다. 작성 시 +1, 삭제 시 -1.
+- **욕설 필터** (REQ-BDETAIL-010, REQ-COMMON-006, #64): 댓글·답글 작성·수정 때 `body`의 욕설을 같은 글자 수의 `*`로 바꿔서 저장한다(요청은 거절하지 않음). 규칙은 `docs/api-spec.md` 토론글의 "욕설 필터"와 같다.
 - 시간은 ISO 문자열. "10분 전" 같은 상대 시간은 프론트에서 만든다.
 - 아바타 이니셜·색상(`CommunityAuthor.initials`, `tone`), 배지 문구·색상(`CommunityBadge.label`, `tone`)은 **프론트가** `nickname`·배지 코드로 만든다. API는 데이터만 준다.
 
