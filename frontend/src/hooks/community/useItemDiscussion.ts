@@ -4,16 +4,14 @@ import { ApiError } from '../../api/client';
 import { createPost, getPosts } from '../../api/community';
 import type { Post } from '../../api/types';
 import {
-  defaultDiscussionItem,
-  discussionItems,
   discussionPostCopy,
-  discussionReactionTemplate,
   formatTimeAgo,
   type DiscussionPost,
   type DiscussionSort,
 } from '../../data/community';
 import { boardByCategory, DISCUSSION_PAGE_SIZE, discussionErrorCopy } from '../../data/itemcommunity';
 import { useItemDetail } from '../itemcommunity/useItemDetail';
+import { toBadges, toImages, toReactionSeeds } from './postMapping';
 
 /** API Post → 토론방 카드용 DiscussionPost. */
 const toDiscussionPost = (post: Post): DiscussionPost => ({
@@ -25,13 +23,13 @@ const toDiscussionPost = (post: Post): DiscussionPost => ({
     initials: post.author.nickname.slice(0, 1),
     tone: post.isMine ? 'primary' : 'neutral',
   },
-  // 보유자·거래 인증 배지는 데이터가 아직 없다.
-  badges: [],
-  isOwner: false,
+  badges: toBadges(post),
+  isOwner: post.author.badges.includes('owner'),
   meta: `${formatTimeAgo(post.createdAt)}${post.editedAt ? ` ${discussionPostCopy.edited}` : ''}`,
   body: post.body,
-  // 토론글 이모지 반응 API(#59)가 생기기 전까지는 화면에서만 토글된다.
-  reactions: discussionReactionTemplate(0, 0, 0, 0),
+  images: toImages(post),
+  reactions: toReactionSeeds(post),
+  myReaction: post.myReaction,
   commentCount: post.commentCount,
   order: post.id,
 });
@@ -43,10 +41,9 @@ const errorMessage = (error: unknown, fallback: string): string =>
 export const useItemDiscussion = () => {
   const { id } = useParams<{ id: string }>();
   const { hash } = useLocation();
-  const itemId = id ?? defaultDiscussionItem.id;
-  // 감성 투표는 board API가 생기기 전까지 목 데이터를 쓴다.
-  const mockItem = useMemo(() => discussionItems.find((i) => i.id === itemId) ?? defaultDiscussionItem, [itemId]);
-  const { item, status: itemStatus } = useItemDetail(itemId, mockItem);
+  // 라우트(/community/items/:id)에서만 쓰여 id는 항상 있다.
+  const itemId = id ?? '';
+  const { item, status: itemStatus } = useItemDetail(itemId);
 
   const [sort, setSort] = useState<DiscussionSort>('popular');
   const [verifiedOnly, setVerifiedOnly] = useState(false);
@@ -64,7 +61,7 @@ export const useItemDiscussion = () => {
       const reqId = ++requestId.current;
       setLoading(true);
       try {
-        const result = await getPosts({ itemId, sort, page: nextPage, size: DISCUSSION_PAGE_SIZE });
+        const result = await getPosts({ itemId, sort, ownerOnly: verifiedOnly || undefined, page: nextPage, size: DISCUSSION_PAGE_SIZE });
         if (reqId !== requestId.current) return;
         setPosts((prev) => (nextPage === 1 ? result.posts : [...prev, ...result.posts]));
         setPage(nextPage);
@@ -79,7 +76,7 @@ export const useItemDiscussion = () => {
         if (reqId === requestId.current) setLoading(false);
       }
     },
-    [itemId, sort],
+    [itemId, sort, verifiedOnly],
   );
 
   useEffect(() => {
@@ -108,10 +105,8 @@ export const useItemDiscussion = () => {
     [item, itemId],
   );
 
-  const visiblePosts = useMemo(() => {
-    const mapped = posts.map(toDiscussionPost);
-    return verifiedOnly ? mapped.filter((p) => p.isOwner) : mapped;
-  }, [posts, verifiedOnly]);
+  // "인증 보유자 글만 보기"는 서버(ownerOnly)에서 거른다 — 페이지·총 개수가 맞도록.
+  const visiblePosts = useMemo(() => posts.map(toDiscussionPost), [posts]);
 
   return {
     itemId,

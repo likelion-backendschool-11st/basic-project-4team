@@ -84,7 +84,7 @@
 # 토론글 (커뮤니티)
 
 > 커뮤니티 피드(P-017)와 품목별 토론방(P-018)이 같은 `posts`를 쓴다. 피드는 `board`로, 토론방은 `itemId`로 걸러서 조회한다.
-> 이미지 첨부·이모지 리액션·댓글은 별도 API에서 다룬다. `reactionCount`·`commentCount`는 해당 API가 생기면 함께 갱신된다(지금은 0).
+> 이미지 업로드·댓글은 별도 API에서 다룬다. 이모지 리액션은 아래 `PUT·DELETE /posts/:id/reaction`(#59)으로 남기며 `reactionCount`도 같은 트랜잭션에서 갱신된다.
 
 | 토론글 에러 코드 | 상태 | 의미 |
 |---|---|---|
@@ -108,8 +108,11 @@
   "itemId": "charizard-ex-sar",
   "title": "리자몽 ex SAR PSA 10, 지지선 유지될까요?",
   "body": "국내 PSA10 물량이 눈에 띄게 줄었습니다...",
-  "author": { "id": 1, "nickname": "테스트유저1" },
-  "reactionCount": 0,
+  "author": { "id": 1, "nickname": "테스트유저1", "badges": ["owner", "trade"] },
+  "reactionCount": 3,
+  "reactions": { "fire": 2, "surprised": 0, "laugh": 0, "ice": 1 },
+  "myReaction": "fire",
+  "images": [{ "id": 5, "url": "https://..." }],
   "commentCount": 0,
   "isMine": true,
   "editedAt": null,
@@ -122,6 +125,12 @@
 - `itemId`는 품목 식별자(현재는 프론트의 품목 slug). 품목 API가 생기면 그 ID로 맞춘다.
 - `editedAt`: 마지막으로 수정한 시각. 수정한 적이 없으면 `null`. 화면의 "(수정됨)" 표시에 쓴다 (REQ-BEDIT-004).
 - `isMine`: 로그인한 사용자가 작성자면 `true`. 비로그인이면 항상 `false`. 수정·삭제 버튼 노출에 쓴다.
+- `author.badges`: 글의 품목(`itemId`) 기준 작성자 배지. 품목 없는 글은 `[]`.
+  - `owner` 보유자 — 이 품목의 판매중·예약중 판매글이 있거나, 거래완료 판매글의 구매자
+  - `trade` 거래 인증 — 이 품목 거래완료(판매 또는 구매) 이력이 있음
+- `reactions`: 이모지 4종(`fire` 🔥 · `surprised` 😮 · `laugh` 😂 · `ice` 🧊)별 개수. `reactionCount`는 그 합(인기순 정렬용).
+- `myReaction`: 로그인 사용자가 이 글에 남긴 이모지. 없거나 비로그인이면 `null`.
+- `images`: 첨부 사진(`post_images`, 정렬 순서대로). 없으면 `[]`.
 
 ## GET /posts — 토론글 목록
 
@@ -132,6 +141,7 @@
 | `board` | (전체) | 값 목록의 `board` 중 하나 |
 | `itemId` | (전체) | 품목 토론방 글만 |
 | `tag` | (전체) | 값 목록의 `tag` 중 하나 |
+| `ownerOnly` | `false` | `true`면 `author.badges`에 `owner`가 붙는 글만 (토론방 "인증 보유자 글만 보기"). `totalCount`·`hasNext`도 필터 기준 |
 | `sort` | `latest` | `latest` 최신순 · `popular` 인기순(리액션 수 + 댓글 수, 같으면 최신순) |
 | `page` | `1` | 1부터 시작 |
 | `size` | `20` | 1~50 |
@@ -152,7 +162,7 @@
 
 `totalCount`는 필터를 적용한 전체 글 수("총 1,420개의 토론"), 무한 스크롤은 `hasNext`가 `false`가 될 때까지 `page`를 1씩 올려 요청한다.
 
-에러: `400 VALIDATION_ERROR`(허용되지 않은 `board`·`tag`·`sort`, 범위를 벗어난 `page`·`size`)
+에러: `400 VALIDATION_ERROR`(허용되지 않은 `board`·`tag`·`sort`·`ownerOnly`, 범위를 벗어난 `page`·`size`)
 
 ## GET /posts/:id — 토론글 단건 조회
 
@@ -198,3 +208,60 @@
 응답 `204 No Content`
 
 에러: `401`, `403 FORBIDDEN`, `404 POST_NOT_FOUND`
+
+## PUT /posts/:id/reaction — 이모지 남기기·바꾸기 🔒
+
+글당 1인 1개(REQ-BOARD-008). 이미 다른 이모지를 남겼으면 바꾸고, 같은 이모지면 그대로 둔다.
+
+요청 → `{ "type": "fire" }` (`fire` | `surprised` | `laugh` | `ice`)
+
+응답 `200`
+
+```json
+{ "data": { "reactions": { "fire": 3, "surprised": 0, "laugh": 0, "ice": 1 }, "myReaction": "fire" } }
+```
+
+에러: `400 VALIDATION_ERROR`, `401`, `404 POST_NOT_FOUND`
+
+## DELETE /posts/:id/reaction — 이모지 취소 🔒
+
+남긴 이모지를 지운다. 남긴 적이 없어도 `200`. 응답은 PUT과 같다(`myReaction: null`).
+
+에러: `401`, `404 POST_NOT_FOUND`
+
+---
+
+# 연관 품목 (품목 토론방 사이드바)
+
+## GET /items/trending — 토론이 활발한 품목 순위
+
+로그인 없이 조회 가능. 최근 `days`일 동안 삭제되지 않은 토론글 수가 많은 품목 순(같으면 최근 글 순). 숨김 품목 제외.
+
+| 쿼리 | 기본값 | 설명 |
+|---|---|---|
+| `days` | `7` | 1~30 |
+| `limit` | `5` | 1~20 |
+
+응답 `200`
+
+```json
+{
+  "data": {
+    "items": [
+      {
+        "id": 4,
+        "slug": "charizard-ex-sar-sv2a-201",
+        "name": "리자몽 ex SAR (일본판)",
+        "rarity": "SAR",
+        "category": { "id": 4, "code": "pokemon", "name": "포켓몬 카드" },
+        "postCount": 3,
+        "marketSummary": { "latestPrice": 285000, "changeAmount": -15000, "changeRate": -5, "tradeCount30d": 3 }
+      }
+    ]
+  }
+}
+```
+
+- `marketSummary`는 ITEM-03과 같은 형식(필터 없는 전체 시세). 거래 이력이 없으면 `null`.
+
+에러: `400 VALIDATION_ERROR`(범위를 벗어난 `days`·`limit`)

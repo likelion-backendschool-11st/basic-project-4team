@@ -1,5 +1,5 @@
 import { apiRequest } from './client';
-import type { Grade, GradingService, ItemCondition, ItemDetail } from './types';
+import type { Grade, GradingService, ItemCondition, ItemDetail, TrendingItemResponse } from './types';
 
 /** 시세 필터. gradingService·grade는 condition이 'graded'일 때만 보낸다. */
 export interface ItemMarketFilter {
@@ -20,3 +20,11 @@ function toQueryString(filter: ItemMarketFilter): string {
 /** 품목 상세 (ITEM-03). itemId는 숫자 id 또는 slug. 품목 토론방 헤더의 시세 요약·현재 매물 수에 쓴다. */
 export const getItemDetail = (itemId: number | string, filter: ItemMarketFilter = {}): Promise<ItemDetail> =>
   apiRequest<ItemDetail>(`/items/${encodeURIComponent(String(itemId))}${toQueryString(filter)}`);
+
+/** 토론이 활발한 품목 순위 (최근 days일 토론글 수). */
+export const getTrendingItems = async (days: number, limit: number): Promise<readonly TrendingItemResponse[]> => {
+  const { items } = await apiRequest<{ readonly items: readonly TrendingItemResponse[] }>(
+    `/items/trending?days=${days}&limit=${limit}`,
+  );
+  return items;
+};

@@ -97,4 +97,26 @@ async function countSelling(itemId, filter) {
   return sellingCount;
 }
 
-module.exports = { findByIdOrSlug, findLastTrade, countRecentTrades, countSelling };
+/**
+ * 최근 days일 동안 토론글이 많은 품목 순위 (글 수 → 최근 글 순). 숨김 품목·삭제된 글은 제외.
+ * posts.item_id가 아직 slug라 items.slug로 조인한다.
+ */
+async function findTrending({ days, limit }) {
+  const [rows] = await pool.query(
+    `${SELECT_ITEM.replace('SELECT', 'SELECT t.post_count,')}
+     JOIN (
+       SELECT item_id, COUNT(*) AS post_count, MAX(created_at) AS last_post_at
+       FROM posts
+       WHERE deleted_at IS NULL AND item_id IS NOT NULL
+         AND created_at >= UTC_TIMESTAMP() - INTERVAL ? DAY
+       GROUP BY item_id
+     ) t ON t.item_id = i.slug
+     WHERE i.is_active = 1
+     ORDER BY t.post_count DESC, t.last_post_at DESC
+     LIMIT ?`,
+    [days, limit],
+  );
+  return rows.map((row) => ({ ...toItem(row), postCount: Number(row.post_count) }));
+}
+
+module.exports = { findByIdOrSlug, findLastTrade, countRecentTrades, countSelling, findTrending };

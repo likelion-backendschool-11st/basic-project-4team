@@ -54,4 +54,19 @@ async function getItemDetail(idOrSlug, filter) {
   return { ...item, marketSummary, sellingCount };
 }
 
-module.exports = { getItemDetail };
+/** 연관 품목 순위 — 최근 days일 토론글 수 기준. 각 품목에 전체 조건 시세 요약을 붙인다. */
+async function getTrendingItems({ days, limit }) {
+  const items = await itemCommunityRepository.findTrending({ days, limit });
+  const summaries = await Promise.all(items.map((item) => getMarketSummary(item.id, {})));
+  return items.map((item, i) => ({
+    id: item.id,
+    slug: item.slug,
+    name: item.name,
+    rarity: item.rarity,
+    category: item.category,
+    postCount: item.postCount,
+    marketSummary: summaries[i],
+  }));
+}
+
+module.exports = { getItemDetail, getTrendingItems };

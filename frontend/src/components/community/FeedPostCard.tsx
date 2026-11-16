@@ -16,10 +16,12 @@ export interface FeedPostCardProps {
   readonly onEdit?: (postId: number, body: string) => Promise<boolean>;
   /** 내 글 삭제. */
   readonly onDelete?: (postId: number) => void;
+  /** 이모지를 누르기 전에 호출. false면 막는다 (비로그인). */
+  readonly ensureLogin?: () => boolean;
 }
 
 /** Community feed card — renders poll (PollWidget) or regular post (FeedCard) layout. */
-export const FeedPostCard: React.FC<FeedPostCardProps> = ({ post, onEdit, onDelete }) => {
+export const FeedPostCard: React.FC<FeedPostCardProps> = ({ post, onEdit, onDelete, ensureLogin }) => {
   const isPoll = Boolean(post.poll);
   const { postId } = post;
   // API에서 온 글(postId 있음)만 댓글을 펼칠 수 있다. 목 데이터 글은 기존처럼 토론방 링크.
@@ -103,7 +105,9 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({ post, onEdit, onDele
           {post.images && post.images.length > 0 && <PostImages images={post.images} />}
           {/* Bottom Actions */}
           <div className="flex flex-wrap items-center justify-between gap-space-xs pt-space-xs font-ui-sm text-ui-sm">
-            <ReactionBar seeds={post.reactions ?? []} />
+            {postId !== undefined && (
+              <ReactionBar canToggle={ensureLogin} postId={postId} seeds={post.reactions ?? []} selected={post.myReaction} />
+            )}
             <FeedPostActions
               commentIcon="chat"
               commentLabel={feedCopy.commentLabel(comments.totalCount)}
