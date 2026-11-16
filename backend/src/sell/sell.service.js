@@ -3,6 +3,7 @@ const fs = require('fs/promises');
 const path = require('path');
 const sharp = require('sharp');
 const sellRepository = require('./sell.repository');
+const itemCommunityService = require('../itemcommunity/itemcommunity.service');
 const env = require('../config/env');
 const HttpError = require('../utils/HttpError');
 
@@ -323,6 +324,47 @@ async function completeListing(listingId, userId, { soldPrice, buyerId }) {
   });
 }
 
+/** ITEM-01 카테고리 트리 — 대분류 아래 소분류를 children으로 묶는다. */
+async function getCategoryTree() {
+  const categories = await sellRepository.findCategories();
+  return categories
+    .filter((category) => category.parentId === null)
+    .map(({ id, code, name }) => ({
+      id,
+      code,
+      name,
+      children: categories.filter((child) => child.parentId === id),
+    }));
+}
+
+/**
+ * ITEM-02 품목 검색. category는 code로 받아 하위 카테고리까지 포함한다.
+ * 판매글 등록(공식 품목 검색)과 토론글 시세 태그 선택이 함께 쓰므로,
+ * 품목마다 전체 조건 최근 체결가·변동률(ITEM-03 marketSummary와 같은 계산)을 붙인다.
+ */
+async function searchItems({ q, tokens, category }, { page, size }) {
+  let categoryIds = null;
+  if (category) {
+    categoryIds = await sellRepository.findCategoryIdsByCode(category);
+    if (!categoryIds) throw new HttpError(404, 'CATEGORY_NOT_FOUND', '존재하지 않는 카테고리입니다.');
+  }
+  const { items, totalCount } = await sellRepository.searchItems(
+    { q, tokens, categoryIds },
+    { limit: size, offset: (page - 1) * size },
+  );
+  const summaries = await Promise.all(items.map((item) => itemCommunityService.getMarketSummary(item.id, {})));
+  return {
+    items: items.map((item, i) => ({
+      ...item,
+      latestPrice: summaries[i]?.latestPrice ?? null,
+      changeRate: summaries[i]?.changeRate ?? 0,
+    })),
+    page,
+    size,
+    totalCount,
+  };
+}
+
 module.exports = {
   listListings,
   getListingDetail,
@@ -332,4 +374,6 @@ module.exports = {
   deleteListing,
   changeListingStatus,
   completeListing,
+  getCategoryTree,
+  searchItems,
 };

@@ -161,7 +161,9 @@ async function create(req, res) {
 }
 
 // 품목은 진입한 토론방으로 고정되어 수정할 수 없다 (REQ-BEDIT-001).
-const UPDATABLE_FIELDS = ['board', 'tag', 'title', 'body', 'priceTag'];
+const UPDATABLE_FIELDS = ['board', 'tag', 'title', 'body', 'priceTag', 'imageIds'];
+/** 수정 때 imageIds는 사진 전체 목록이라 null·[]이면 모두 뺀다. */
+const UPDATE_PARSERS = { ...FIELD_PARSERS, imageIds: parseImageIds };
 
 async function update(req, res) {
   const postId = parsePostId(req);
@@ -173,7 +175,7 @@ async function update(req, res) {
   const fields = Object.fromEntries(
     UPDATABLE_FIELDS
       .filter((key) => input[key] !== undefined)
-      .map((key) => [key, FIELD_PARSERS[key](input[key])]),
+      .map((key) => [key, UPDATE_PARSERS[key](input[key])]),
   );
   if (Object.keys(fields).length === 0) {
     throw badRequest(`수정할 항목이 없습니다. (${UPDATABLE_FIELDS.join(', ')})`);

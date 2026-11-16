@@ -364,4 +364,46 @@ async function complete(req, res) {
   res.json({ data: await sellService.completeListing(listingId, req.user.id, { soldPrice: body.soldPrice, buyerId }) });
 }
 
-module.exports = { list, detail, uploadImage, create, update, remove, changeStatus, complete };
+/** GET /api/categories — 카테고리 트리 (ITEM-01). 판매글 등록 카테고리 선택. */
+async function categories(req, res) {
+  res.json({ data: await sellService.getCategoryTree() });
+}
+
+const ITEM_SEARCH_Q_MAX = 100;
+const ITEM_SEARCH_MAX_TOKENS = 5;
+const ITEM_SEARCH_DEFAULT_SIZE = 10;
+const ITEM_SEARCH_MAX_SIZE = 50;
+
+/**
+ * 검색어 → 단어 목록. 공백으로 나누고, 카드번호 앞의 #(예: "#201")은 뗀다.
+ * 너무 많은 단어는 LIKE 조건만 늘리므로 앞에서부터 5개까지만 쓴다.
+ */
+function toSearchTokens(q) {
+  return q
+    .split(/\s+/)
+    .map((token) => token.replace(/^#+/, ''))
+    .filter(Boolean)
+    .slice(0, ITEM_SEARCH_MAX_TOKENS);
+}
+
+/** GET /api/items — 품목 검색 (ITEM-02). 판매글 등록 "공식 품목 DB 검색", 토론글 시세 태그 선택. */
+async function searchItems(req, res) {
+  const { query } = req;
+  if (query.q !== undefined && typeof query.q !== 'string') throw listBadRequest('q 형식이 올바르지 않습니다.');
+  const q = (query.q ?? '').trim();
+  if (q.length > ITEM_SEARCH_Q_MAX) throw listBadRequest(`검색어는 ${ITEM_SEARCH_Q_MAX}자 이하여야 합니다.`);
+  if (query.category !== undefined && typeof query.category !== 'string') {
+    throw listBadRequest('category 형식이 올바르지 않습니다.');
+  }
+  const page = parseQueryInt(query.page, 'page', { min: 1 }) ?? 1;
+  const size = parseQueryInt(query.size, 'size', { min: 1 }) ?? ITEM_SEARCH_DEFAULT_SIZE;
+  if (size > ITEM_SEARCH_MAX_SIZE) throw listBadRequest(`size는 ${ITEM_SEARCH_MAX_SIZE} 이하여야 합니다.`);
+
+  const result = await sellService.searchItems(
+    { q: q || null, tokens: toSearchTokens(q), category: query.category || null },
+    { page, size },
+  );
+  res.json({ data: result });
+}
+
+module.exports = { list, detail, uploadImage, create, update, remove, changeStatus, complete, categories, searchItems };

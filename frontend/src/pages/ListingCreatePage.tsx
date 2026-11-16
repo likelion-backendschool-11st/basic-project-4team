@@ -12,6 +12,8 @@ import { RegistrationHeader } from '../components/listing-form/RegistrationHeade
 import { SubmitToast } from '../components/listing-form/SubmitToast';
 import { TradeOptionsSection } from '../components/listing-form/TradeOptionsSection';
 import { emptyListingValues, submitCopy } from '../data/listingForm';
+import { useCatalogMapping } from '../hooks/listing-form/useCatalogMapping';
+import { submitCreateForm } from '../hooks/listing-form/submitListing';
 import { useListingForm } from '../hooks/listing-form/useListingForm';
 
 interface ListingCreatePageProps {
@@ -20,8 +22,9 @@ interface ListingCreatePageProps {
 
 /** P-014 판매글 등록 — route `/sell`. */
 export const ListingCreatePage: React.FC<ListingCreatePageProps> = ({ className = '' }) => {
-  const form = useListingForm(emptyListingValues, { variant: 'create' });
+  const form = useListingForm(emptyListingValues, { variant: 'create', onSubmit: submitCreateForm });
   const { values, errors, setField } = form;
+  const mapping = useCatalogMapping(form);
 
   return (
     <div className={`flex flex-col w-full ${className}`}>
@@ -45,17 +48,26 @@ export const ListingCreatePage: React.FC<ListingCreatePageProps> = ({ className 
               />
               <CategorySelectSection
                 mainCategory={values.mainCategory}
-                onMainChange={form.setMainCategory}
-                onSubChange={(v) => setField('subCategory', v)}
+                mainOptions={mapping.mainOptions}
+                onMainChange={mapping.onMainChange}
+                onSubChange={mapping.onSubChange}
+                status={mapping.categoryStatus}
                 step={3}
                 subCategory={values.subCategory}
+                subOptions={mapping.subOptions}
               />
               <CatalogSearchSection
+                error={errors.catalog}
                 match={values.catalogMatch}
                 onQueryChange={(v) => setField('catalogQuery', v)}
-                onSearch={form.searchCatalog}
+                onSearch={mapping.onSearch}
+                onSelect={mapping.onSelectItem}
                 query={values.catalogQuery}
+                results={mapping.catalog.results}
+                selectedItemId={values.itemId}
+                status={mapping.catalog.status}
                 step={4}
+                totalCount={mapping.catalog.totalCount}
               />
               <AttributesSection onChange={form.setAttribute} step={5} value={values.attributes} />
               <PricingSection
@@ -86,13 +98,16 @@ export const ListingCreatePage: React.FC<ListingCreatePageProps> = ({ className 
                 step={8}
                 variant="create"
               />
-              <CreateSubmitFooter errors={Object.values(errors)} submitting={form.submitting} />
+              <CreateSubmitFooter
+                errors={form.submitError ? [...Object.values(errors), form.submitError] : Object.values(errors)}
+                submitting={form.submitting || form.saved}
+              />
             </form>
             <CreateGuideSidebar activeCategory={values.mainCategory} />
           </div>
         </div>
       </div>
-      <SubmitToast body={submitCopy.toast.createBody} title={submitCopy.toast.createTitle} visible={form.submitting} />
+      <SubmitToast body={submitCopy.toast.createBody} title={submitCopy.toast.createTitle} visible={form.saved} />
     </div>
   );
 };

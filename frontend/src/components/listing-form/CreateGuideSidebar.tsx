@@ -24,7 +24,7 @@ export const CreateGuideSidebar: React.FC<CreateGuideSidebarProps> = ({ activeCa
         <p className="font-body-sm text-body-sm text-muted mb-space-md leading-relaxed">{c.intro}</p>
         <div className="flex flex-col gap-space-sm">
           {guideCategories.map((g) => {
-            const active = g.key === activeCategory;
+            const active = g.code === activeCategory;
             return (
               <div className={`${active ? 'bg-mint-50' : 'bg-canvas-soft'} p-space-sm rounded`} key={g.key}>
                 <div className="flex items-center justify-between gap-space-xs mb-1">

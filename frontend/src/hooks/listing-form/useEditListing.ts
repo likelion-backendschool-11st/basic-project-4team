@@ -48,6 +48,7 @@ const toFormValues = (listing: ListingDetail): ListingFormValues => {
     // breadcrumbs는 대분류 → 소분류 순서. 대분류만 있으면 품목 카테고리를 그대로 쓴다.
     mainCategory: listing.breadcrumbs[0]?.code ?? item.category.code,
     subCategory: listing.breadcrumbs[1]?.code ?? item.category.code,
+    itemId: item.id,
     catalogQuery: item.name,
     catalogMatch: catalogName,
     attributes: {

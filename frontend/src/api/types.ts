@@ -388,3 +388,69 @@ export interface CommunityVote {
   /** 로그인했고 오늘 아직 투표하지 않았으면 true. */
   readonly canVote: boolean;
 }
+
+/* 카테고리·품목 검색 (ITEM-01, ITEM-02) — backend/docs/api-spec-all.md 2장 */
+
+export interface CategoryRef {
+  readonly id: number;
+  readonly code: string;
+  readonly name: string;
+}
+
+export interface CategoryChild extends CategoryRef {
+  readonly parentId: number;
+}
+
+/** ITEM-01 카테고리 트리의 대분류. 소분류는 children. */
+export interface CategoryNode extends CategoryRef {
+  readonly children: readonly CategoryChild[];
+}
+
+/** ITEM-02 품목 검색 결과 한 건. 시세는 전체 조건 기준. */
+export interface ItemSummary {
+  readonly id: number;
+  readonly slug: string;
+  readonly name: string;
+  readonly setName: string | null;
+  readonly cardNo: string | null;
+  readonly language: string | null;
+  readonly rarity: string | null;
+  readonly imageUrl: string | null;
+  readonly category: CategoryRef;
+  /** 최근 체결가. 거래 이력이 없으면 null. */
+  readonly latestPrice: number | null;
+  readonly changeRate: number;
+}
+
+export interface ItemSearchResponse {
+  readonly items: readonly ItemSummary[];
+  readonly page: number;
+  readonly size: number;
+  readonly totalCount: number;
+}
+
+/* 판매글 등록 (UPLOAD-01, LISTING-03) — backend/docs/api-spec-all.md 3장 */
+
+export interface CreateListingRequest {
+  readonly itemId: number;
+  /** 노출 순서. 첫 장이 대표 사진. */
+  readonly imageIds: readonly number[];
+  readonly authImageId: number;
+  readonly condition: ItemCondition;
+  /** condition이 'graded'일 때만 보낸다. */
+  readonly gradingService?: GradingService;
+  readonly grade?: Grade;
+  readonly title: string;
+  readonly price: number;
+  readonly description: string;
+  readonly delivery: boolean;
+  readonly direct: boolean;
+  /** direct가 true일 때만 보낸다. */
+  readonly directLocation?: string;
+  readonly agreed: true;
+}
+
+export interface CreateListingResponse {
+  readonly id: number;
+  readonly registrationNo: string;
+}

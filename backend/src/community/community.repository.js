@@ -1,4 +1,5 @@
 const pool = require('../config/db');
+const { ownerExistsSql } = require('../badge/badge.repository');
 
 // 사용자 입력을 SQL에 그대로 넣지 않도록 정렬 키 → ORDER BY 절을 고정해 둔다.
 const ORDER_BY = {
@@ -39,13 +40,8 @@ function toPost(row) {
   };
 }
 
-// 작성자가 이 품목을 "보유"했는지: 판매중·예약중 판매글이 있거나, 거래완료 판매글의 구매자.
-const OWNER_EXISTS = `EXISTS (
-  SELECT 1 FROM listings l JOIN items i ON i.id = l.item_id
-  WHERE i.slug = p.item_id AND l.deleted_at IS NULL
-    AND ((l.seller_id = p.user_id AND l.status IN ('selling', 'reserved'))
-      OR (l.buyer_id = p.user_id AND l.status = 'sold'))
-)`;
+// 작성자가 이 품목을 "보유"했는지 — 기준은 badge 모듈과 같다.
+const OWNER_EXISTS = ownerExistsSql('p');
 
 function buildWhere({ board, itemId, tag, ownerOnly }) {
   const conditions = ['p.deleted_at IS NULL'];
@@ -180,6 +176,37 @@ async function update(id, fields, { markEdited = false } = {}) {
   return findById(id);
 }
 
+/**
+ * 글 사진 전체 교체 (수정, REQ-BEDIT-002). imageIds 순서가 sort_order가 된다.
+ * 쓸 수 있는 사진: 이 글에 이미 연결된 사진, 또는 내가 올렸고 아직 어디에도 연결되지 않은 사진.
+ * 아니면 ImageNotAvailableError — 트랜잭션 전체를 되돌린다. 빠진 사진은 연결만 끊는다(post_id = NULL).
+ */
+async function replaceImages(postId, userId, imageIds) {
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+    if (imageIds.length > 0) {
+      const [rows] = await conn.query(
+        `SELECT id FROM post_images
+         WHERE id IN (?) AND uploader_id = ? AND (post_id IS NULL OR post_id = ?) FOR UPDATE`,
+        [imageIds, userId, postId],
+      );
+      if (rows.length !== imageIds.length) throw new ImageNotAvailableError();
+    }
+    // 먼저 모두 끊어야 (post_id, sort_order) UNIQUE에 걸리지 않고 순서를 바꿀 수 있다.
+    await conn.execute('UPDATE post_images SET post_id = NULL WHERE post_id = ?', [postId]);
+    for (const [index, imageId] of imageIds.entries()) {
+      await conn.execute('UPDATE post_images SET post_id = ?, sort_order = ? WHERE id = ?', [postId, index, imageId]);
+    }
+    await conn.commit();
+  } catch (err) {
+    await conn.rollback();
+    throw err;
+  } finally {
+    conn.release();
+  }
+}
+
 async function softDelete(id) {
   await pool.execute('UPDATE posts SET deleted_at = CURRENT_TIMESTAMP WHERE id = ? AND deleted_at IS NULL', [id]);
 }
@@ -219,41 +246,6 @@ async function findImages(postIds) {
     [postIds],
   );
   rows.forEach((r) => result.get(r.post_id).push({ id: r.id, url: r.url }));
-  return result;
-}
-
-/**
- * 작성자 배지 Map<"slug:userId", { owner, trade }>.
- * owner = 이 품목 판매중·예약중 판매글이 있거나 거래완료 판매글의 구매자, trade = 이 품목 거래완료(판매·구매) 이력.
- */
-async function findAuthorBadges(pairs) {
-  const result = new Map();
-  if (pairs.length === 0) return result;
-  const slugs = [...new Set(pairs.map((x) => x.slug))];
-  const userIds = [...new Set(pairs.map((x) => x.userId))];
-  const [rows] = await pool.query(
-    `SELECT i.slug, l.seller_id, l.buyer_id, l.status
-     FROM listings l JOIN items i ON i.id = l.item_id
-     WHERE i.slug IN (?) AND l.deleted_at IS NULL AND (l.seller_id IN (?) OR l.buyer_id IN (?))`,
-    [slugs, userIds, userIds],
-  );
-  const mark = (slug, userId, key) => {
-    const k = `${slug}:${userId}`;
-    const v = result.get(k) ?? { owner: false, trade: false };
-    v[key] = true;
-    result.set(k, v);
-  };
-  rows.forEach((r) => {
-    if (r.status === 'sold') {
-      mark(r.slug, r.seller_id, 'trade');
-      if (r.buyer_id !== null) {
-        mark(r.slug, r.buyer_id, 'trade');
-        mark(r.slug, r.buyer_id, 'owner');
-      }
-    } else {
-      mark(r.slug, r.seller_id, 'owner');
-    }
-  });
   return result;
 }
 
@@ -387,11 +379,11 @@ module.exports = {
   findById,
   create,
   update,
+  replaceImages,
   softDelete,
   countReactions,
   findMyReactions,
   findImages,
-  findAuthorBadges,
   upsertReaction,
   deleteReaction,
   findPolls,

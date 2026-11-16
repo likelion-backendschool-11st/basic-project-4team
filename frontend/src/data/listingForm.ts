@@ -40,6 +40,8 @@ export interface ListingFormValues {
   readonly authPhoto: ListingPhoto | null;
   readonly mainCategory: string;
   readonly subCategory: string;
+  /** 공식 품목 DB(ITEM-02)에서 선택한 품목 id. 선택 전이면 null. */
+  readonly itemId: number | null;
   readonly catalogQuery: string;
   readonly catalogMatch: string | null;
   readonly attributes: ListingAttributes;
@@ -221,8 +223,10 @@ const editAuthPhoto: ListingPhoto = {
 export const emptyListingValues: ListingFormValues = {
   photos: [],
   authPhoto: null,
-  mainCategory: 'card',
-  subCategory: 'pokemon',
+  // 카테고리는 DB(ITEM-01)에서 불러온 뒤 첫 대분류·소분류로 채운다.
+  mainCategory: '',
+  subCategory: '',
+  itemId: null,
   catalogQuery: '',
   catalogMatch: null,
   attributes: {
@@ -260,6 +264,7 @@ export const getEditListingMock = (id: string): EditListingMock => ({
     authPhoto: editAuthPhoto,
     mainCategory: 'card',
     subCategory: 'pokemon',
+    itemId: 1,
     catalogQuery: '리자몽 ex SAR #201',
     catalogMatch: '리자몽 ex SAR (스칼렛&바이올렛 151 #201/165)',
     attributes: {
@@ -281,13 +286,6 @@ export const getEditListingMock = (id: string): EditListingMock => ({
     agreed: true,
   },
 });
-
-/** Mock catalog lookup used by the create page's 공식 품목 DB 검색. */
-export const catalogLookup = (query: string): string | null => {
-  const q = query.trim();
-  if (!q) return null;
-  return `포켓몬 카드 151 - ${q.includes('리자몽') ? '리자몽 ex SAR (201/165)' : q}`;
-};
 
 // ---------------------------------------------------------------------------
 // Copy — create (P-014)
@@ -359,6 +357,8 @@ export const categoryCopy = {
   hint: '(선택한 대분류에 따라 필수 속성 입력란이 자동 전환됩니다)',
   mainLabel: '대분류 (필수)',
   subLabel: '소분류 (필수)',
+  loading: '카테고리를 불러오는 중...',
+  error: '카테고리를 불러오지 못했습니다. 새로고침 해주세요.',
 } as const;
 
 export const catalogCopy = {
@@ -368,6 +368,13 @@ export const catalogCopy = {
   matchedPrefix: '[공식 품목 매핑 완료] ',
   matchedHint: '매핑 완료 시 실시간 체결가 데이터 차트와 시세 토론방에 자동 연결됩니다.',
   emptyHint: '품목을 검색해 공식 DB와 매핑하면 실시간 시세가 연동됩니다.',
+  loading: '공식 품목 DB를 검색하는 중...',
+  noResults: '검색 결과가 없습니다. 카드명·세트명·카드번호로 다시 검색해보세요.',
+  error: '품목 검색에 실패했습니다. 잠시 후 다시 시도해주세요.',
+  resultCount: (count: number) => `검색 결과 ${count.toLocaleString('ko-KR')}건`,
+  moreHint: '원하는 품목이 없으면 검색어를 더 구체적으로 입력해주세요.',
+  latestPriceLabel: '최근 체결가',
+  noPriceLabel: '체결 이력 없음',
   externalLinkTo: '/market',
   externalLinkLabel: '공식 품목 DB 열기',
 } as const;
@@ -488,6 +495,11 @@ export const submitCopy = {
     submitting: '저장 중...',
     deleteConfirm: '정말로 이 판매글을 삭제하시겠습니까?\n삭제된 판매글과 누적된 찜 내역은 복구할 수 없습니다.',
   },
+  errors: {
+    loginRequired: '로그인이 필요합니다. 로그인 후 다시 등록해주세요.',
+    network: '서버에 연결할 수 없습니다. 잠시 후 다시 시도해주세요.',
+    failed: '판매글 등록에 실패했습니다. 잠시 후 다시 시도해주세요.',
+  },
   toast: {
     createTitle: '판매글이 정상 등록되었습니다!',
     createBody: '안심 검수 대기 상태로 전환되며 상세 페이지로 이동합니다.',
@@ -520,6 +532,7 @@ export const editPageCopy = {
 export const validationMessages = {
   photos: '상품 사진을 1장 이상 등록해주세요.',
   authPhoto: '실물 인증 사진을 등록해주세요.',
+  catalog: '공식 품목 DB에서 판매할 품목을 검색해 선택해주세요.',
   title: '판매글 제목을 입력해주세요.',
   price: '판매 희망 가격을 입력해주세요.',
   description: '상세 설명은 1000자 이내로 작성해주세요.',
@@ -534,6 +547,8 @@ export const validationMessages = {
 
 export interface GuideCategory {
   readonly key: string;
+  /** DB 대분류 code (ITEM-01). 등록 화면은 DB 카테고리를 쓰므로 이 값으로 강조한다. */
+  readonly code: string;
   readonly icon: string;
   readonly title: string;
   readonly editTitle: string;
@@ -544,6 +559,7 @@ export interface GuideCategory {
 export const guideCategories: readonly GuideCategory[] = [
   {
     key: 'card',
+    code: 'cards',
     icon: 'style',
     title: '[카드] TCG 수집품',
     editTitle: '[트레이딩 카드]',
@@ -552,6 +568,7 @@ export const guideCategories: readonly GuideCategory[] = [
   },
   {
     key: 'sneaker',
+    code: 'sneakers',
     icon: 'steps',
     title: '[운동화] 한정판 스니커즈',
     editTitle: '[한정판 스니커즈]',
@@ -560,6 +577,7 @@ export const guideCategories: readonly GuideCategory[] = [
   },
   {
     key: 'luxury',
+    code: 'luxury',
     icon: 'diamond',
     title: '[명품] 워치 / 잡화',
     editTitle: '[명품 잡화 & 시계]',

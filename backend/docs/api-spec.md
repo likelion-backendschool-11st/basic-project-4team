@@ -137,9 +137,11 @@
 - `itemId`는 품목 식별자(현재는 프론트의 품목 slug). 품목 API가 생기면 그 ID로 맞춘다.
 - `editedAt`: 마지막으로 수정한 시각. 수정한 적이 없으면 `null`. 화면의 "(수정됨)" 표시에 쓴다 (REQ-BEDIT-004).
 - `isMine`: 로그인한 사용자가 작성자면 `true`. 비로그인이면 항상 `false`. 수정·삭제 버튼 노출에 쓴다.
-- `author.badges`: 글의 품목(`itemId`) 기준 작성자 배지. 품목 없는 글은 `[]`.
+- `author.badges`: 글의 품목(`itemId`) 기준 작성자 배지 (REQ-BOARD-012). 품목 없는 글은 `[]`. 순서는 `owner`, `trade`.
   - `owner` 보유자 — 이 품목의 판매중·예약중 판매글이 있거나, 거래완료 판매글의 구매자
-  - `trade` 거래 인증 — 이 품목 거래완료(판매 또는 구매) 이력이 있음
+  - `trade` 거래 인증 — 이 품목 거래완료(`status = sold`) 판매글의 판매자 또는 구매자로 **1건 이상**
+  - 삭제된 판매글은 세지 않는다. 배지는 저장하지 않고 조회할 때 판매글에서 계산하므로, 거래완료 처리 즉시 반영된다.
+  - 기준은 `backend/src/badge/badge.rules.js` 한 곳에서 관리한다 (`ownerOnly` 필터도 같은 기준).
 - `reactions`: 이모지 4종(`fire` 🔥 · `surprised` 😮 · `laugh` 😂 · `ice` 🧊)별 개수. `reactionCount`는 그 합(인기순 정렬용).
 - `myReaction`: 로그인 사용자가 이 글에 남긴 이모지. 없거나 비로그인이면 `null`.
 - `images`: 첨부 사진(`post_images`, 정렬 순서대로). 없으면 `[]`. `url`이 `/uploads/...`로 시작하면 API 서버 주소(예: `http://127.0.0.1:4000`)를 붙여 쓴다.
@@ -221,15 +223,22 @@
 
 ## PATCH /posts/:id — 토론글 수정 🔒
 
-바꿀 필드만 보낸다(`board`, `tag`, `title`, `body`, `priceTag`). 필드 규칙은 등록과 같고, `tag`·`title`·`priceTag`는 `null`을 보내면 비운다. 아무 필드도 없으면 `400`.
-`priceTag`는 품목 글(`itemId` 있음)에만 붙일 수 있다. 희망 체결가만 바꿔도 `editedAt`이 갱신된다.
+바꿀 필드만 보낸다(`board`, `tag`, `title`, `body`, `priceTag`, `imageIds`). 필드 규칙은 등록과 같고, `tag`·`title`·`priceTag`는 `null`을 보내면 비운다. 아무 필드도 없으면 `400`.
+`priceTag`는 품목 글(`itemId` 있음)에만 붙일 수 있다. 희망 체결가나 사진만 바꿔도 `editedAt`이 갱신된다.
 
+```json
+{ "body": "본문 수정", "imageIds": [12, 15], "priceTag": 290000 }
+```
+
+- `imageIds`: 수정 후 **사진 전체 목록**(최대 4장, 순서 = 표시 순서, REQ-BEDIT-002). `[]`이면 사진을 모두 뺀다.
+  - 이 글에 이미 있던 사진 id, 또는 내가 새로 올렸고 아직 어떤 글에도 연결되지 않은 사진 id만 쓸 수 있다. 아니면 `400 IMAGE_NOT_AVAILABLE`.
+  - 목록에서 빠진 사진은 글과의 연결만 끊긴다(파일 정리는 별도 작업).
 - `itemId`는 수정할 수 없다(REQ-BEDIT-001). 보내면 `400 VALIDATION_ERROR`.
 - 수정에 성공하면 `editedAt`이 현재 시각으로 바뀐다.
 
 응답 `200` → `{ "data": { "post": Post } }`
 
-에러: `400 VALIDATION_ERROR`, `401`, `403 FORBIDDEN`, `404 POST_NOT_FOUND`
+에러: `400 VALIDATION_ERROR`, `400 IMAGE_NOT_AVAILABLE`, `401`, `403 FORBIDDEN`, `404 POST_NOT_FOUND`
 
 ## DELETE /posts/:id — 토론글 삭제 🔒
 
@@ -298,12 +307,16 @@
 
 ## GET /items?q=&size= — 품목 검색
 
-로그인 없이 조회 가능. 품목명·세트명 부분 일치(LIKE), 숨김 품목 제외, 이름순. 토론글 글쓰기의 "시세 태그" 선택에 쓴다.
+> **#46에서 api-spec-all.md 2장 ITEM-02로 통합됨** (판매글 등록 "공식 품목 검색"과 같은 API). 아래 요청·응답은 그대로 동작하고, 응답에 `cardNo`·`language`·`page`·`size`·`totalCount`가 더해졌다. 자세한 규칙은 ITEM-02를 본다.
+
+로그인 없이 조회 가능. 품목명·세트명·카드번호 부분 일치(단어별 AND), 숨김 품목 제외. 토론글 글쓰기의 "시세 태그" 선택에 쓴다.
 
 | 쿼리 | 기본값 | 설명 |
 |---|---|---|
-| `q` | (필수) | 1~50자 |
-| `size` | `10` | 1~20 |
+| `q` | - | ≤ 100자. 생략하면 전체 |
+| `category` | - | 카테고리 `code` (대분류면 하위 포함) |
+| `page` | `1` | 1부터 |
+| `size` | `10` | 1~50 |
 
 응답 `200`
 
@@ -321,7 +334,7 @@
 }
 ```
 
-- api-spec-all.md 2장 ITEM-02의 일부(검색어·개수)만 구현했다. 카테고리 필터·페이지는 ITEM-02 구현(#46) 때 확장한다.
+- #46에서 카테고리 필터·페이지를 더해 ITEM-02로 통합했다.
 
 에러: `400 VALIDATION_ERROR`
 

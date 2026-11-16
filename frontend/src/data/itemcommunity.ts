@@ -51,4 +51,6 @@ export const DISCUSSION_PAGE_SIZE = 10;
 export const discussionErrorCopy = {
   load: '토론글을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.',
   create: '글을 등록하지 못했습니다.',
+  update: '글을 수정하지 못했습니다.',
+  remove: '글을 삭제하지 못했습니다.',
 };

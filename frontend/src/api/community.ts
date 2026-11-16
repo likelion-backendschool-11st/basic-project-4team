@@ -44,6 +44,8 @@ export interface UpdatePostRequest {
   readonly title?: string | null;
   /** null이면 희망 체결가를 지운다. */
   readonly priceTag?: number | null;
+  /** 수정 후 사진 전체 목록(최대 4장). []이면 사진을 모두 뺀다. */
+  readonly imageIds?: readonly number[];
 }
 
 function toQueryString(query: PostListQuery): string {

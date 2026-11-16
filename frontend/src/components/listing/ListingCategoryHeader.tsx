@@ -7,7 +7,8 @@ interface ListingCategoryHeaderProps {
   readonly setLabel: string;
   readonly itemId: string;
   readonly discussionLabel: string;
-  readonly discussionCount: number;
+  /** 품목 토론글 수. 불러오기 전이면 null(숫자 숨김). */
+  readonly discussionCount: number | null;
   readonly onCopied: (copied: boolean) => void;
 }
 
@@ -27,7 +28,7 @@ export const ListingCategoryHeader: React.FC<ListingCategoryHeaderProps> = ({
       <span className="font-caption text-caption text-muted">{setLabel}</span>
     </div>
     <div className="mr-auto sm:ml-space-xs">
-      <DiscussionShortcut count={discussionCount} itemId={itemId} label={discussionLabel} variant="chip" />
+      <DiscussionShortcut count={discussionCount ?? undefined} itemId={itemId} label={discussionLabel} variant="chip" />
     </div>
     <CopyUrlButton onCopied={onCopied} variant="buyer" />
   </div>
