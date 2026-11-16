@@ -288,7 +288,6 @@ export interface DiscussionItem {
   readonly listingCount: number;
   readonly breadcrumbs: readonly { readonly label: string; readonly to: string }[];
   readonly breadcrumbCurrent: string;
-  readonly sentiment: { readonly up: number; readonly down: number };
   readonly totalDiscussions: number;
 }
 
@@ -313,7 +312,6 @@ export const discussionItems: readonly DiscussionItem[] = [
       { label: '포켓몬 카드', to: `${ROUTES.search}?q=${encodeURIComponent('포켓몬 카드')}` },
     ],
     breadcrumbCurrent: '리자몽 ex SAR (PSA 10) 토론방',
-    sentiment: { up: 1842, down: 1036 },
     totalDiscussions: 1420,
   },
 ];
@@ -332,7 +330,10 @@ export const sentimentCopy = {
   upIcon: 'local_fire_department',
   downIcon: 'ac_unit',
   votes: (n: number) => `(${n.toLocaleString('ko-KR')}표)`,
-  notice: '24시간 기준 품목당 1회 참여 가능 · 실시간 시세 반영',
+  notice: '하루(자정 기준) 품목당 1회 참여 가능 · 실시간 반영',
+  votedNotice: (side: string) => `오늘 '${side}'에 투표했어요 · 내일 다시 참여할 수 있어요`,
+  loadError: '투표 현황을 불러오지 못했습니다.',
+  voteError: '투표하지 못했습니다. 잠시 후 다시 시도해 주세요.',
   upButton: '🔥 오른다 투표',
   downButton: '🧊 내린다 투표',
 };

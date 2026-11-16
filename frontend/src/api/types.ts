@@ -88,6 +88,16 @@ export interface ItemDetail {
   readonly sellingCount: number;
 }
 
+/** 시세 전망 투표 방향. */
+export type SentimentDirection = 'up' | 'down';
+
+/** GET·POST /items/:itemId/sentiments 응답. up·down은 누적 득표, myVote는 오늘(KST) 내 투표. */
+export interface Sentiment {
+  readonly up: number;
+  readonly down: number;
+  readonly myVote: SentimentDirection | null;
+}
+
 /* ------------------------------------------------------------------ */
 /* 판매글 (api-spec-all.md 3장)                                         */
 /* ItemCondition·ItemCategory는 위 품목 타입을 함께 쓴다.                   */

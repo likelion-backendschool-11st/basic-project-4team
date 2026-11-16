@@ -44,8 +44,7 @@ async function getMarketSummary(itemId, filter) {
 
 /** 품목 상세(ITEM-03) — 품목 토론방 헤더의 시세 요약·현재 매물 수. */
 async function getItemDetail(idOrSlug, filter) {
-  const item = await itemCommunityRepository.findByIdOrSlug(idOrSlug);
-  if (!item) throw itemNotFound();
+  const item = await findItemOrThrow(idOrSlug);
 
   const [marketSummary, sellingCount] = await Promise.all([
     getMarketSummary(item.id, filter),
@@ -54,4 +53,44 @@ async function getItemDetail(idOrSlug, filter) {
   return { ...item, marketSummary, sellingCount };
 }
 
-module.exports = { getItemDetail };
+/** 오늘의 KST 날짜(YYYY-MM-DD). 투표 "하루 1회"의 기준. */
+function kstToday(now = new Date()) {
+  return new Date(now.getTime() + KST_OFFSET_MS).toISOString().slice(0, 10);
+}
+
+async function findItemOrThrow(idOrSlug) {
+  const item = await itemCommunityRepository.findByIdOrSlug(idOrSlug);
+  if (!item) throw itemNotFound();
+  return item;
+}
+
+/** 투표 현황 { up, down, myVote }. myVote는 로그인 사용자의 오늘(KST) 투표. */
+async function buildSentiment(itemId, userId) {
+  const [counts, myVote] = await Promise.all([
+    itemCommunityRepository.countVotes(itemId),
+    userId ? itemCommunityRepository.findVoteDirection(userId, itemId, kstToday()) : null,
+  ]);
+  return { ...counts, myVote };
+}
+
+/** 시세 전망 투표 현황 (GET /items/:itemId/sentiments). 비로그인이면 userId = null. */
+async function getSentiment(idOrSlug, userId) {
+  const item = await findItemOrThrow(idOrSlug);
+  return buildSentiment(item.id, userId);
+}
+
+/** 시세 전망 투표 (POST /items/:itemId/sentiments). 품목당 하루(KST) 1회, 변경·취소 불가. */
+async function voteSentiment(idOrSlug, userId, direction) {
+  const item = await findItemOrThrow(idOrSlug);
+  try {
+    await itemCommunityRepository.insertVote(userId, item.id, kstToday(), direction);
+  } catch (err) {
+    if (err.code === 'ER_DUP_ENTRY') {
+      throw new HttpError(409, 'ALREADY_VOTED', '오늘은 이미 이 품목에 투표했습니다. 내일 다시 참여해 주세요.');
+    }
+    throw err;
+  }
+  return buildSentiment(item.id, userId);
+}
+
+module.exports = { getItemDetail, getSentiment, voteSentiment };

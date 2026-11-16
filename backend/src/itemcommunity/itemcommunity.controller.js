@@ -4,6 +4,7 @@ const HttpError = require('../utils/HttpError');
 const CONDITIONS = ['unopened', 'opened_raw', 'graded'];
 const GRADING_SERVICES = ['PSA', 'BGS', 'CGC', 'BRG'];
 const GRADES = ['10', '9.5', '9', '8.5', '8', '7'];
+const DIRECTIONS = ['up', 'down'];
 const SLUG_PATTERN = /^[a-z0-9-]{1,150}$/;
 
 function badRequest(message) {
@@ -44,4 +45,21 @@ async function detail(req, res) {
   res.json({ data: item });
 }
 
-module.exports = { detail };
+/** GET /api/items/:itemId/sentiments — 시세 전망 투표 현황. */
+async function sentiment(req, res) {
+  const data = await itemCommunityService.getSentiment(parseItemId(req), req.user?.id ?? null);
+  res.json({ data });
+}
+
+/** POST /api/items/:itemId/sentiments — 시세 전망 투표 (하루 1회). */
+async function voteSentiment(req, res) {
+  const itemId = parseItemId(req);
+  const direction = req.body?.direction;
+  if (typeof direction !== 'string' || !DIRECTIONS.includes(direction)) {
+    throw badRequest(`direction 값이 올바르지 않습니다. (${DIRECTIONS.join(', ')})`);
+  }
+  const data = await itemCommunityService.voteSentiment(itemId, req.user.id, direction);
+  res.status(201).json({ data });
+}
+
+module.exports = { detail, sentiment, voteSentiment };

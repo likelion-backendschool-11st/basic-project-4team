@@ -8,11 +8,11 @@ import { ROUTES } from '../../data/layout';
 
 export type ItemDetailStatus = 'loading' | 'ready' | 'notFound' | 'error';
 
-type Fallback = Pick<DiscussionItem, 'sentiment' | 'totalDiscussions'>;
+type Fallback = Pick<DiscussionItem, 'totalDiscussions'>;
 
 /**
  * ITEM-03 응답 → 토론방 헤더용 DiscussionItem.
- * 감성 투표·토론 글 수는 board API 담당이라 아직 목 데이터(fallback)를 쓴다.
+ * 토론 글 수는 아직 목 데이터(fallback)를 쓴다. 시세 전망 투표는 SentimentPoll이 따로 불러온다.
  */
 const toDiscussionItem = (detail: ItemDetail, routeId: string, fallback: Fallback): DiscussionItem => {
   const summary = detail.marketSummary;
@@ -34,7 +34,6 @@ const toDiscussionItem = (detail: ItemDetail, routeId: string, fallback: Fallbac
       ...detail.breadcrumbs.map((c) => ({ label: c.name, to: itemSummaryCopy.categoryTo(c.code) })),
     ],
     breadcrumbCurrent: itemSummaryCopy.breadcrumbCurrent(detail.name),
-    sentiment: fallback.sentiment,
     totalDiscussions: fallback.totalDiscussions,
   };
 };

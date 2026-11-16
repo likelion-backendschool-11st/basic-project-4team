@@ -44,7 +44,7 @@ export const useItemDiscussion = () => {
   const { id } = useParams<{ id: string }>();
   const { hash } = useLocation();
   const itemId = id ?? defaultDiscussionItem.id;
-  // 감성 투표는 board API가 생기기 전까지 목 데이터를 쓴다.
+  // 토론 글 수 fallback용 목 데이터.
   const mockItem = useMemo(() => discussionItems.find((i) => i.id === itemId) ?? defaultDiscussionItem, [itemId]);
   const { item, status: itemStatus } = useItemDetail(itemId, mockItem);
 

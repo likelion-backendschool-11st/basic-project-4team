@@ -198,3 +198,57 @@
 응답 `204 No Content`
 
 에러: `401`, `403 FORBIDDEN`, `404 POST_NOT_FOUND`
+
+---
+
+# 시세 전망 투표 (품목 토론방)
+
+> 품목 토론방(P-018) 상단의 🔥 오른다 / 🧊 내린다 투표 (REQ-BOARD-003, REQ-BOARD-004, 이슈 #60).
+> 테이블: `item_votes` (erd.md 2.14). `{itemId}`는 ITEM-03과 같이 숫자 id 또는 품목 slug.
+> api-definition.md의 DISC-02(`/community/items/{itemId}/sentiments`)를 품목 API 경로(`/items`)에 맞춰 구현했다.
+
+| 투표 에러 코드 | 상태 | 의미 |
+|---|---|---|
+| `ITEM_NOT_FOUND` | 404 | 없거나 숨김 처리된 품목 |
+| `ALREADY_VOTED` | 409 | 오늘(KST) 이미 이 품목에 투표함 |
+
+## Sentiment 객체
+
+```json
+{
+  "up": 1842,
+  "down": 1036,
+  "myVote": "up"
+}
+```
+
+- `up`, `down`: 이 품목의 **누적** 득표 수. 비율은 프론트에서 계산한다(합이 0이면 50:50).
+- `myVote`: 로그인한 사용자가 **오늘(KST) 한 투표**(`up` | `down`). 오늘 투표하지 않았거나 비로그인이면 `null`.
+  `null`이 아니면 오늘은 더 투표할 수 없다(다음 날 0시 KST부터 다시 가능).
+
+## GET /items/:itemId/sentiments — 투표 현황
+
+로그인 없이 조회 가능. (로그인 쿠키가 있으면 `myVote`가 채워진다)
+
+응답 `200` → `{ "data": Sentiment }`
+
+에러: `404 ITEM_NOT_FOUND`
+
+## POST /items/:itemId/sentiments — 투표하기 🔒
+
+요청
+
+```json
+{ "direction": "up" }
+```
+
+| 필드 | 필수 | 규칙 |
+|---|---|---|
+| `direction` | O | `up` 오른다 · `down` 내린다 |
+
+- 품목당 **하루(KST) 1회**. 오늘 이미 투표했으면 `409 ALREADY_VOTED`. 투표는 바꾸거나 취소할 수 없다.
+- 날짜는 서버가 KST 기준으로 계산해 `item_votes.vote_date`에 저장한다. PK(user_id, item_id, vote_date)가 중복을 막는다.
+
+응답 `201` → `{ "data": Sentiment }` (투표가 반영된 현황)
+
+에러: `400 VALIDATION_ERROR`, `401 UNAUTHORIZED` / `INVALID_TOKEN`, `404 ITEM_NOT_FOUND`, `409 ALREADY_VOTED`

@@ -97,4 +97,42 @@ async function countSelling(itemId, filter) {
   return sellingCount;
 }
 
-module.exports = { findByIdOrSlug, findLastTrade, countRecentTrades, countSelling };
+/** 시세 전망 투표 누적 집계 { up, down }. */
+async function countVotes(itemId) {
+  const [rows] = await pool.execute(
+    'SELECT direction, COUNT(*) AS cnt FROM item_votes WHERE item_id = ? GROUP BY direction',
+    [itemId],
+  );
+  const counts = { up: 0, down: 0 };
+  rows.forEach((r) => {
+    counts[r.direction] = Number(r.cnt);
+  });
+  return counts;
+}
+
+/** 사용자가 그 날(KST 날짜 문자열 YYYY-MM-DD) 이 품목에 한 투표 방향. 없으면 null. */
+async function findVoteDirection(userId, itemId, voteDate) {
+  const [rows] = await pool.execute(
+    'SELECT direction FROM item_votes WHERE user_id = ? AND item_id = ? AND vote_date = ?',
+    [userId, itemId, voteDate],
+  );
+  return rows.length === 0 ? null : rows[0].direction;
+}
+
+/** 투표 저장. 같은 날 두 번째 투표는 PK 중복(ER_DUP_ENTRY)으로 실패한다. */
+async function insertVote(userId, itemId, voteDate, direction) {
+  await pool.execute(
+    'INSERT INTO item_votes (user_id, item_id, vote_date, direction) VALUES (?, ?, ?, ?)',
+    [userId, itemId, voteDate, direction],
+  );
+}
+
+module.exports = {
+  findByIdOrSlug,
+  findLastTrade,
+  countRecentTrades,
+  countSelling,
+  countVotes,
+  findVoteDirection,
+  insertVote,
+};
