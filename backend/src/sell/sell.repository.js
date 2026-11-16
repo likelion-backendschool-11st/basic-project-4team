@@ -258,76 +258,14 @@ async function findMany(filter, { sort, limit, offset, viewerId }) {
   return { listings: rows.map(toListingSummary), totalCount };
 }
 
-/** 업로드 직후의 이미지 행. 판매글에 연결되기 전이라 listing_id는 NULL. 새 id 반환. */
-async function insertImage({ uploaderId, type, url }) {
-  const [result] = await pool.execute(
-    'INSERT INTO listing_images (uploader_id, type, url) VALUES (?, ?, ?)',
-    [uploaderId, type, url],
-  );
-  return result.insertId;
-}
-
-/** 판매글 등록에 쓸 활성 품목 (카테고리 복사용). 없거나 숨긴 품목이면 null. */
-async function findActiveItem(itemId) {
-  const [rows] = await pool.execute(
-    'SELECT id, category_id FROM items WHERE id = ? AND is_active = 1',
-    [itemId],
-  );
-  return rows.length === 0 ? null : { id: rows[0].id, categoryId: rows[0].category_id };
-}
-
-/** 이미지 id 목록 → 연결 검사용 행 (uploaderId, type, listingId). */
-async function findImagesByIds(imageIds) {
-  const [rows] = await pool.query(
-    'SELECT id, uploader_id, type, listing_id FROM listing_images WHERE id IN (?)',
-    [imageIds],
-  );
-  return rows.map((row) => ({ id: row.id, uploaderId: row.uploader_id, type: row.type, listingId: row.listing_id }));
-}
-
-/**
- * 판매글 저장 + 등록번호 부여 + 이미지 연결을 한 트랜잭션으로 처리한다.
- * 이미지는 "내가 올렸고 아직 어디에도 연결되지 않은" 행만 연결한다.
- * 그 사이 다른 요청이 먼저 연결해 버렸으면 전부 되돌리고 null을 반환한다.
- */
-async function createListing(listing, { imageIds, authImageId }) {
+/** fn(connection)을 한 트랜잭션으로 실행한다. 에러가 나면 롤백. */
+async function withTransaction(fn) {
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
-    const [result] = await connection.execute(
-      `INSERT INTO listings
-         (seller_id, item_id, category_id, title, description, price, \`condition\`, grading_service, grade,
-          delivery, direct, direct_location, agreed_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
-      [
-        listing.sellerId, listing.itemId, listing.categoryId, listing.title, listing.description, listing.price,
-        listing.condition, listing.gradingService, listing.grade,
-        listing.delivery ? 1 : 0, listing.direct ? 1 : 0, listing.directLocation,
-      ],
-    );
-    const listingId = result.insertId;
-    const registrationNo = `RPC-${listing.registrationYear}-${String(listingId).padStart(6, '0')}`;
-    await connection.execute('UPDATE listings SET registration_no = ? WHERE id = ?', [registrationNo, listingId]);
-
-    // 배열 순서 = 노출 순서. 인증 사진은 sort_order 항상 0.
-    const links = [
-      ...imageIds.map((imageId, index) => ({ imageId, type: 'photo', sortOrder: index })),
-      { imageId: authImageId, type: 'auth', sortOrder: 0 },
-    ];
-    for (const { imageId, type, sortOrder } of links) {
-      const [linked] = await connection.execute(
-        `UPDATE listing_images SET listing_id = ?, sort_order = ?
-         WHERE id = ? AND uploader_id = ? AND type = ? AND listing_id IS NULL`,
-        [listingId, sortOrder, imageId, listing.sellerId, type],
-      );
-      if (linked.affectedRows !== 1) {
-        await connection.rollback();
-        return null;
-      }
-    }
-
+    const result = await fn(connection);
     await connection.commit();
-    return { id: listingId, registrationNo };
+    return result;
   } catch (err) {
     await connection.rollback();
     throw err;
@@ -336,11 +274,95 @@ async function createListing(listing, { imageIds, authImageId }) {
   }
 }
 
+/**
+ * 수정·삭제 전 검사용 판매글. 삭제됐으면 null.
+ * FOR UPDATE로 잠가 검사와 변경 사이에 거래완료·다른 수정이 끼어들지 못하게 한다.
+ */
+async function findForUpdate(connection, listingId) {
+  const [rows] = await connection.execute(
+    `SELECT id, seller_id, status, \`condition\`, grading_service, grade, delivery, direct, direct_location
+     FROM listings WHERE id = ? AND deleted_at IS NULL FOR UPDATE`,
+    [listingId],
+  );
+  if (rows.length === 0) return null;
+  const row = rows[0];
+  return {
+    id: row.id,
+    sellerId: row.seller_id,
+    status: row.status,
+    condition: row.condition,
+    gradingService: row.grading_service,
+    grade: row.grade,
+    delivery: Boolean(row.delivery),
+    direct: Boolean(row.direct),
+    directLocation: row.direct_location,
+  };
+}
+
+/** 이미지 id 목록의 소유자·연결 상태. 다른 판매글이 동시에 가져가지 못하게 잠근다. */
+async function findImagesForUpdate(connection, imageIds) {
+  const [rows] = await connection.query(
+    'SELECT id, listing_id, uploader_id, type FROM listing_images WHERE id IN (?) FOR UPDATE',
+    [imageIds],
+  );
+  return rows.map((row) => ({ id: row.id, listingId: row.listing_id, uploaderId: row.uploader_id, type: row.type }));
+}
+
+// 수정 가능한 필드 → 컬럼. SQL에 들어가는 컬럼 이름은 이 목록에서만 나온다.
+const UPDATE_COLUMNS = {
+  title: 'title',
+  price: 'price',
+  description: 'description',
+  condition: '`condition`',
+  gradingService: 'grading_service',
+  grade: 'grade',
+  delivery: 'delivery',
+  direct: 'direct',
+  directLocation: 'direct_location',
+};
+
+/** 판매글 컬럼 수정. 사진만 바뀌어도 수정 시각은 갱신한다. */
+async function updateListing(connection, listingId, fields) {
+  const entries = Object.entries(fields).filter(([key]) => UPDATE_COLUMNS[key]);
+  const sets = entries.map(([key]) => `${UPDATE_COLUMNS[key]} = ?`);
+  const params = entries.map(([, value]) => (typeof value === 'boolean' ? Number(value) : value));
+  await connection.execute(
+    `UPDATE listings SET ${[...sets, 'updated_at = CURRENT_TIMESTAMP'].join(', ')} WHERE id = ?`,
+    [...params, listingId],
+  );
+}
+
+/**
+ * 상품 사진 전체 교체. 배열 순서가 sort_order가 된다.
+ * 기존 연결을 먼저 끊어야 (listing_id, type, sort_order) UNIQUE에 걸리지 않고 순서를 바꿀 수 있다.
+ * 빠진 사진은 연결만 끊고, 파일은 고아 이미지 정리 작업이 지운다.
+ */
+async function replacePhotos(connection, listingId, imageIds) {
+  await connection.execute("UPDATE listing_images SET listing_id = NULL WHERE listing_id = ? AND type = 'photo'", [listingId]);
+  for (const [index, imageId] of imageIds.entries()) {
+    await connection.execute('UPDATE listing_images SET listing_id = ?, sort_order = ? WHERE id = ?', [listingId, index, imageId]);
+  }
+}
+
+/** 실물 인증 사진 교체 (판매글당 1장, sort_order 0). */
+async function replaceAuthImage(connection, listingId, imageId) {
+  await connection.execute("UPDATE listing_images SET listing_id = NULL WHERE listing_id = ? AND type = 'auth'", [listingId]);
+  await connection.execute('UPDATE listing_images SET listing_id = ?, sort_order = 0 WHERE id = ?', [listingId, imageId]);
+}
+
+/** 소프트 삭제. 찜·사진 연결은 복구에 대비해 남긴다. */
+async function softDelete(connection, listingId) {
+  await connection.execute('UPDATE listings SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?', [listingId]);
+}
+
 module.exports = {
-  insertImage,
-  findActiveItem,
-  findImagesByIds,
-  createListing,
+  withTransaction,
+  findForUpdate,
+  findImagesForUpdate,
+  updateListing,
+  replacePhotos,
+  replaceAuthImage,
+  softDelete,
   findCategoryIdsByCode,
   findMany,
   findDetailById,
