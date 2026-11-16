@@ -2109,7 +2109,7 @@ CREATE TABLE wishes (
 | `title` | X | 1~100자, 빈 문자열·`null`은 `null`로 저장 |
 | `body` | O | 앞뒤 공백 제거 후 1~500자 |
 
-PATCH는 보낸 필드만 수정한다(`board`, `tag`, `title`, `body`). 아무 필드도 보내지 않으면 `400`. 수정하면 `editedAt`이 현재 시각으로 바뀐다 ("(수정됨)" 표시, REQ-BEDIT-004).
+PATCH는 보낸 필드만 수정한다(`board`, `tag`, `title`, `body`, `priceTag`, `imageIds` — 사진은 수정 후 전체 목록, 자세한 규칙은 api-spec.md). 아무 필드도 보내지 않으면 `400`. 수정하면 `editedAt`이 현재 시각으로 바뀐다 ("(수정됨)" 표시, REQ-BEDIT-004).
 
 #### 에러 코드
 

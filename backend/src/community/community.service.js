@@ -148,15 +148,25 @@ async function createPost(userId, fields) {
 /** 글 수정 (작성자만). priceTag는 품목 글에만, null이면 희망 체결가를 지운다. */
 async function updatePost(postId, userId, fields) {
   const own = await getOwnPost(postId, userId);
-  const { priceTag, ...rest } = fields;
+  const { priceTag, imageIds, ...rest } = fields;
   const priceChanged = priceTag !== undefined;
-  if (priceChanged) {
-    if (priceTag !== null && !own.itemId) {
-      throw new HttpError(400, 'VALIDATION_ERROR', '희망 체결가는 품목이 있는 글에만 붙일 수 있습니다.');
-    }
-    await communityRepository.setPriceTag(postId, priceTag);
+  if (priceChanged && priceTag !== null && !own.itemId) {
+    throw new HttpError(400, 'VALIDATION_ERROR', '희망 체결가는 품목이 있는 글에만 붙일 수 있습니다.');
   }
-  const post = await communityRepository.update(postId, rest, { markEdited: priceChanged });
+  // 사진을 먼저 바꾼다 — 첨부할 수 없는 사진이면 다른 필드도 바꾸지 않고 끝낸다.
+  if (imageIds !== undefined) {
+    try {
+      await communityRepository.replaceImages(postId, userId, imageIds);
+    } catch (err) {
+      if (err instanceof communityRepository.ImageNotAvailableError) {
+        throw new HttpError(400, 'IMAGE_NOT_AVAILABLE', '첨부할 수 없는 사진이 있습니다. 사진을 다시 올려 주세요.');
+      }
+      throw err;
+    }
+  }
+  if (priceChanged) await communityRepository.setPriceTag(postId, priceTag);
+  // 희망 체결가·사진은 posts 밖 테이블이라, 그것만 바뀌어도 "(수정됨)"을 표시한다.
+  const post = await communityRepository.update(postId, rest, { markEdited: priceChanged || imageIds !== undefined });
   return enrichOne(post, userId);
 }
 

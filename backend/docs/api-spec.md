@@ -223,15 +223,22 @@
 
 ## PATCH /posts/:id — 토론글 수정 🔒
 
-바꿀 필드만 보낸다(`board`, `tag`, `title`, `body`, `priceTag`). 필드 규칙은 등록과 같고, `tag`·`title`·`priceTag`는 `null`을 보내면 비운다. 아무 필드도 없으면 `400`.
-`priceTag`는 품목 글(`itemId` 있음)에만 붙일 수 있다. 희망 체결가만 바꿔도 `editedAt`이 갱신된다.
+바꿀 필드만 보낸다(`board`, `tag`, `title`, `body`, `priceTag`, `imageIds`). 필드 규칙은 등록과 같고, `tag`·`title`·`priceTag`는 `null`을 보내면 비운다. 아무 필드도 없으면 `400`.
+`priceTag`는 품목 글(`itemId` 있음)에만 붙일 수 있다. 희망 체결가나 사진만 바꿔도 `editedAt`이 갱신된다.
 
+```json
+{ "body": "본문 수정", "imageIds": [12, 15], "priceTag": 290000 }
+```
+
+- `imageIds`: 수정 후 **사진 전체 목록**(최대 4장, 순서 = 표시 순서, REQ-BEDIT-002). `[]`이면 사진을 모두 뺀다.
+  - 이 글에 이미 있던 사진 id, 또는 내가 새로 올렸고 아직 어떤 글에도 연결되지 않은 사진 id만 쓸 수 있다. 아니면 `400 IMAGE_NOT_AVAILABLE`.
+  - 목록에서 빠진 사진은 글과의 연결만 끊긴다(파일 정리는 별도 작업).
 - `itemId`는 수정할 수 없다(REQ-BEDIT-001). 보내면 `400 VALIDATION_ERROR`.
 - 수정에 성공하면 `editedAt`이 현재 시각으로 바뀐다.
 
 응답 `200` → `{ "data": { "post": Post } }`
 
-에러: `400 VALIDATION_ERROR`, `401`, `403 FORBIDDEN`, `404 POST_NOT_FOUND`
+에러: `400 VALIDATION_ERROR`, `400 IMAGE_NOT_AVAILABLE`, `401`, `403 FORBIDDEN`, `404 POST_NOT_FOUND`
 
 ## DELETE /posts/:id — 토론글 삭제 🔒
 
