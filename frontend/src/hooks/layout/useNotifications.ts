@@ -89,7 +89,9 @@ export const useNotifications = () => {
       if (!n.isRead) {
         setItems((prev) => prev.map((item) => (item.id === n.id ? { ...item, isRead: true } : item)));
         setUnreadCount((prev) => Math.max(prev - 1, 0));
-        markNotificationRead(n.id).catch(() => refreshCount());
+        // 화면 이동 때 같이 도는 안 읽은 수 조회가 읽음 저장보다 먼저 끝나면 배지가 예전 숫자로 돌아간다.
+        // 읽음 저장이 끝난 뒤(실패해도) 한 번 더 맞춘다.
+        markNotificationRead(n.id).then(refreshCount, refreshCount);
       }
       setOpen(false);
       navigate(notificationLink(n));

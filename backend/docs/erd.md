@@ -13,13 +13,13 @@
 
 ## 0. 범위와 공통 규칙
 
-**만드는 테이블 (20개)**: `users`, `refresh_tokens`, `verification_codes`, `categories`, `items`, `listings`, `listing_images`, `listing_wishes`, `listing_views`, `posts`, `post_images`, `post_price_tags`, `post_polls`, `post_poll_options`, `post_poll_votes`, `post_reactions`, `comments`, `comment_likes`, `item_votes`, `reports`
+**만드는 테이블 (21개)**: `users`, `refresh_tokens`, `verification_codes`, `categories`, `items`, `listings`, `listing_images`, `listing_wishes`, `listing_views`, `posts`, `post_images`, `post_price_tags`, `post_polls`, `post_poll_options`, `post_poll_votes`, `post_reactions`, `comments`, `comment_likes`, `item_votes`, `reports`, `notifications`
 
 **만들지 않는 것**
 
 | 대상 | 이유 |
 |---|---|
-| 채팅, 알림, 리뷰, 마이페이지 | 요구사항에서 미구현 |
+| 채팅, 리뷰, 마이페이지 | 요구사항에서 미구현 (알림은 #19·#56에서 추가 — 2.16) |
 | 뱃지 | spec-gaps 1-#9 "뱃지 없음" |
 | 판매글 댓글 | spec-gaps 1-#6 "댓글은 토론글에만" |
 | `blocks`, `settings` | API 없음·보류(1-#13, #14). 필요할 때 spec-gaps 3장 설계대로 추가 (`reports`는 #76에서 추가 — 2.15) |
@@ -54,6 +54,7 @@ erDiagram
     users ||--o{ comment_likes : "좋아요"
     users ||--o{ item_votes : "투표"
     users ||--o{ reports : "신고"
+    users ||--o{ notifications : "받는 알림"
     users ||--o{ listing_images : "업로드"
     users ||--o{ post_images : "업로드"
 
@@ -68,6 +69,7 @@ erDiagram
     listings |o--o{ listing_images : "사진"
     listings ||--o{ listing_wishes : "찜"
     listings ||--o{ listing_views : "조회"
+    listings |o--o{ notifications : "가격 변동 알림"
 
     posts |o--o{ post_images : "사진"
     posts ||--o{ post_reactions : "리액션"
@@ -431,6 +433,30 @@ CHECK: `type = 'photo' OR sort_order = 0` (인증 사진은 항상 0번)
 | `idx_reports_target` | `target_type, target_id` | 대상별 신고 수 집계(누적 신고 시 숨김 처리 등 운영 정책용) |
 
 > 처리 완료 후 1년 보관 뒤 삭제(spec-gaps 3장). 관리자 처리 API·화면은 아직 없다.
+
+### 2.16 `notifications` — 알림 (#19, #56)
+
+| 컬럼 | 타입 | 제약 | 설명 |
+|---|---|---|---|
+| `id` | BIGINT | PK | |
+| `user_id` | BIGINT | NOT NULL, FK → `users` ON DELETE CASCADE | 받는 사람 |
+| `type` | VARCHAR(20) | NOT NULL, CHECK (`comment`, `reply`, `price_change`) | 내 글에 댓글 / 내 댓글에 답글 / 찜한 판매글 가격 변동 |
+| `actor_id` | BIGINT | NULL, FK → `users` ON DELETE SET NULL | 알림을 만든 사람 (댓글 작성자, 가격을 바꾼 판매자) |
+| `post_id` | BIGINT | NULL, FK → `posts` ON DELETE CASCADE | `comment`·`reply` |
+| `comment_id` | BIGINT | NULL, FK → `comments` ON DELETE CASCADE | `comment`·`reply` — 새로 달린 댓글 |
+| `listing_id` | BIGINT | NULL, FK → `listings` ON DELETE CASCADE | `price_change` |
+| `old_price` | INT UNSIGNED | NULL | `price_change` 이전 가격 |
+| `new_price` | INT UNSIGNED | NULL | `price_change` 바뀐 가격 |
+| `read_at` | DATETIME | NULL | NULL이면 안 읽음 |
+
+| 인덱스 | 컬럼 | 이유 |
+|---|---|---|
+| `idx_notifications_user_created` | `user_id, created_at` | 내 알림 최신순 목록 (NOTI-01) |
+| `idx_notifications_user_read` | `user_id, read_at` | 안 읽은 수 (NOTI-02), 모두 읽음 (NOTI-04) |
+
+> - `created_at`만 있고 `updated_at`은 없다 (읽음은 `read_at`으로 기록).
+> - `price_change`는 판매글 수정(LISTING-04)에서 가격이 바뀌면(올리든 내리든) 찜한 회원에게 만든다. 판매자 본인 제외, 수정과 같은 트랜잭션.
+> - 대상(글·댓글·판매글)이 소프트 삭제되면 조회할 때 뺀다. API는 api-spec-all.md 9장.
 
 ## 3. 확인이 필요한 사항(확인완료)
 
