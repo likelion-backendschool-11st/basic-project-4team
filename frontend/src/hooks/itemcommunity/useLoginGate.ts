@@ -18,6 +18,9 @@ export const useLoginGate = () => {
     return false;
   }, [status]);
 
+  /** 서버가 401을 돌려줬을 때(토큰 만료 등) — 로그인 상태와 관계없이 팝업을 연다. */
+  const prompt = useCallback(() => setOpen(true), []);
+
   const close = useCallback(() => setOpen(false), []);
 
   const goLogin = useCallback(() => {
@@ -25,5 +28,5 @@ export const useLoginGate = () => {
     navigate(ROUTES.login);
   }, [navigate]);
 
-  return { open, ensureLogin, close, goLogin };
+  return { open, ensureLogin, prompt, close, goLogin };
 };

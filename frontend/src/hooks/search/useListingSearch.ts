@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ApiError } from '../../api/client';
 import { getListings, type ListingSearchParams } from '../../api/listingSearch';
 import type { ListingSummary } from '../../api/types';
+import { toastMessages, wishCopy } from '../../data/listing';
 import { FRAUD_THRESHOLD_RATIO } from '../../data/listingForm';
 import {
   categoryOptions,
@@ -13,6 +14,8 @@ import {
   type SortKey,
 } from '../../data/search';
 import { formatTimeAgo } from '../listing/listingViewHelpers';
+import type { ShowToast } from '../listing/useToast';
+import { requestWish } from '../listing/wishRequest';
 import { usePagination } from './usePagination';
 import type { useSearchFilters } from './useSearchFilters';
 
@@ -63,17 +66,26 @@ const toCard = (listing: ListingSummary): Listing => {
   };
 };
 
+/** 카드 하트에 필요한 화면 쪽 동작 (로그인 팝업·토스트). */
+export interface WishHandlers {
+  /** 비로그인이면 false를 돌려주고 로그인 팝업을 띄운다 (useLoginGate). */
+  readonly ensureLogin: () => boolean;
+  /** 서버가 401을 돌려줬을 때(토큰 만료) 로그인 팝업을 띄운다. */
+  readonly onLoginRequired: () => void;
+  readonly showToast: ShowToast;
+}
+
 /**
  * 검색 결과(P-009)를 LISTING-01로 불러온다. 정렬·페이지·필터가 바뀌면 다시 불러오고,
  * 조건이 바뀌면 1페이지로 돌아간다.
  */
-export const useListingSearch = (query: string, filters: SearchFilters) => {
+export const useListingSearch = (query: string, filters: SearchFilters, wish: WishHandlers) => {
   const [sortKey, setSortKey] = useState<SortKey>('latest');
   const [status, setStatus] = useState<SearchStatus>('loading');
   const [items, setItems] = useState<readonly Listing[]>([]);
   const [totalCount, setTotalCount] = useState(0);
-  // 찜 API(LISTING-08/09) 연동 전까지는 화면에서만 토글한다.
-  const [toggled, setToggled] = useState<ReadonlySet<string>>(() => new Set());
+  // 응답을 기다리는 카드 id — 그동안 같은 카드의 하트 연타는 무시한다.
+  const pendingWishes = useRef(new Set<string>());
   const pagination = usePagination({
     totalItems: totalCount,
     pageSize: paginationData.pageSize,
@@ -116,18 +128,41 @@ export const useListingSearch = (query: string, filters: SearchFilters) => {
     // params는 paramsKey로 비교한다 (객체가 매 렌더 새로 만들어져도 같은 조건이면 다시 부르지 않게).
   }, [paramsKey, page]);
 
-  const isWished = useCallback(
-    (id: string) => (items.find((item) => item.id === id)?.wished ?? false) !== toggled.has(id),
-    [items, toggled],
-  );
-  const toggleWish = useCallback((id: string) => {
-    setToggled((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+  const isWished = useCallback((id: string) => items.find((item) => item.id === id)?.wished ?? false, [items]);
+
+  const patchItem = useCallback((id: string, patch: Pick<Listing, 'wished' | 'likes'>) => {
+    setItems((prev) => prev.map((item) => (item.id === id ? { ...item, ...patch } : item)));
   }, []);
+
+  /** 카드 하트 (LIST-02 / LIST-03). 먼저 바꿔 보여주고 응답으로 맞춘다. 실패하면 되돌린다. */
+  const toggleWish = useCallback(
+    async (id: string) => {
+      const item = items.find((i) => i.id === id);
+      if (!item || pendingWishes.current.has(id) || !wish.ensureLogin()) return;
+      pendingWishes.current.add(id);
+      const next = !item.wished;
+      patchItem(id, { wished: next, likes: Math.max(0, item.likes + (next ? 1 : -1)) });
+
+      const outcome = await requestWish(Number(id), next);
+      pendingWishes.current.delete(id);
+      if (outcome.ok) {
+        patchItem(id, { wished: outcome.result.isWished, likes: outcome.result.wishCount });
+        wish.showToast(next ? toastMessages.wishAdded : toastMessages.wishRemoved);
+        return;
+      }
+      if (outcome.reason === 'notFound') {
+        // 삭제된 판매글은 목록에서 뺀다 (명세 4장 클라이언트 후속 처리).
+        setItems((prev) => prev.filter((i) => i.id !== id));
+        setTotalCount((c) => Math.max(0, c - 1));
+        wish.showToast(outcome.message, wishCopy.errorIcon);
+        return;
+      }
+      patchItem(id, { wished: item.wished, likes: item.likes });
+      if (outcome.reason === 'login') wish.onLoginRequired();
+      else wish.showToast(outcome.message, wishCopy.errorIcon);
+    },
+    [items, patchItem, wish],
+  );
 
   return { status, items, totalCount, sortKey, setSortKey, pagination, isWished, toggleWish };
 };

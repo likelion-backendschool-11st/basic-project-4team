@@ -1,7 +1,8 @@
 import React, { useCallback } from 'react';
 import type { ListingDetail } from '../../api/types';
 import { ROUTES } from '../../data/layout';
-import { buyerListing, listingCore, listingDetailCopy, ownerActionCopy, sellerListing, toastMessages } from '../../data/listing';
+import { buyerListing, listingCore, listingDetailCopy, ownerActionCopy, sellerListing, toastMessages, wishCopy } from '../../data/listing';
+import { useLoginGate } from '../../hooks/itemcommunity/useLoginGate';
 import { useBuyerListingView } from '../../hooks/listing/useBuyerListingView';
 import { useChatDrawer } from '../../hooks/listing/useChatDrawer';
 import { useItemDiscussionCount } from '../../hooks/listing/useItemDiscussionCount';
@@ -9,6 +10,7 @@ import { useOwnerListingActions } from '../../hooks/listing/useOwnerListingActio
 import { useToast } from '../../hooks/listing/useToast';
 import { useWishlist } from '../../hooks/listing/useWishlist';
 import { Icon } from '../common/Icon';
+import { LoginRequiredModal } from '../itemcommunity/LoginRequiredModal';
 import { BuyerActionBar } from './BuyerActionBar';
 import { BuyerDescriptionSection } from './BuyerDescriptionSection';
 import { ChatDrawer } from './ChatDrawer';
@@ -41,13 +43,17 @@ export const BuyerListingView: React.FC<BuyerListingViewProps> = ({ listing }) =
     (copied: boolean) => showToast(copied ? toastMessages.copied : toastMessages.copiedFallback),
     [showToast],
   );
-  const onWishChange = useCallback(
-    (wished: boolean) => showToast(wished ? toastMessages.wishAdded : toastMessages.wishRemoved),
-    [showToast],
-  );
   const onChatSent = useCallback(() => showToast(toastMessages.chatSent), [showToast]);
 
-  const wishlist = useWishlist(listing.wishCount, onWishChange, listing.isWished);
+  const loginGate = useLoginGate();
+  const wishlist = useWishlist({
+    listingId: listing.id,
+    initialCount: listing.wishCount,
+    initialWished: listing.isWished,
+    ensureLogin: loginGate.ensureLogin,
+    onLoginRequired: loginGate.prompt,
+    showToast,
+  });
   const chat = useChatDrawer(onChatSent);
   // 작성자 본인이면 찜·채팅 대신 수정·삭제·관리 버튼을 보여준다.
   const owner = useOwnerListingActions(String(listing.id), showToast);
@@ -151,6 +157,12 @@ export const BuyerListingView: React.FC<BuyerListingViewProps> = ({ listing }) =
         />
       )}
       <ListingToast position="center" toast={toast} />
+      <LoginRequiredModal
+        {...wishCopy.loginRequired}
+        onClose={loginGate.close}
+        onConfirm={loginGate.goLogin}
+        open={loginGate.open}
+      />
     </div>
   );
 };
