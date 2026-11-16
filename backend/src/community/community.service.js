@@ -1,5 +1,9 @@
 const communityRepository = require('./community.repository');
+const itemCommunityRepository = require('../itemcommunity/itemcommunity.repository');
+const itemCommunityService = require('../itemcommunity/itemcommunity.service');
 const HttpError = require('../utils/HttpError');
+
+const { POLL_VOTE_RESULT } = communityRepository;
 
 function postNotFound() {
   return new HttpError(404, 'POST_NOT_FOUND', '토론글을 찾을 수 없습니다.');
@@ -12,11 +16,16 @@ function postNotFound() {
 async function enrich(posts, viewerId) {
   const ids = posts.map((p) => p.id);
   const pairs = posts.filter((p) => p.itemId).map((p) => ({ slug: p.itemId, userId: p.author.id }));
-  const [reactions, mine, images, badges] = await Promise.all([
+  const slugs = [...new Set(posts.map((p) => p.itemId).filter(Boolean))];
+  const [reactions, mine, images, badges, polls, myVotes, items, priceTags] = await Promise.all([
     communityRepository.countReactions(ids),
     communityRepository.findMyReactions(viewerId, ids),
     communityRepository.findImages(ids),
     communityRepository.findAuthorBadges(pairs),
+    communityRepository.findPolls(ids),
+    communityRepository.findMyPollVotes(viewerId, ids),
+    findItemTags(slugs),
+    communityRepository.findPriceTags(ids),
   ]);
   return posts.map((post) => {
     const badge = post.itemId ? badges.get(`${post.itemId}:${post.author.id}`) : null;
@@ -30,9 +39,47 @@ async function enrich(posts, viewerId) {
       reactions: reactions.get(post.id),
       myReaction: mine.get(post.id) ?? null,
       images: images.get(post.id),
+      item: (post.itemId && items.get(post.itemId)) || null,
+      poll: toPoll(polls.get(post.id), myVotes.get(post.id)),
+      priceTag: priceTags.get(post.id) ?? null,
       isMine: viewerId !== undefined && post.author.id === viewerId,
     };
   });
+}
+
+/** 투표 응답 형식. 투표가 없으면 null. */
+function toPoll(poll, myOptionId) {
+  if (!poll) return null;
+  return {
+    options: poll.options,
+    totalVotes: poll.options.reduce((sum, o) => sum + o.votes, 0),
+    myOptionId: myOptionId ?? null,
+    deadlineAt: poll.deadlineAt,
+    closed: poll.closed,
+  };
+}
+
+/** 시세 태그 — 글의 품목(slug)별 품목명·이미지·최근 체결가. Map<slug, ItemTag>. 없는·숨김 품목은 빠진다. */
+async function findItemTags(slugs) {
+  const entries = await Promise.all(
+    slugs.map(async (slug) => {
+      const item = await itemCommunityRepository.findByIdOrSlug(slug);
+      if (!item) return null;
+      const summary = await itemCommunityService.getMarketSummary(item.id, {});
+      return [
+        slug,
+        {
+          id: item.id,
+          slug: item.slug,
+          name: item.name,
+          imageUrl: item.imageUrl,
+          latestPrice: summary?.latestPrice ?? null,
+          changeRate: summary?.changeRate ?? 0,
+        },
+      ];
+    }),
+  );
+  return new Map(entries.filter(Boolean));
 }
 
 async function enrichOne(post, viewerId) {
@@ -76,14 +123,40 @@ async function getPost(postId, viewerId) {
   return enrichOne(post, viewerId);
 }
 
+/**
+ * 글 등록. itemId(시세 태그)는 존재하는 품목 slug여야 한다.
+ * imageIds는 내가 올렸고 아직 연결되지 않은 사진만 허용된다.
+ */
 async function createPost(userId, fields) {
-  const post = await communityRepository.create({ userId, ...fields });
-  return enrichOne(post, userId);
+  if (fields.priceTag !== null && fields.priceTag !== undefined && !fields.itemId) {
+    throw new HttpError(400, 'VALIDATION_ERROR', '희망 체결가는 품목이 있는 글에만 붙일 수 있습니다.');
+  }
+  if (fields.itemId && !(await itemCommunityRepository.findByIdOrSlug(fields.itemId))) {
+    throw new HttpError(404, 'ITEM_NOT_FOUND', '태그한 품목을 찾을 수 없습니다.');
+  }
+  try {
+    const post = await communityRepository.create({ userId, ...fields });
+    return enrichOne(post, userId);
+  } catch (err) {
+    if (err instanceof communityRepository.ImageNotAvailableError) {
+      throw new HttpError(400, 'IMAGE_NOT_AVAILABLE', '첨부할 수 없는 사진이 있습니다. 사진을 다시 올려 주세요.');
+    }
+    throw err;
+  }
 }
 
+/** 글 수정 (작성자만). priceTag는 품목 글에만, null이면 희망 체결가를 지운다. */
 async function updatePost(postId, userId, fields) {
-  await getOwnPost(postId, userId);
-  const post = await communityRepository.update(postId, fields);
+  const own = await getOwnPost(postId, userId);
+  const { priceTag, ...rest } = fields;
+  const priceChanged = priceTag !== undefined;
+  if (priceChanged) {
+    if (priceTag !== null && !own.itemId) {
+      throw new HttpError(400, 'VALIDATION_ERROR', '희망 체결가는 품목이 있는 글에만 붙일 수 있습니다.');
+    }
+    await communityRepository.setPriceTag(postId, priceTag);
+  }
+  const post = await communityRepository.update(postId, rest, { markEdited: priceChanged });
   return enrichOne(post, userId);
 }
 
@@ -115,4 +188,30 @@ async function removeReaction(postId, userId) {
   return reactionSummary(postId, userId);
 }
 
-module.exports = { listPosts, getPost, createPost, updatePost, deletePost, setReaction, removeReaction };
+/** 투표 참여 (글당 1인 1표, 변경 불가). 반영된 투표 현황을 돌려준다. */
+async function votePoll(postId, userId, optionId) {
+  if (!(await communityRepository.findById(postId))) throw postNotFound();
+  const outcome = await communityRepository.votePoll(userId, postId, optionId);
+  if (outcome === POLL_VOTE_RESULT.NO_POLL) throw new HttpError(404, 'POLL_NOT_FOUND', '투표가 없는 글입니다.');
+  if (outcome === POLL_VOTE_RESULT.CLOSED) throw new HttpError(400, 'POLL_CLOSED', '마감된 투표입니다.');
+  if (outcome === POLL_VOTE_RESULT.BAD_OPTION) {
+    throw new HttpError(400, 'VALIDATION_ERROR', '이 투표의 선택지가 아닙니다.');
+  }
+  if (outcome === POLL_VOTE_RESULT.DUPLICATE) throw new HttpError(409, 'ALREADY_VOTED', '이미 투표했습니다.');
+  const [polls, mine] = await Promise.all([
+    communityRepository.findPolls([postId]),
+    communityRepository.findMyPollVotes(userId, [postId]),
+  ]);
+  return toPoll(polls.get(postId), mine.get(postId));
+}
+
+module.exports = {
+  listPosts,
+  getPost,
+  createPost,
+  updatePost,
+  deletePost,
+  setReaction,
+  removeReaction,
+  votePoll,
+};

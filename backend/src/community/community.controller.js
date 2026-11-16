@@ -10,6 +10,12 @@ const MAX_PAGE_SIZE = 50;
 const TITLE_MAX = 100;
 const BODY_MAX = 500;
 const ITEM_ID_MAX = 100;
+const MAX_IMAGES = 4;
+const POLL_OPTIONS = { min: 2, max: 4 };
+const POLL_LABEL_MAX = 40;
+const POLL_DURATIONS = [1, 3, 7];
+const DEFAULT_POLL_DURATION = 3;
+const PRICE_MAX = 1000000000;
 
 function badRequest(message) {
   return new HttpError(400, 'VALIDATION_ERROR', message);
@@ -56,6 +62,15 @@ function parseBody(value) {
   return body;
 }
 
+/** 희망 체결가 (선택): 1원 ~ 10억 정수. null이면 없음(수정 시 삭제). */
+function parsePriceTag(value) {
+  if (value === undefined || value === null) return null;
+  if (!Number.isInteger(value) || value < 1 || value > PRICE_MAX) {
+    throw badRequest('희망 체결가(priceTag)는 1원 ~ 10억 원 사이의 정수여야 합니다.');
+  }
+  return value;
+}
+
 const FIELD_PARSERS = {
   board: (v) => {
     const board = parseEnum(v, BOARDS, '게시판(board)');
@@ -66,7 +81,41 @@ const FIELD_PARSERS = {
   itemId: (v) => parseOptionalText(v, ITEM_ID_MAX, '품목 ID(itemId)'),
   title: (v) => parseOptionalText(v, TITLE_MAX, '제목'),
   body: parseBody,
+  priceTag: parsePriceTag,
 };
+
+/** 사진 id 목록 (선택, 최대 4장, 중복 불가). 순서가 곧 표시 순서. */
+function parseImageIds(value) {
+  if (value === undefined || value === null) return [];
+  if (!Array.isArray(value) || value.length > MAX_IMAGES) {
+    throw badRequest(`사진(imageIds)은 최대 ${MAX_IMAGES}장까지 첨부할 수 있습니다.`);
+  }
+  const ids = value.map(toPositiveInt);
+  if (ids.some(Number.isNaN)) throw badRequest('사진(imageIds) 값이 올바르지 않습니다.');
+  if (new Set(ids).size !== ids.length) throw badRequest('같은 사진을 두 번 첨부할 수 없습니다.');
+  return ids;
+}
+
+/** 투표 (선택): { options: string[] 2~4개, durationDays: 1 | 3 | 7 }. */
+function parsePoll(value) {
+  if (value === undefined || value === null) return null;
+  if (typeof value !== 'object' || !Array.isArray(value.options)) {
+    throw badRequest('투표(poll)는 { options, durationDays } 형식이어야 합니다.');
+  }
+  const options = value.options.map((o) => (typeof o === 'string' ? o.trim() : ''));
+  if (options.length < POLL_OPTIONS.min || options.length > POLL_OPTIONS.max) {
+    throw badRequest(`투표 선택지는 ${POLL_OPTIONS.min}~${POLL_OPTIONS.max}개여야 합니다.`);
+  }
+  if (options.some((o) => o.length === 0 || o.length > POLL_LABEL_MAX)) {
+    throw badRequest(`투표 선택지는 1~${POLL_LABEL_MAX}자여야 합니다.`);
+  }
+  if (new Set(options).size !== options.length) throw badRequest('투표 선택지가 중복되었습니다.');
+  const durationDays = value.durationDays ?? DEFAULT_POLL_DURATION;
+  if (!POLL_DURATIONS.includes(durationDays)) {
+    throw badRequest(`투표 기간(durationDays)은 ${POLL_DURATIONS.join(', ')}일 중 하나여야 합니다.`);
+  }
+  return { options, durationDays };
+}
 
 async function list(req, res) {
   const { board, itemId, tag, ownerOnly, sort, page, size } = req.query;
@@ -105,12 +154,14 @@ async function create(req, res) {
   const fields = Object.fromEntries(
     Object.entries(FIELD_PARSERS).map(([key, parse]) => [key, parse(input[key])]),
   );
+  fields.imageIds = parseImageIds(input.imageIds);
+  fields.poll = parsePoll(input.poll);
   const post = await communityService.createPost(req.user.id, fields);
   res.status(201).json({ data: { post } });
 }
 
 // 품목은 진입한 토론방으로 고정되어 수정할 수 없다 (REQ-BEDIT-001).
-const UPDATABLE_FIELDS = ['board', 'tag', 'title', 'body'];
+const UPDATABLE_FIELDS = ['board', 'tag', 'title', 'body', 'priceTag'];
 
 async function update(req, res) {
   const postId = parsePostId(req);
@@ -151,4 +202,13 @@ async function unreact(req, res) {
   res.json({ data: await communityService.removeReaction(parsePostId(req), req.user.id) });
 }
 
-module.exports = { list, detail, create, update, remove, react, unreact };
+/** POST /api/posts/:id/poll/votes — 투표 참여 (1인 1표, 변경 불가). */
+async function votePoll(req, res) {
+  const postId = parsePostId(req);
+  const optionId = toPositiveInt(req.body?.optionId);
+  if (Number.isNaN(optionId)) throw badRequest('선택지(optionId)를 골라 주세요.');
+  const poll = await communityService.votePoll(postId, req.user.id, optionId);
+  res.status(201).json({ data: { poll } });
+}
+
+module.exports = { list, detail, create, update, remove, react, unreact, votePoll };

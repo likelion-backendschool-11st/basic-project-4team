@@ -119,4 +119,15 @@ async function findTrending({ days, limit }) {
   return rows.map((row) => ({ ...toItem(row), postCount: Number(row.post_count) }));
 }
 
-module.exports = { findByIdOrSlug, findLastTrade, countRecentTrades, countSelling, findTrending };
+/** 이름·세트명에 q가 들어간 품목 (LIKE 검색, erd 3장 #7 — 처음에는 LIKE). 숨김 품목 제외, 이름순. */
+async function searchByName(q, limit) {
+  // LIKE 특수문자(% _ \)는 글자 그대로 찾도록 이스케이프한다.
+  const pattern = `%${q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+  const [rows] = await pool.query(
+    `${SELECT_ITEM} WHERE i.is_active = 1 AND (i.name LIKE ? OR i.set_name LIKE ?) ORDER BY i.name, i.id LIMIT ?`,
+    [pattern, pattern, limit],
+  );
+  return rows.map(toItem);
+}
+
+module.exports = { findByIdOrSlug, findLastTrade, countRecentTrades, countSelling, findTrending, searchByName };

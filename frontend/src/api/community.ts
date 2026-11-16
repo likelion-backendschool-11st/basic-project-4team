@@ -1,5 +1,15 @@
 import { apiRequest } from './client';
-import type { Post, PostBoard, PostListResponse, PostSort, PostTag, ReactionSummary, ReactionType } from './types';
+import type {
+  Post,
+  PostBoard,
+  PostImage,
+  PostListResponse,
+  PostPoll,
+  PostSort,
+  PostTag,
+  ReactionSummary,
+  ReactionType,
+} from './types';
 
 export interface PostListQuery {
   readonly board?: PostBoard;
@@ -16,8 +26,14 @@ export interface CreatePostRequest {
   readonly board: PostBoard;
   readonly body: string;
   readonly tag?: PostTag | null;
+  /** 시세 태그 — 품목 slug. */
   readonly itemId?: string | null;
   readonly title?: string | null;
+  /** uploadPostImage로 올린 사진 id (최대 4장, 순서 = 표시 순서). */
+  readonly imageIds?: readonly number[];
+  readonly poll?: { readonly options: readonly string[]; readonly durationDays: number } | null;
+  /** 희망 체결가(원). itemId가 있을 때만. */
+  readonly priceTag?: number | null;
 }
 
 /** 품목(itemId)은 수정할 수 없다 (REQ-BEDIT-001). */
@@ -26,6 +42,8 @@ export interface UpdatePostRequest {
   readonly body?: string;
   readonly tag?: PostTag | null;
   readonly title?: string | null;
+  /** null이면 희망 체결가를 지운다. */
+  readonly priceTag?: number | null;
 }
 
 function toQueryString(query: PostListQuery): string {
@@ -70,3 +88,20 @@ export const setPostReaction = (id: number, type: ReactionType): Promise<Reactio
 /** 이모지 취소. 로그인 필요. */
 export const removePostReaction = (id: number): Promise<ReactionSummary> =>
   apiRequest<ReactionSummary>(`/posts/${id}/reaction`, { method: 'DELETE' });
+
+/** 토론글 사진 1장 업로드. 글 등록 때 imageIds로 연결한다. 로그인 필요. */
+export const uploadPostImage = async (file: File): Promise<PostImage> => {
+  const form = new FormData();
+  form.append('image', file);
+  const { image } = await apiRequest<{ readonly image: PostImage }>('/uploads/post-images', { method: 'POST', body: form });
+  return image;
+};
+
+/** 투표 참여 (1인 1표, 변경 불가 → 409 ALREADY_VOTED). 로그인 필요. */
+export const votePostPoll = async (postId: number, optionId: number): Promise<PostPoll> => {
+  const { poll } = await apiRequest<{ readonly poll: PostPoll }>(`/posts/${postId}/poll/votes`, {
+    method: 'POST',
+    body: JSON.stringify({ optionId }),
+  });
+  return poll;
+};

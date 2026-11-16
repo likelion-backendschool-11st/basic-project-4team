@@ -69,4 +69,21 @@ async function getTrendingItems({ days, limit }) {
   }));
 }
 
-module.exports = { getItemDetail, getTrendingItems };
+/** 품목 검색 (시세 태그 선택용) — 이름·세트명 부분 일치, 결과마다 최근 체결가. */
+async function searchItems({ q, size }) {
+  const items = await itemCommunityRepository.searchByName(q, size);
+  const summaries = await Promise.all(items.map((item) => getMarketSummary(item.id, {})));
+  return items.map((item, i) => ({
+    id: item.id,
+    slug: item.slug,
+    name: item.name,
+    setName: item.setName,
+    rarity: item.rarity,
+    imageUrl: item.imageUrl,
+    category: item.category,
+    latestPrice: summaries[i]?.latestPrice ?? null,
+    changeRate: summaries[i]?.changeRate ?? 0,
+  }));
+}
+
+module.exports = { getItemDetail, getTrendingItems, getMarketSummary, searchItems };

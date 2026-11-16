@@ -13,7 +13,7 @@
 
 ## 0. 범위와 공통 규칙
 
-**만드는 테이블 (15개)**: `users`, `refresh_tokens`, `categories`, `items`, `listings`, `listing_images`, `listing_wishes`, `listing_views`, `posts`, `post_images`, `post_reactions`, `comments`, `comment_likes`, `item_votes`, `reports`
+**만드는 테이블 (19개)**: `users`, `refresh_tokens`, `categories`, `items`, `listings`, `listing_images`, `listing_wishes`, `listing_views`, `posts`, `post_images`, `post_price_tags`, `post_polls`, `post_poll_options`, `post_poll_votes`, `post_reactions`, `comments`, `comment_likes`, `item_votes`, `reports`
 
 **만들지 않는 것**
 
@@ -287,6 +287,45 @@ CHECK: `type = 'photo' OR sort_order = 0` (인증 사진은 항상 0번)
 |---|---|---|
 | `uk_post_images_order` | `post_id, sort_order` | 순서 중복 방지 + 글의 사진 목록 조회. `sort_order`가 0~3이라 **글당 4장이 DB에서도 보장됨** |
 | `idx_post_images_orphan` | `post_id, created_at` | 연결 안 된 이미지 24시간 정리 |
+
+### 2.10.0 `post_price_tags` — 토론글 희망 체결가 (#40)
+
+품목 토론방 글쓰기의 "희망 체결가" (api-definition DISC-04 `priceTag`).
+`posts`에 컬럼을 더하면 `db:init`(`CREATE TABLE IF NOT EXISTS`)으로 기존 로컬 DB에 반영되지 않아 1:1 테이블로 분리했다.
+
+| 컬럼 | 타입 | 제약 | 설명 |
+|---|---|---|---|
+| `post_id` | BIGINT | PK, FK → `posts` ON DELETE CASCADE | 글당 1개 |
+| `price` | INT UNSIGNED | NOT NULL, CHECK 1 ~ 10억 | 원 단위. 품목 글에만(앱에서 검사) |
+
+### 2.10.1 `post_polls` · `post_poll_options` · `post_poll_votes` — 토론글 투표 (#40)
+
+피드 글쓰기의 "투표" (api-definition COMM-02 `poll`, COMM-03 투표 참여).
+
+`post_polls` — 글당 투표 1개
+
+| 컬럼 | 타입 | 제약 | 설명 |
+|---|---|---|---|
+| `post_id` | BIGINT | PK, FK → `posts` ON DELETE CASCADE | |
+| `deadline_at` | DATETIME | NOT NULL | 마감 시각(UTC) = 등록 시각 + 1·3·7일. 지나면 투표 불가 |
+
+`post_poll_options` — 선택지 2~4개
+
+| 컬럼 | 타입 | 제약 | 설명 |
+|---|---|---|---|
+| `id` | BIGINT | PK | 투표 요청의 `optionId` |
+| `post_id` | BIGINT | NOT NULL, FK → `post_polls` ON DELETE CASCADE | |
+| `sort_order` | TINYINT UNSIGNED | NOT NULL, CHECK 0~3 | 표시 순서. `(post_id, sort_order)` UNIQUE → 글당 최대 4개가 DB에서도 보장 |
+| `label` | VARCHAR(40) | NOT NULL | |
+| `vote_count` | INT UNSIGNED | NOT NULL DEFAULT 0 | 득표 집계. 투표와 같은 트랜잭션에서 +1 |
+
+`post_poll_votes` — 참여 기록
+
+| 컬럼 | 타입 | 제약 | 설명 |
+|---|---|---|---|
+| `user_id` | BIGINT | PK(1), FK → `users` ON DELETE CASCADE | |
+| `post_id` | BIGINT | PK(2), FK → `post_polls` ON DELETE CASCADE | PK가 **글당 1인 1표**를 보장 → 두 번째 INSERT는 409 |
+| `option_id` | BIGINT | NOT NULL, FK → `post_poll_options` ON DELETE CASCADE | 변경 불가 |
 
 ### 2.11 `post_reactions` — 이모지 리액션
 

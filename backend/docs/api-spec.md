@@ -112,7 +112,19 @@
   "reactionCount": 3,
   "reactions": { "fire": 2, "surprised": 0, "laugh": 0, "ice": 1 },
   "myReaction": "fire",
-  "images": [{ "id": 5, "url": "https://..." }],
+  "images": [{ "id": 5, "url": "/uploads/posts/2f1c...e9.jpg" }],
+  "item": {
+    "id": 1, "slug": "charizard-ex-sar", "name": "리자몽 ex SAR", "imageUrl": null,
+    "latestPrice": 320000, "changeRate": 18.1
+  },
+  "poll": {
+    "options": [{ "id": 1, "label": "오른다", "votes": 3 }, { "id": 2, "label": "내린다", "votes": 1 }],
+    "totalVotes": 4,
+    "myOptionId": 1,
+    "deadlineAt": "2026-11-19T01:18:57.000Z",
+    "closed": false
+  },
+  "priceTag": 300000,
   "commentCount": 0,
   "isMine": true,
   "editedAt": null,
@@ -130,7 +142,10 @@
   - `trade` 거래 인증 — 이 품목 거래완료(판매 또는 구매) 이력이 있음
 - `reactions`: 이모지 4종(`fire` 🔥 · `surprised` 😮 · `laugh` 😂 · `ice` 🧊)별 개수. `reactionCount`는 그 합(인기순 정렬용).
 - `myReaction`: 로그인 사용자가 이 글에 남긴 이모지. 없거나 비로그인이면 `null`.
-- `images`: 첨부 사진(`post_images`, 정렬 순서대로). 없으면 `[]`.
+- `images`: 첨부 사진(`post_images`, 정렬 순서대로). 없으면 `[]`. `url`이 `/uploads/...`로 시작하면 API 서버 주소(예: `http://127.0.0.1:4000`)를 붙여 쓴다.
+- `item`: **시세 태그** — `itemId` 품목의 이름·이미지와 최근 체결가(`latestPrice`, 거래 이력 없으면 `null`)·전일 대비 변동률(%). `itemId`가 없거나 숨김 품목이면 `null`.
+- `priceTag`: 희망 체결가(원). 없으면 `null`. 시세 대비 차이는 `item.latestPrice`로 화면에서 계산한다.
+- `poll`: 투표. 없으면 `null`. `myOptionId`는 로그인 사용자가 고른 선택지(안 했거나 비로그인이면 `null`). `closed`는 마감 여부.
 
 ## GET /posts — 토론글 목록
 
@@ -175,24 +190,39 @@
 요청
 
 ```json
-{ "board": "pokemon", "tag": "analysis", "itemId": "charizard-ex-sar", "title": "제목", "body": "본문" }
+{
+  "board": "pokemon",
+  "tag": "analysis",
+  "itemId": "charizard-ex-sar",
+  "title": "제목",
+  "body": "본문",
+  "imageIds": [12, 13],
+  "poll": { "options": ["오른다", "내린다", "보합"], "durationDays": 3 },
+  "priceTag": 300000
+}
 ```
 
 | 필드 | 필수 | 규칙 |
 |---|---|---|
 | `board` | O | 값 목록 중 하나 |
 | `tag` | X | 값 목록 중 하나 |
-| `itemId` | X | 1~100자 |
+| `itemId` | X | **시세 태그.** 존재하는(숨김 아닌) 품목 slug. 없으면 `404 ITEM_NOT_FOUND` |
 | `title` | X | 1~100자 (빈 문자열은 `null`로 저장) |
 | `body` | O | 1~500자 (앞뒤 공백 제거 후) |
+| `imageIds` | X | `POST /uploads/post-images`로 올린 사진 id 배열. 최대 4장, 중복 불가, 배열 순서 = 표시 순서. **내가 올렸고 아직 어떤 글에도 연결되지 않은 사진**만 가능 |
+| `poll` | X | `options` 2~4개(각 1~40자, 중복 불가), `durationDays` `1`·`3`·`7` (기본 3). 마감 = 등록 시각 + 기간 |
+| `priceTag` | X | **희망 체결가**(원). 1 ~ 1,000,000,000 정수. `itemId`가 있는 글에만 가능 (품목 토론방 글쓰기) |
+
+글·사진 연결·투표는 한 트랜잭션으로 저장된다(하나라도 실패하면 글도 저장되지 않음).
 
 응답 `201` → `{ "data": { "post": Post } }`
 
-에러: `400 VALIDATION_ERROR`, `401 UNAUTHORIZED` / `INVALID_TOKEN`
+에러: `400 VALIDATION_ERROR`, `400 IMAGE_NOT_AVAILABLE`(남의 사진·이미 쓴 사진·없는 사진), `401 UNAUTHORIZED` / `INVALID_TOKEN`, `404 ITEM_NOT_FOUND`
 
 ## PATCH /posts/:id — 토론글 수정 🔒
 
-바꿀 필드만 보낸다(`board`, `tag`, `title`, `body`). 필드 규칙은 등록과 같고, `tag`·`title`은 `null`을 보내면 비운다. 아무 필드도 없으면 `400`.
+바꿀 필드만 보낸다(`board`, `tag`, `title`, `body`, `priceTag`). 필드 규칙은 등록과 같고, `tag`·`title`·`priceTag`는 `null`을 보내면 비운다. 아무 필드도 없으면 `400`.
+`priceTag`는 품목 글(`itemId` 있음)에만 붙일 수 있다. 희망 체결가만 바꿔도 `editedAt`이 갱신된다.
 
 - `itemId`는 수정할 수 없다(REQ-BEDIT-001). 보내면 `400 VALIDATION_ERROR`.
 - 수정에 성공하면 `editedAt`이 현재 시각으로 바뀐다.
@@ -228,6 +258,72 @@
 남긴 이모지를 지운다. 남긴 적이 없어도 `200`. 응답은 PUT과 같다(`myReaction: null`).
 
 에러: `401`, `404 POST_NOT_FOUND`
+
+---
+
+## POST /posts/:id/poll/votes — 투표 참여 🔒
+
+글당 **1인 1표, 변경·취소 불가**. 선택지 `vote_count`를 같은 트랜잭션에서 +1 한다.
+
+요청 → `{ "optionId": 1 }`
+
+응답 `201` → `{ "data": { "poll": Post.poll } }` (반영된 현황, `myOptionId` 포함)
+
+에러: `400 VALIDATION_ERROR`(이 글의 선택지가 아님), `400 POLL_CLOSED`(마감), `401`, `404 POST_NOT_FOUND` / `POLL_NOT_FOUND`, `409 ALREADY_VOTED`
+
+---
+
+# 업로드
+
+## POST /uploads/post-images — 토론글 사진 업로드 🔒
+
+`multipart/form-data`, 파일 필드 이름 `image`, 1장씩. 글 등록 전에 올리고, 응답의 `id`를 `POST /posts`의 `imageIds`에 넣는다.
+
+- JPG·PNG·WebP, 5MB 이하 (spec-gaps 20). Content-Type과 파일 시그니처를 모두 검사한다.
+- 파일은 서버의 `backend/uploads/posts/`에 UUID 이름으로 저장되고 `GET /uploads/posts/<파일명>`으로 제공된다(`/api` 아님).
+- 업로드 직후에는 `post_images.post_id = NULL`. 글에 연결되지 않은 사진은 나중에 정리 작업 대상(erd 2.10, 아직 미구현).
+- 리사이즈·압축(REQ-COMMON-007)은 아직 하지 않는다.
+
+응답 `201`
+
+```json
+{ "data": { "image": { "id": 12, "url": "/uploads/posts/2f1c...e9.jpg" } } }
+```
+
+에러: `400 INVALID_FILE_TYPE`, `400 FILE_TOO_LARGE`, `400 VALIDATION_ERROR`(파일 없음), `401`
+
+---
+
+# 품목 검색 (시세 태그)
+
+## GET /items?q=&size= — 품목 검색
+
+로그인 없이 조회 가능. 품목명·세트명 부분 일치(LIKE), 숨김 품목 제외, 이름순. 토론글 글쓰기의 "시세 태그" 선택에 쓴다.
+
+| 쿼리 | 기본값 | 설명 |
+|---|---|---|
+| `q` | (필수) | 1~50자 |
+| `size` | `10` | 1~20 |
+
+응답 `200`
+
+```json
+{
+  "data": {
+    "items": [
+      {
+        "id": 1, "slug": "charizard-ex-sar", "name": "리자몽 ex SAR", "setName": "151", "rarity": "SAR",
+        "imageUrl": "https://...", "category": { "id": 4, "code": "pokemon", "name": "포켓몬 카드" },
+        "latestPrice": 320000, "changeRate": 18.1
+      }
+    ]
+  }
+}
+```
+
+- api-spec-all.md 2장 ITEM-02의 일부(검색어·개수)만 구현했다. 카테고리 필터·페이지는 ITEM-02 구현(#46) 때 확장한다.
+
+에러: `400 VALIDATION_ERROR`
 
 ---
 

@@ -22,6 +22,7 @@ export const CommunityFeedPage: React.FC<CommunityFeedPageProps> = ({ className 
           <div className="w-full flex flex-col gap-space-md">
             <FeedComposer
               board={feed.board}
+              ensureLogin={feed.ensureLogin}
               onBoardChange={feed.setBoard}
               onSubmit={feed.addPost}
               onTagChange={feed.setTag}

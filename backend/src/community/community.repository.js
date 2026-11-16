@@ -87,20 +87,86 @@ async function findById(id) {
   return rows.length === 0 ? null : toPost(rows[0]);
 }
 
-async function create({ userId, board, tag, itemId, title, body }) {
-  const [result] = await pool.execute(
-    'INSERT INTO posts (user_id, board, tag, item_id, title, body) VALUES (?, ?, ?, ?, ?, ?)',
-    [userId, board, tag ?? null, itemId ?? null, title ?? null, body],
+/** create()가 연결할 수 없는 이미지를 만났을 때 던지는 에러 (service가 400으로 바꾼다). */
+class ImageNotAvailableError extends Error {}
+
+/**
+ * 글 등록 — 글·사진 연결·투표를 한 트랜잭션으로 처리한다.
+ * imageIds: 내가 올렸고 아직 어떤 글에도 연결되지 않은 post_images.id만 연결된다 (순서 = sort_order).
+ * poll: { options: string[], durationDays } | null
+ */
+async function create({ userId, board, tag, itemId, title, body, imageIds = [], poll = null, priceTag = null }) {
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+    const [result] = await conn.execute(
+      'INSERT INTO posts (user_id, board, tag, item_id, title, body) VALUES (?, ?, ?, ?, ?, ?)',
+      [userId, board, tag ?? null, itemId ?? null, title ?? null, body],
+    );
+    const postId = result.insertId;
+
+    for (const [order, imageId] of imageIds.entries()) {
+      const [linked] = await conn.execute(
+        'UPDATE post_images SET post_id = ?, sort_order = ? WHERE id = ? AND uploader_id = ? AND post_id IS NULL',
+        [postId, order, imageId, userId],
+      );
+      if (linked.affectedRows !== 1) throw new ImageNotAvailableError();
+    }
+
+    if (priceTag !== null) {
+      await conn.execute('INSERT INTO post_price_tags (post_id, price) VALUES (?, ?)', [postId, priceTag]);
+    }
+
+    if (poll) {
+      await conn.execute(
+        'INSERT INTO post_polls (post_id, deadline_at) VALUES (?, UTC_TIMESTAMP() + INTERVAL ? DAY)',
+        [postId, poll.durationDays],
+      );
+      for (const [order, label] of poll.options.entries()) {
+        await conn.execute('INSERT INTO post_poll_options (post_id, sort_order, label) VALUES (?, ?, ?)', [
+          postId,
+          order,
+          label,
+        ]);
+      }
+    }
+
+    await conn.commit();
+    return findById(postId);
+  } catch (err) {
+    await conn.rollback();
+    throw err;
+  } finally {
+    conn.release();
+  }
+}
+
+/** 희망 체결가 바꾸기. null이면 지운다. */
+async function setPriceTag(postId, price) {
+  if (price === null) {
+    await pool.execute('DELETE FROM post_price_tags WHERE post_id = ?', [postId]);
+    return;
+  }
+  await pool.execute(
+    'INSERT INTO post_price_tags (post_id, price) VALUES (?, ?) ON DUPLICATE KEY UPDATE price = VALUES(price)',
+    [postId, price],
   );
-  return findById(result.insertId);
+}
+
+/** 글별 희망 체결가 Map<postId, price>. */
+async function findPriceTags(postIds) {
+  if (postIds.length === 0) return new Map();
+  const [rows] = await pool.query('SELECT post_id, price FROM post_price_tags WHERE post_id IN (?)', [postIds]);
+  return new Map(rows.map((r) => [r.post_id, r.price]));
 }
 
 /** fields에 들어 있는 키만 수정한다. (undefined는 건너뛰고 null은 비운다) */
-async function update(id, fields) {
+async function update(id, fields, { markEdited = false } = {}) {
   const entries = Object.entries(fields).filter(
     ([key, value]) => UPDATABLE_COLUMNS[key] && value !== undefined,
   );
-  if (entries.length > 0) {
+  // markEdited: posts 밖 데이터(희망 체결가)만 바뀌어도 "(수정됨)"을 표시한다.
+  if (entries.length > 0 || markEdited) {
     // edited_at은 "(수정됨)" 표시용(REQ-BEDIT-004). updated_at은 집계 갱신 때도 바뀌어 쓸 수 없다.
     const setClause = [
       ...entries.map(([key]) => `${UPDATABLE_COLUMNS[key]} = ?`),
@@ -237,6 +303,85 @@ async function deleteReaction(userId, postId) {
   }
 }
 
+/** 글별 투표 Map<postId, { deadlineAt, closed, options: [{ id, label, votes }] }>. 투표 없는 글은 Map에 없음. */
+async function findPolls(postIds) {
+  const result = new Map();
+  if (postIds.length === 0) return result;
+  const [polls] = await pool.query(
+    'SELECT post_id, deadline_at, deadline_at <= UTC_TIMESTAMP() AS closed FROM post_polls WHERE post_id IN (?)',
+    [postIds],
+  );
+  if (polls.length === 0) return result;
+  polls.forEach((p) => result.set(p.post_id, { deadlineAt: p.deadline_at, closed: Boolean(p.closed), options: [] }));
+  const [options] = await pool.query(
+    'SELECT id, post_id, label, vote_count FROM post_poll_options WHERE post_id IN (?) ORDER BY post_id, sort_order',
+    [[...result.keys()]],
+  );
+  options.forEach((o) => result.get(o.post_id).options.push({ id: o.id, label: o.label, votes: o.vote_count }));
+  return result;
+}
+
+/** 사용자가 각 글 투표에서 고른 선택지 Map<postId, optionId>. */
+async function findMyPollVotes(userId, postIds) {
+  if (!userId || postIds.length === 0) return new Map();
+  const [rows] = await pool.query(
+    'SELECT post_id, option_id FROM post_poll_votes WHERE user_id = ? AND post_id IN (?)',
+    [userId, postIds],
+  );
+  return new Map(rows.map((r) => [r.post_id, r.option_id]));
+}
+
+/** 투표 결과 코드 — service가 HTTP 에러로 바꾼다. */
+const POLL_VOTE_RESULT = {
+  OK: 'ok',
+  NO_POLL: 'no_poll',
+  CLOSED: 'closed',
+  BAD_OPTION: 'bad_option',
+  DUPLICATE: 'duplicate',
+};
+
+/** 투표하기 (글당 1인 1표, 변경 불가). 선택지 vote_count를 같은 트랜잭션에서 +1. */
+async function votePoll(userId, postId, optionId) {
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+    const [[poll]] = await conn.execute(
+      'SELECT deadline_at <= UTC_TIMESTAMP() AS closed FROM post_polls WHERE post_id = ? FOR UPDATE',
+      [postId],
+    );
+    let outcome = POLL_VOTE_RESULT.OK;
+    if (!poll) outcome = POLL_VOTE_RESULT.NO_POLL;
+    else if (poll.closed) outcome = POLL_VOTE_RESULT.CLOSED;
+    else {
+      const [[option]] = await conn.execute('SELECT id FROM post_poll_options WHERE id = ? AND post_id = ?', [
+        optionId,
+        postId,
+      ]);
+      if (!option) outcome = POLL_VOTE_RESULT.BAD_OPTION;
+    }
+    if (outcome === POLL_VOTE_RESULT.OK) {
+      try {
+        await conn.execute('INSERT INTO post_poll_votes (user_id, post_id, option_id) VALUES (?, ?, ?)', [
+          userId,
+          postId,
+          optionId,
+        ]);
+        await conn.execute('UPDATE post_poll_options SET vote_count = vote_count + 1 WHERE id = ?', [optionId]);
+      } catch (err) {
+        if (err.code !== 'ER_DUP_ENTRY') throw err;
+        outcome = POLL_VOTE_RESULT.DUPLICATE;
+      }
+    }
+    await (outcome === POLL_VOTE_RESULT.OK ? conn.commit() : conn.rollback());
+    return outcome;
+  } catch (err) {
+    await conn.rollback();
+    throw err;
+  } finally {
+    conn.release();
+  }
+}
+
 module.exports = {
   findMany,
   findById,
@@ -249,5 +394,12 @@ module.exports = {
   findAuthorBadges,
   upsertReaction,
   deleteReaction,
+  findPolls,
+  findMyPollVotes,
+  setPriceTag,
+  findPriceTags,
+  votePoll,
+  POLL_VOTE_RESULT,
+  ImageNotAvailableError,
   REACTION_TYPES,
 };

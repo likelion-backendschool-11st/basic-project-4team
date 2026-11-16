@@ -12,6 +12,7 @@ import { Icon } from '../common/Icon';
 import { AuthorAvatar } from './AuthorAvatar';
 import { PostImages } from './PostImages';
 import { PostMoreMenu } from './PostMoreMenu';
+import { PostPriceTag } from './PostPriceTag';
 import { ReactionBar } from './ReactionBar';
 import { UserBadge } from './UserBadge';
 
@@ -69,6 +70,7 @@ export const DiscussionPostCard: React.FC<DiscussionPostCardProps> = ({ post, it
       <p className={`font-body-md text-body-md text-on-surface leading-relaxed whitespace-pre-line ${post.images ? 'mb-space-sm' : 'mb-space-md'}`}>
         {post.body}
       </p>
+      {post.priceTag && <PostPriceTag tag={post.priceTag} />}
       {post.images && post.images.length > 0 && <PostImages images={post.images} variant="strip" />}
       {/* Reactions & Meta Row — data-component="Footer" */}
       <footer className="flex flex-wrap items-center justify-between gap-space-sm bg-surface-container-low/50 rounded-lg p-space-xs">

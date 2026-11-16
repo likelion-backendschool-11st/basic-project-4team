@@ -84,7 +84,49 @@ export const feedComposer = {
     { key: 'photo', icon: 'image', label: '사진', title: '사진 첨부' },
     { key: 'poll', icon: 'poll', label: '투표', title: '투표 만들기' },
     { key: 'tag', icon: 'analytics', label: '시세 태그', title: '시세/품목 태그' },
-  ],
+  ] as readonly { readonly key: 'photo' | 'poll' | 'tag'; readonly icon: string; readonly label: string; readonly title: string }[],
+  photo: {
+    max: 4,
+    accept: 'image/jpeg,image/png,image/webp',
+    maxBytes: 5 * 1024 * 1024,
+    counter: (n: number, max: number) => `사진 ${n}/${max}`,
+    removeLabel: '사진 빼기',
+    uploading: '사진을 올리는 중...',
+    tooMany: (max: number) => `사진은 최대 ${max}장까지 첨부할 수 있습니다.`,
+    tooLarge: '5MB 이하의 JPG, PNG, WebP 사진만 올릴 수 있습니다.',
+    failed: '사진을 올리지 못했습니다.',
+    alt: (n: number) => `첨부할 사진 ${n}`,
+  },
+  poll: {
+    title: '투표 만들기',
+    minOptions: 2,
+    maxOptions: 4,
+    optionMax: 40,
+    optionPlaceholder: (n: number) => `선택지 ${n}`,
+    addOption: '선택지 추가',
+    removeOption: '선택지 삭제',
+    removePoll: '투표 빼기',
+    durationLabel: '투표 기간',
+    durations: [
+      { value: '1', label: '1일' },
+      { value: '3', label: '3일' },
+      { value: '7', label: '7일' },
+    ] as readonly SelectOption[],
+    defaultDuration: 3,
+    invalid: '투표 선택지를 2개 이상, 서로 다르게 입력해 주세요.',
+  },
+  tag: {
+    title: '시세 태그',
+    placeholder: '품목 이름으로 검색 (예: 리자몽)',
+    searching: '검색 중...',
+    empty: '검색 결과가 없습니다.',
+    failed: '품목을 검색하지 못했습니다.',
+    removeLabel: '시세 태그 빼기',
+    minChars: 1,
+    debounceMs: 250,
+  },
+  submitting: '등록 중...',
+  bodyMax: 500,
   submitIcon: 'edit_note',
   submitLabel: '의견 남기기',
 };
@@ -99,14 +141,31 @@ export const feedBoardMeta: Readonly<Record<string, { readonly label: string; re
 };
 
 export interface PollOptionSeed {
+  /** 화면에 보이는 순번 글자 (A, B, C, D). */
   readonly key: string;
+  /** post_poll_options.id — 투표 요청에 쓴다. */
+  readonly id: number;
   readonly label: string;
   readonly votes: number;
 }
 
 export interface FeedPoll {
+  readonly postId: number;
   readonly options: readonly PollOptionSeed[];
   readonly deadlineLabel: string;
+  /** 내가 고른 선택지 id. 안 했으면 null. */
+  readonly myOptionId: number | null;
+  readonly closed: boolean;
+}
+
+/** 시세 태그 카드 — 글에 붙인 품목과 최근 체결가. */
+export interface FeedItemTag {
+  readonly slug: string;
+  readonly name: string;
+  readonly imageSrc: string | null;
+  readonly priceLabel: string;
+  readonly changeLabel: string;
+  readonly trend: 'up' | 'down' | 'flat';
 }
 
 export interface FeedPost {
@@ -121,10 +180,12 @@ export interface FeedPost {
   readonly title: string;
   readonly body: string;
   readonly poll?: FeedPoll;
+  readonly itemTag?: FeedItemTag;
   readonly images?: readonly CommunityImage[];
   readonly reactions?: readonly ReactionSeed[];
   /** 로그인 사용자가 남긴 이모지 key. 없으면 null. */
   readonly myReaction?: string | null;
+  readonly priceTag?: PostPriceTagView;
   readonly commentCount: number;
   /** API에서 받은 글의 숫자 id. 수정·삭제 요청에 쓴다. */
   readonly postId?: number;
@@ -170,15 +231,28 @@ export const formatTimeAgo = (iso: string, now: number = Date.now()): string => 
 
 export const feedCopy = {
   commentLabel: (n: number) => `댓글 ${n}`,
-  pollCommentLabel: (n: number) => `댓글 ${n}개`,
   shareLabel: '공유',
-  pollSummary: (total: number, deadline: string) => `총 ${total}명 참여 완료 · ${deadline}`,
+  pollSummary: (total: number, deadline: string) => `총 ${total}명 참여 · ${deadline}`,
   pollVotes: (n: number) => `${n}명 투표`,
   loadingLabel: '스크롤 시 실시간 토론글이 자동으로 로딩됩니다',
   endLabel: '모든 토론글을 불러왔습니다',
   emptyLabel: '이 카테고리에는 아직 토론글이 없습니다.',
   justNow: '방금 전',
   newPostTitle: '새 의견',
+  pollLetters: ['A', 'B', 'C', 'D'] as readonly string[],
+  /** 투표 마감까지 남은 시간 → "마감 D-2", "오늘 마감", "투표 마감". */
+  pollDeadline: (iso: string, closed: boolean, now: number = Date.now()) => {
+    if (closed) return '투표 마감';
+    const days = Math.floor((new Date(iso).getTime() - now) / 86400000);
+    return days < 1 ? '오늘 마감' : `마감 D-${days}`;
+  },
+  pollVoteError: '투표하지 못했습니다. 잠시 후 다시 시도해 주세요.',
+  pollAlreadyVoted: '이미 투표했어요. 투표는 바꿀 수 없습니다.',
+  itemTagIcon: 'sell',
+  itemTagLabel: '시세 태그',
+  itemTagPrice: (n: number | null) => (n === null ? '거래 이력 없음' : `${n.toLocaleString('ko-KR')}원`),
+  itemTagChange: (rate: number, hasPrice: boolean) =>
+    !hasPrice ? '' : rate === 0 ? '보합' : `${rate > 0 ? '▲' : '▼'} ${Math.abs(rate).toFixed(1)}%`,
 };
 
 /* ------------------------------------------------------------------ */
@@ -192,6 +266,8 @@ export interface DiscussionItem {
   readonly certNo: string;
   readonly image: CommunityImage;
   readonly price: string;
+  /** 최근 체결가(원). 거래 이력이 없으면 null. 희망 체결가 비교에 쓴다. */
+  readonly latestPrice: number | null;
   readonly changePct: string;
   readonly changeAmount: string;
   /** 소분류 카테고리 code (API 품목만). 토론글 등록 시 게시판(board)을 정하는 데 쓴다. */
@@ -223,6 +299,27 @@ export const sentimentCopy = {
   downButton: '🧊 내린다 투표',
 };
 
+/** 시세 대비 차이 — "+6.3%", "-2.0%", "시세와 같음". */
+export const formatPriceDiff = (price: number, market: number): string => {
+  const rate = ((price - market) / market) * 100;
+  if (Math.abs(rate) < 0.05) return '시세와 같음';
+  return `${rate > 0 ? '+' : '-'}${Math.abs(rate).toFixed(1)}%`;
+};
+
+/** 글 카드의 희망 체결가 표시. */
+export interface PostPriceTagView {
+  readonly label: string;
+  /** 시세 대비 차이. 시세가 없으면 빈 문자열. */
+  readonly diffLabel: string;
+  readonly tone: 'up' | 'down' | 'flat';
+}
+
+export const priceTagCopy = {
+  icon: 'sell',
+  label: (price: number) => `희망 체결가 ${price.toLocaleString('ko-KR')}원`,
+  diff: (price: number, market: number) => `시세 대비 ${formatPriceDiff(price, market)}`,
+};
+
 export const discussionComposer = {
   avatarIcon: 'person',
   placeholder: '이 품목에 대한 전망이나 실거래 의견을 남겨보세요. (최대 500자, 이미지 첨부 4장 가능)',
@@ -230,12 +327,24 @@ export const discussionComposer = {
   photoIcon: 'photo_camera',
   photoLabel: (n: number, max: number) => `사진 첨부 (${n}/${max})`,
   photoTitle: '사진 추가',
-  maxPhotos: 4,
   priceIcon: 'sell',
   priceLabel: '희망 체결가',
-  priceTitle: '시세 태그',
+  priceTitle: '희망 체결가 입력',
+  priceInputLabel: '희망 체결가 (원)',
+  pricePlaceholder: '예: 300,000',
+  priceMax: 1000000000,
+  priceRemove: '희망 체결가 빼기',
+  priceInvalid: '희망 체결가는 1원 ~ 10억 원 사이로 입력해 주세요.',
+  /** 입력 중 참고용 — "현재 시세 320,000원 대비 -6.3%". */
+  priceReference: (market: number | null, price: number | null) => {
+    if (market === null) return '거래 이력이 없어 시세 비교를 할 수 없습니다.';
+    const base = `현재 시세 ${market.toLocaleString('ko-KR')}원`;
+    return price === null ? base : `${base} 대비 ${formatPriceDiff(price, market)}`;
+  },
   counter: (n: number, max: number) => `${n} / ${max}자`,
   submitLabel: '글쓰기',
+  submitting: '등록 중...',
+  uploading: '사진 올리는 중...',
 };
 
 export type DiscussionSort = 'popular' | 'latest';
@@ -260,6 +369,7 @@ export interface DiscussionPost {
   readonly reactions: readonly ReactionSeed[];
   /** 로그인 사용자가 남긴 이모지 key. 없으면 null. */
   readonly myReaction?: string | null;
+  readonly priceTag?: PostPriceTagView;
   readonly commentCount: number;
   /** Higher = newer. Used for 최신순 sorting. */
   readonly order: number;
