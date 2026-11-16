@@ -205,11 +205,11 @@ function badRequest(message) {
 }
 
 /** 수정·삭제 공통 검사: 존재 → 작성자 본인(REQ-COMMON-002) → 거래완료 아님. */
-function assertEditable(listing, userId) {
+function assertEditable(listing, userId, action = '수정·삭제') {
   if (!listing) throw listingNotFound();
-  if (listing.sellerId !== userId) throw new HttpError(403, 'FORBIDDEN', '본인이 작성한 판매글만 수정·삭제할 수 있습니다.');
+  if (listing.sellerId !== userId) throw new HttpError(403, 'FORBIDDEN', `본인이 작성한 판매글만 ${action}할 수 있습니다.`);
   // 거래완료 판매글은 시세 계산에 쓰이므로 바꾸거나 지울 수 없다.
-  if (listing.status === 'sold') throw new HttpError(409, 'LISTING_ALREADY_SOLD', '거래완료된 판매글은 수정·삭제할 수 없습니다.');
+  if (listing.status === 'sold') throw new HttpError(409, 'LISTING_ALREADY_SOLD', `거래완료된 판매글은 ${action}할 수 없습니다.`);
 }
 
 /**
@@ -297,6 +297,33 @@ async function deleteListing(listingId, userId) {
   });
 }
 
+/** LISTING-06 판매 상태 변경 (판매중 ↔ 예약중). 같은 상태로 요청하면 그대로 성공(멱등). */
+async function changeListingStatus(listingId, userId, status) {
+  await sellRepository.withTransaction(async (connection) => {
+    const current = await sellRepository.findForUpdate(connection, listingId);
+    assertEditable(current, userId, '상태를 변경');
+    if (current.status !== status) await sellRepository.updateStatus(connection, listingId, status);
+  });
+  return { id: listingId, status };
+}
+
+/**
+ * LISTING-07 거래완료 처리. 체결가·체결 시각·구매자를 저장하고 sold로 바꾼다.
+ * 시세(30일 평균 체결가)는 거래완료 판매글로 바로 계산되므로 저장 즉시 반영된다 (REQ-COMMON-004).
+ */
+async function completeListing(listingId, userId, { soldPrice, buyerId }) {
+  if (buyerId === userId) throw badRequest('본인을 구매자로 지정할 수 없습니다.');
+  return sellRepository.withTransaction(async (connection) => {
+    assertEditable(await sellRepository.findForUpdate(connection, listingId), userId, '거래완료 처리');
+    if (buyerId !== null && !(await sellRepository.existsActiveUser(connection, buyerId))) {
+      throw new HttpError(404, 'USER_NOT_FOUND', '구매자 회원을 찾을 수 없습니다.');
+    }
+    await sellRepository.markSold(connection, listingId, { soldPrice, buyerId });
+    const sold = await sellRepository.findSoldInfo(connection, listingId);
+    return { id: listingId, status: sold.status, soldPrice: sold.soldPrice, soldAt: sold.soldAt };
+  });
+}
+
 /** ITEM-01 카테고리 트리 — 대분류 아래 소분류를 children으로 묶는다. */
 async function getCategoryTree() {
   const categories = await sellRepository.findCategories();
@@ -345,6 +372,8 @@ module.exports = {
   createListing,
   updateListing,
   deleteListing,
+  changeListingStatus,
+  completeListing,
   getCategoryTree,
   searchItems,
 };

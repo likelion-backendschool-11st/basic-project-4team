@@ -330,6 +330,40 @@ async function remove(req, res) {
   res.status(204).end();
 }
 
+// 거래완료(sold)는 체결가가 필요해서 LISTING-07로만 바꾼다.
+const CHANGEABLE_STATUSES = ['selling', 'reserved'];
+
+/** PATCH /api/listings/:listingId/status — 판매 상태 변경 (LISTING-06). */
+async function changeStatus(req, res) {
+  const listingId = parseListingId(req);
+  const status = req.body?.status;
+  if (status === 'sold') {
+    throw listBadRequest('거래완료는 최종 거래가와 함께 거래완료 처리(POST /listings/:listingId/complete)로 변경해 주세요.');
+  }
+  if (!CHANGEABLE_STATUSES.includes(status)) {
+    throw listBadRequest(`status는 ${CHANGEABLE_STATUSES.join(' 또는 ')}이어야 합니다.`);
+  }
+  res.json({ data: await sellService.changeListingStatus(listingId, req.user.id, status) });
+}
+
+/** POST /api/listings/:listingId/complete — 거래완료 처리 (LISTING-07). */
+async function complete(req, res) {
+  const listingId = parseListingId(req);
+  const body = req.body ?? {};
+  if (!Number.isSafeInteger(body.soldPrice) || body.soldPrice < MIN_PRICE || body.soldPrice > MAX_PRICE) {
+    throw listBadRequest(
+      `최종 거래가는 ${MIN_PRICE.toLocaleString('ko-KR')}원 이상 ${MAX_PRICE.toLocaleString('ko-KR')}원 이하의 정수여야 합니다.`,
+    );
+  }
+  const buyerId = body.buyerId ?? null;
+  if (buyerId !== null && !isPositiveInt(buyerId)) throw listBadRequest('buyerId는 회원 id(양의 정수) 또는 null이어야 합니다.');
+  if (body.requestReview !== undefined && typeof body.requestReview !== 'boolean') {
+    throw listBadRequest('requestReview는 true 또는 false여야 합니다.');
+  }
+  // requestReview(후기 요청 알림)는 알림 기능이 생기면 연결한다 (REQ-MYPOST-005, 범위 밖).
+  res.json({ data: await sellService.completeListing(listingId, req.user.id, { soldPrice: body.soldPrice, buyerId }) });
+}
+
 /** GET /api/categories — 카테고리 트리 (ITEM-01). 판매글 등록 카테고리 선택. */
 async function categories(req, res) {
   res.json({ data: await sellService.getCategoryTree() });
@@ -372,4 +406,4 @@ async function searchItems(req, res) {
   res.json({ data: result });
 }
 
-module.exports = { list, detail, uploadImage, create, update, remove, categories, searchItems };
+module.exports = { list, detail, uploadImage, create, update, remove, changeStatus, complete, categories, searchItems };

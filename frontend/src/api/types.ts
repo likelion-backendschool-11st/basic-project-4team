@@ -216,6 +216,29 @@ export interface UpdateListingRequest {
   readonly directLocation?: string | null;
 }
 
+/** LISTING-06 판매 상태 변경 응답. sold는 LISTING-07로만 바꾼다. */
+export interface ListingStatusResponse {
+  readonly id: number;
+  readonly status: ListingStatus;
+}
+
+/** LISTING-07 거래완료 요청. */
+export interface CompleteListingRequest {
+  /** 실제 거래 금액 (원). 시세 계산에 들어간다. */
+  readonly soldPrice: number;
+  /** 구매 회원. 외부 거래·미등록 구매자면 null. */
+  readonly buyerId?: number | null;
+  readonly requestReview?: boolean;
+}
+
+/** LISTING-07 거래완료 응답. */
+export interface CompleteListingResponse {
+  readonly id: number;
+  readonly status: ListingStatus;
+  readonly soldPrice: number;
+  readonly soldAt: string;
+}
+
 /** LISTING-02 판매글 상세 응답. */
 export interface ListingDetail {
   readonly id: number;

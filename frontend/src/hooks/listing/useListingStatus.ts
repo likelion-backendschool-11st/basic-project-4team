@@ -1,18 +1,35 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { ListingStatus } from '../../data/listing';
+import { changeListingStatus, completeListing } from '../../api/listings';
+import { statusToApi, type ListingStatus } from '../../data/listing';
+import { toErrorMessage } from '../listing-form/useEditListing';
+import { formatPrice } from './listingViewHelpers';
 import type { ShowToast } from './useToast';
 
 export interface ListingStatusMessages {
   readonly statusChanged: (status: string) => string;
   readonly deleted: string;
   readonly dealCompleted: (price: string) => string;
+  readonly statusFailed: string;
+  readonly dealFailed: string;
+  readonly soldLocked: string;
+  readonly invalidFinalPrice: string;
 }
 
+const MAX_SOLD_PRICE = 1_000_000_000;
+
+/** "295,000원" 같은 입력에서 숫자만 꺼낸다. 올바르지 않으면 null. */
+const parsePrice = (value: string): number | null => {
+  const digits = value.replace(/[^\d]/g, '');
+  const price = Number(digits);
+  return digits && Number.isSafeInteger(price) && price >= 1 && price <= MAX_SOLD_PRICE ? price : null;
+};
+
 /**
- * Seller management state: status dropdown, delete-confirm modal and
- * deal-complete (거래완료 & 시세 반영) modal.
+ * 판매자 관리 상태: 상태 드롭다운(LISTING-06), 삭제 확인 모달, 거래완료 모달(LISTING-07).
+ * 서버에 저장된 뒤에만 화면 상태를 바꾼다.
  */
 export const useListingStatus = (
+  listingId: string,
   initialStatus: ListingStatus,
   initialFinalPrice: string,
   messages: ListingStatusMessages,
@@ -24,7 +41,9 @@ export const useListingStatus = (
   const [dealOpen, setDealOpen] = useState(false);
   const [finalPrice, setFinalPrice] = useState(initialFinalPrice);
   const [requestReview, setRequestReview] = useState(true);
+  const [pending, setPending] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const isSold = status === '거래완료';
 
   // Close the dropdown on outside click.
   useEffect(() => {
@@ -36,15 +55,33 @@ export const useListingStatus = (
     return () => document.removeEventListener('click', onDocClick);
   }, [menuOpen]);
 
-  const toggleMenu = useCallback(() => setMenuOpen((v) => !v), []);
+  const toggleMenu = useCallback(() => {
+    // 거래완료는 시세 데이터라 되돌릴 수 없다.
+    if (isSold) {
+      notify?.(messages.soldLocked, 'lock');
+      return;
+    }
+    setMenuOpen((v) => !v);
+  }, [isSold, notify, messages]);
 
   const selectStatus = useCallback(
-    (next: ListingStatus) => {
-      setStatus(next);
+    async (next: ListingStatus) => {
       setMenuOpen(false);
-      notify?.(messages.statusChanged(next));
+      const apiStatus = statusToApi[next];
+      // 거래완료는 체결가가 필요해서 모달(submitDeal)로만 처리한다.
+      if (next === status || pending || apiStatus === 'sold') return;
+      setPending(true);
+      try {
+        await changeListingStatus(listingId, apiStatus);
+        setStatus(next);
+        notify?.(messages.statusChanged(next));
+      } catch (err) {
+        notify?.(toErrorMessage(err, messages.statusFailed), 'error');
+      } finally {
+        setPending(false);
+      }
     },
-    [notify, messages],
+    [status, pending, listingId, notify, messages],
   );
 
   const openDeal = useCallback(() => {
@@ -52,22 +89,33 @@ export const useListingStatus = (
     setDealOpen(true);
   }, []);
   const closeDeal = useCallback(() => setDealOpen(false), []);
-  const submitDeal = useCallback(() => {
-    setDealOpen(false);
-    setStatus('거래완료');
-    notify?.(messages.dealCompleted(finalPrice));
-  }, [finalPrice, notify, messages]);
+  const submitDeal = useCallback(async () => {
+    if (pending) return;
+    const soldPrice = parsePrice(finalPrice);
+    if (soldPrice === null) {
+      notify?.(messages.invalidFinalPrice, 'error');
+      return;
+    }
+    setPending(true);
+    try {
+      // 채팅 API가 없어 구매 상대를 고를 수 없으므로 외부 거래(buyerId = null)로 기록한다.
+      const result = await completeListing(listingId, { soldPrice, buyerId: null, requestReview });
+      setDealOpen(false);
+      setStatus('거래완료');
+      notify?.(messages.dealCompleted(formatPrice(result.soldPrice)));
+    } catch (err) {
+      notify?.(toErrorMessage(err, messages.dealFailed), 'error');
+    } finally {
+      setPending(false);
+    }
+  }, [pending, finalPrice, listingId, requestReview, notify, messages]);
 
   const openDelete = useCallback(() => setDeleteOpen(true), []);
   const closeDelete = useCallback(() => setDeleteOpen(false), []);
-  const confirmDelete = useCallback(() => {
-    setDeleteOpen(false);
-    notify?.(messages.deleted, 'delete');
-    window.setTimeout(() => window.scrollTo({ top: 0, behavior: 'smooth' }), 1200);
-  }, [notify, messages]);
 
   return {
     status,
+    pending,
     menuOpen,
     menuRef,
     toggleMenu,
@@ -75,7 +123,6 @@ export const useListingStatus = (
     deleteOpen,
     openDelete,
     closeDelete,
-    confirmDelete,
     dealOpen,
     openDeal,
     closeDeal,

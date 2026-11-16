@@ -433,6 +433,30 @@ async function softDelete(connection, listingId) {
   await connection.execute('UPDATE listings SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?', [listingId]);
 }
 
+/** 판매 상태(selling·reserved) 변경. */
+async function updateStatus(connection, listingId, status) {
+  await connection.execute('UPDATE listings SET status = ? WHERE id = ?', [status, listingId]);
+}
+
+/** 탈퇴하지 않은 회원인지. */
+async function existsActiveUser(connection, userId) {
+  const [rows] = await connection.execute('SELECT 1 FROM users WHERE id = ? AND deleted_at IS NULL LIMIT 1', [userId]);
+  return rows.length > 0;
+}
+
+/** 거래완료: 상태·체결가·체결 시각·구매자를 한 번에 저장한다 (chk_listings_sold가 셋을 함께 요구). */
+async function markSold(connection, listingId, { soldPrice, buyerId }) {
+  await connection.execute(
+    "UPDATE listings SET status = 'sold', sold_price = ?, sold_at = CURRENT_TIMESTAMP, buyer_id = ? WHERE id = ?",
+    [soldPrice, buyerId, listingId],
+  );
+}
+
+async function findSoldInfo(connection, listingId) {
+  const [[row]] = await connection.execute('SELECT status, sold_price, sold_at FROM listings WHERE id = ?', [listingId]);
+  return { status: row.status, soldPrice: row.sold_price, soldAt: row.sold_at };
+}
+
 /** ITEM-01 카테고리 전체 (id 오름차순). 트리 모양은 service에서 만든다. */
 async function findCategories() {
   const [rows] = await pool.execute('SELECT id, parent_id, code, name FROM categories ORDER BY id');
@@ -505,6 +529,10 @@ module.exports = {
   replacePhotos,
   replaceAuthImage,
   softDelete,
+  updateStatus,
+  existsActiveUser,
+  markSold,
+  findSoldInfo,
   findCategoryIdsByCode,
   findMany,
   findDetailById,

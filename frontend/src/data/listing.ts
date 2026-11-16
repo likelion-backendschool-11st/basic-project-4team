@@ -97,6 +97,17 @@ export const toastMessages = {
   statusChanged: (status: string) => `상품 상태가 '${status}'(으)로 변경되었습니다.`,
   deleted: '판매글이 성공적으로 삭제되었습니다.',
   dealCompleted: (price: string) => `거래완료 처리되었습니다. (반영시세: ${price}원)`,
+  statusFailed: '상태를 변경하지 못했습니다. 잠시 후 다시 시도해 주세요.',
+  dealFailed: '거래완료 처리에 실패했습니다. 잠시 후 다시 시도해 주세요.',
+  soldLocked: '거래완료된 판매글은 상태를 변경할 수 없습니다.',
+  invalidFinalPrice: '최종 체결 가격을 1원 이상 숫자로 입력해 주세요.',
+};
+
+/** 화면의 판매 상태 표기 → API 값 (LISTING-06·07). */
+export const statusToApi: Readonly<Record<ListingStatus, 'selling' | 'reserved' | 'sold'>> = {
+  판매중: 'selling',
+  예약중: 'reserved',
+  거래완료: 'sold',
 };
 
 /* ------------------------------------------------------------------ */
@@ -504,7 +515,7 @@ export const sellerListing = {
     deleteLabel: '3. 상품삭제',
   },
   statusOptions: [
-    { status: '판매중', label: '판매중 (현재)', hint: '노출 활성', dotClass: 'bg-primary' },
+    { status: '판매중', label: '판매중', hint: '노출 활성', dotClass: 'bg-primary' },
     { status: '예약중', label: '예약중', hint: '거래 협의중', dotClass: 'bg-logo-lime' },
     { status: '거래완료', label: '거래완료', hint: '시세 반영', dotClass: 'bg-muted', opensDealModal: true },
   ] as readonly StatusOption[],
@@ -617,11 +628,8 @@ export const sellerListing = {
     priceLabel: '최종 체결 가격',
     priceHint: '등록 판매가와 다를 경우 실제 거래 금액으로 수정해 주세요.',
     buyerLabel: '구매 상대 회원 (채팅자 선택)',
-    buyerOptions: [
-      '포켓몬수집왕 (채팅 내역 있음 - 직거래 협의 완료)',
-      '카드마스터77 (채팅 내역 있음)',
-      '기타 외부 거래 / 미등록 구매자',
-    ],
+    // 채팅 API가 없어 구매 상대를 고를 수 없다. 지금은 외부 거래(buyerId = null)로 처리한다.
+    buyerOptions: ['기타 외부 거래 / 미등록 구매자 (채팅 상대 선택은 준비 중)'],
     reviewLabel: '구매자에게 매너 온도 및 구매 후기 작성 요청 푸시 알림 전송 (권장)',
     cancelLabel: '취소',
     submitLabel: '거래완료 처리 및 시세 반영',
