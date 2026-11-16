@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect } from 'react';
+import { ROUTES } from '../../data/layout';
 import { CopyUrlButton } from './CopyUrlButton';
 import { DealCompleteModal } from './DealCompleteModal';
 import { DeleteConfirmModal } from './DeleteConfirmModal';
@@ -35,7 +36,8 @@ export const SellerListingView: React.FC<SellerListingViewProps> = ({ listing })
 
   const { toast, showToast } = useToast(3000);
   const onCopied = useCallback(
-    (copied: boolean) => showToast(copied ? toastMessages.copied : toastMessages.copiedFallback),
+    (copied: boolean) =>
+      copied ? showToast(toastMessages.copied) : showToast(toastMessages.copyFailed, toastMessages.copyFailedIcon),
     [showToast],
   );
   const manage = useListingStatus(view.id, view.status, view.price, toastMessages, showToast);
@@ -63,7 +65,7 @@ export const SellerListingView: React.FC<SellerListingViewProps> = ({ listing })
           <div>
             <div className="flex items-center justify-between gap-space-xs mb-space-xs">
               <ListingBreadcrumbs items={view.breadcrumbs} variant="chevron" />
-              <CopyUrlButton onCopied={onCopied} variant="seller" />
+              <CopyUrlButton onCopied={onCopied} sharePath={ROUTES.listingDetail(view.id)} variant="seller" />
             </div>
             <ListingTitle className="mb-space-sm leading-tight" title={view.title} />
             <ListingPriceCallout currency={listingCore.currency} price={view.price} seller={view.priceInfo} />

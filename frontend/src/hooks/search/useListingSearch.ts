@@ -16,6 +16,7 @@ import {
 import { formatTimeAgo } from '../listing/listingViewHelpers';
 import type { ShowToast } from '../listing/useToast';
 import { requestWish } from '../listing/wishRequest';
+import { subscribeWishChange } from '../listing/wishSync';
 import { usePagination } from './usePagination';
 import type { useSearchFilters } from './useSearchFilters';
 
@@ -133,6 +134,17 @@ export const useListingSearch = (query: string, filters: SearchFilters, wish: Wi
   const patchItem = useCallback((id: string, patch: Pick<Listing, 'wished' | 'likes'>) => {
     setItems((prev) => prev.map((item) => (item.id === id ? { ...item, ...patch } : item)));
   }, []);
+
+  // 헤더 찜 사이드바 등 다른 곳에서 찜을 바꾸면 같은 카드도 맞춘다. 응답을 기다리는 카드는 toggleWish가 맞춘다.
+  useEffect(
+    () =>
+      subscribeWishChange((state) => {
+        const id = String(state.listingId);
+        if (pendingWishes.current.has(id)) return;
+        patchItem(id, { wished: state.isWished, likes: state.wishCount });
+      }),
+    [patchItem],
+  );
 
   /** 카드 하트 (LIST-02 / LIST-03). 먼저 바꿔 보여주고 응답으로 맞춘다. 실패하면 되돌린다. */
   const toggleWish = useCallback(
