@@ -66,6 +66,10 @@ export interface LoginRedirectState {
   readonly loginId?: string;
   readonly noticeTitle: string;
   readonly noticeMessage: string;
+  /** 로그인 후 돌아갈 경로 (예: 로그인이 필요한 마이페이지). 없으면 메인. */
+  readonly redirectTo?: string;
+  /** 안내 모양. 완료 안내는 success(기본), "로그인이 필요합니다" 같은 안내는 info. */
+  readonly noticeKind?: 'success' | 'info';
 }
 
 export const signupCopy = {

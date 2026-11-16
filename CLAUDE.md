@@ -37,7 +37,7 @@ npm run validate -- src/components/xxx/Foo.tsx   # 컴포넌트 규칙 검사 (P
 cd backend
 npm install
 cp .env.example .env   # DB_PASSWORD만 채우기 (Windows: copy)
-npm run db:init        # DB·테이블 생성 — .env 정보로 db/schema.sql 실행, 반복 실행 안전
+npm run db:init        # DB·테이블 생성 — .env 정보로 db/schema.sql 실행 + 예전 DB에 빠진 컬럼 추가, 반복 실행 안전
 npm run db:seed        # 팀 공용 더미 데이터(db/seed.sql) — 모든 데이터를 지우고 다시 넣음. 계정 test1~3 등 / test1234
 npm run dev            # 개발 서버 (http://localhost:4000, 파일 변경 시 자동 재시작)
 npm start              # 일반 실행
@@ -75,6 +75,7 @@ docs/             컨벤션, API 정의서
 | `/market` | 시세 대시보드 | MarketDashboardPage |
 | `/community` | P-017 커뮤니티 피드 | CommunityFeedPage |
 | `/community/items/:id` | P-018 품목별 토론방 | ItemDiscussionPage |
+| `/my` | 마이페이지 (로그인 필요, `?tab=`) | MyPage |
 | 그 외 모든 경로 | 404 오류 페이지 | NotFoundPage |
 
 ## 반드시 지킬 것

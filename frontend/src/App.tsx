@@ -11,6 +11,7 @@ import { ListingDetailPage } from './pages/ListingDetailPage';
 import { ListingEditPage } from './pages/ListingEditPage';
 import { LoginPage } from './pages/LoginPage';
 import { MarketDashboardPage } from './pages/MarketDashboardPage';
+import { MyPage } from './pages/MyPage';
 import { MyListingDetailPage } from './pages/MyListingDetailPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { SearchResultsPage } from './pages/SearchResultsPage';
@@ -35,6 +36,7 @@ export const App: React.FC<AppProps> = () => (
       <Route element={<ListingCreatePage />} path="/sell" />
       <Route element={<MarketDashboardPage />} path="/market" />
       <Route element={<CommunityFeedPage />} path="/community" />
+      <Route element={<MyPage />} path="/my" />
       <Route element={<ItemDiscussionPage />} path="/community/items/:id" />
       <Route element={<NotFoundPage />} path="*" />
     </Route>

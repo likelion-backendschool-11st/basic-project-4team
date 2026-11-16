@@ -11,6 +11,7 @@ const reportRoutes = require('./report/report.routes');
 const communityVoteRoutes = require('./communityVote/communityVote.routes');
 const wishRoutes = require('./wish/wish.routes');
 const myWishRoutes = require('./wish/wish.me.routes');
+const mypageRoutes = require('./mypage/mypage.routes');
 const notificationRoutes = require('./notification/notification.routes');
 const uploadRoutes = require('./sell/upload.routes');
 const itemRoutes = require('./sell/item.routes');
@@ -47,6 +48,7 @@ app.use('/api/categories', categoryRoutes); // GET / (ITEM-01)
 app.use('/api/items', itemRoutes); // GET / 품목 검색 (ITEM-02) — itemCommunityRoutes보다 먼저
 app.use('/api/items', itemCommunityRoutes); // GET /trending, GET /:itemId (ITEM-03)
 app.use('/api/users/me', myWishRoutes); // GET /wishes
+app.use('/api/users/me', mypageRoutes); // 마이페이지: summary, listings, purchases, posts, comments, nickname, password
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/community', commentRoutes);
 app.use('/api/reports', reportRoutes);
