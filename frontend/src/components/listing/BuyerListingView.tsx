@@ -1,15 +1,18 @@
 import React, { useCallback } from 'react';
 import type { ListingDetail } from '../../api/types';
-import { buyerListing, listingCore, listingDetailCopy, toastMessages } from '../../data/listing';
+import { ROUTES } from '../../data/layout';
+import { buyerListing, listingCore, listingDetailCopy, ownerActionCopy, sellerListing, toastMessages } from '../../data/listing';
 import { useBuyerListingView } from '../../hooks/listing/useBuyerListingView';
 import { useChatDrawer } from '../../hooks/listing/useChatDrawer';
 import { useItemDiscussionCount } from '../../hooks/listing/useItemDiscussionCount';
+import { useOwnerListingActions } from '../../hooks/listing/useOwnerListingActions';
 import { useToast } from '../../hooks/listing/useToast';
 import { useWishlist } from '../../hooks/listing/useWishlist';
 import { Icon } from '../common/Icon';
 import { BuyerActionBar } from './BuyerActionBar';
 import { BuyerDescriptionSection } from './BuyerDescriptionSection';
 import { ChatDrawer } from './ChatDrawer';
+import { DeleteConfirmModal } from './DeleteConfirmModal';
 import { ListingAttributeGrid } from './ListingAttributeGrid';
 import { ListingCategoryHeader } from './ListingCategoryHeader';
 import { ListingEngagementStats } from './ListingEngagementStats';
@@ -19,6 +22,7 @@ import { ListingSpecSummary } from './ListingSpecSummary';
 import { ListingTitle } from './ListingTitle';
 import { ListingToast } from './ListingToast';
 import { ListingTopBar } from './ListingTopBar';
+import { OwnerActionBar } from './OwnerActionBar';
 import { SellerProfileCard } from './SellerProfileCard';
 
 interface BuyerListingViewProps {
@@ -45,6 +49,8 @@ export const BuyerListingView: React.FC<BuyerListingViewProps> = ({ listing }) =
 
   const wishlist = useWishlist(listing.wishCount, onWishChange, listing.isWished);
   const chat = useChatDrawer(onChatSent);
+  // 작성자 본인이면 찜·채팅 대신 수정·삭제·관리 버튼을 보여준다.
+  const owner = useOwnerListingActions(String(listing.id), showToast);
 
   return (
     <div className="flex flex-col w-full bg-canvas">
@@ -91,18 +97,28 @@ export const BuyerListingView: React.FC<BuyerListingViewProps> = ({ listing }) =
               <ListingAttributeGrid attributes={view.attributes} variant="buyer" />
               <ListingSpecSummary specs={view.specs} title={buyerListing.specTitle} />
             </div>
-            <BuyerActionBar
-              chatLabel={actions.chatLabel}
-              discussionCount={discussionCount}
-              discussionLabel={actions.discussionLabel}
-              discussionTitle={actions.discussionTitle}
-              itemId={view.itemSlug}
-              onOpenChat={chat.openDrawer}
-              onToggleWish={wishlist.toggle}
-              wishCount={wishlist.count}
-              wishLabel={actions.wishLabel}
-              wished={wishlist.wished}
-            />
+            {listing.isOwner ? (
+              <OwnerActionBar
+                deleting={owner.deleting}
+                editTo={ROUTES.myListingEdit(String(listing.id))}
+                labels={ownerActionCopy}
+                manageTo={ROUTES.myListingDetail(String(listing.id))}
+                onDelete={owner.openDelete}
+              />
+            ) : (
+              <BuyerActionBar
+                chatLabel={actions.chatLabel}
+                discussionCount={discussionCount}
+                discussionLabel={actions.discussionLabel}
+                discussionTitle={actions.discussionTitle}
+                itemId={view.itemSlug}
+                onOpenChat={chat.openDrawer}
+                onToggleWish={wishlist.toggle}
+                wishCount={wishlist.count}
+                wishLabel={actions.wishLabel}
+                wished={wishlist.wished}
+              />
+            )}
           </div>
         </div>
 
@@ -126,6 +142,14 @@ export const BuyerListingView: React.FC<BuyerListingViewProps> = ({ listing }) =
         sellerInitial={view.seller.initial}
         sellerName={view.seller.name}
       />
+      {listing.isOwner && (
+        <DeleteConfirmModal
+          labels={sellerListing.deleteModal}
+          onCancel={owner.closeDelete}
+          onConfirm={owner.confirmDelete}
+          open={owner.deleteOpen}
+        />
+      )}
       <ListingToast position="center" toast={toast} />
     </div>
   );
