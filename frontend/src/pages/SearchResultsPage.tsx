@@ -81,25 +81,28 @@ export const SearchResultsPage: React.FC<SearchResultsPageProps> = ({ className 
           options={sortOptions}
         />
         {results}
-        <Pagination
-          hasNext={pagination.hasNext}
-          hasPrev={pagination.hasPrev}
-          navAria={paginationData.navAria}
-          nextAria={paginationData.nextAria}
-          onNext={pagination.next}
-          onPage={pagination.setPage}
-          onPrev={pagination.prev}
-          page={pagination.page}
-          pages={pagination.pages}
-          prevAria={paginationData.prevAria}
-          summary={
-            <>
-              {paginationData.summaryPrefix} <span className="text-ink font-semibold">{total}</span>
-              {paginationData.summaryMiddle} {pagination.rangeStart}-{pagination.rangeEnd}
-              {paginationData.summarySuffix}
-            </>
-          }
-        />
+        {/* 결과가 없거나 불러오지 못했으면 페이지 번호를 숨긴다. */}
+        {search.status !== 'error' && total > 0 && (
+          <Pagination
+            hasNext={pagination.hasNext}
+            hasPrev={pagination.hasPrev}
+            navAria={paginationData.navAria}
+            nextAria={paginationData.nextAria}
+            onNext={pagination.next}
+            onPage={pagination.setPage}
+            onPrev={pagination.prev}
+            page={pagination.page}
+            pages={pagination.pages}
+            prevAria={paginationData.prevAria}
+            summary={
+              <>
+                {paginationData.summaryPrefix} <span className="text-ink font-semibold">{total}</span>
+                {paginationData.summaryMiddle} {pagination.rangeStart}-{pagination.rangeEnd}
+                {paginationData.summarySuffix}
+              </>
+            }
+          />
+        )}
         <EscrowGuideBanner {...escrowBanner} />
       </div>
       <ListingToast position="center" toast={toast} />

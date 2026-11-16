@@ -106,10 +106,6 @@ export const categoryOptions: readonly CategoryOption[] = [
   { id: 'bags', label: '가방', code: 'bags' },
 ];
 
-/** URL ?category=코드 → 필터 옵션 id. 없는 코드면 null. 헤더 카테고리 메뉴가 이 형태로 연결한다. */
-export const categoryIdFromCode = (code: string | null): string | null =>
-  (code && categoryOptions.find((c) => c.code === code)?.id) || null;
-
 export const gradeOptions: readonly CheckOption[] = [
   { id: 'psa10', label: 'PSA 10' },
   { id: 'psa9', label: 'PSA 9' },
@@ -158,7 +154,8 @@ export const sortOptions: readonly SortOption[] = [
   { key: 'latest', label: '최신순' },
   { key: 'priceAsc', label: '낮은 가격순' },
   { key: 'priceDesc', label: '높은 가격순' },
-  { key: 'popular', label: '인기순 (찜·조회수)' },
+  // 인기순 = 찜 많은 순 (LISTING-01 ListingSort, #27에서 찜 수만 보기로 확정)
+  { key: 'popular', label: '인기순 (찜 많은 순)' },
 ];
 
 export const sortBarData = {
@@ -195,13 +192,13 @@ export const listingLabels = {
   status: { selling: '판매중', reserved: '예약중', sold: '거래완료' } as Record<ListingStatus, string>,
 };
 
+/** REQ-LIST-011 페이지네이션 — 한 페이지 10개, 페이지 번호는 5개 단위 묶음. */
 export const paginationData = {
-  totalItems: 128,
   pageSize: 10,
-  windowSize: 5,
+  blockSize: 5,
   navAria: '검색 결과 페이지 이동',
-  prevAria: '이전 페이지',
-  nextAria: '다음 페이지',
+  prevAria: '이전 5페이지',
+  nextAria: '다음 5페이지',
   summaryPrefix: '총',
   summaryMiddle: '개의 등록 상품 중',
   summarySuffix: '번째 표시',

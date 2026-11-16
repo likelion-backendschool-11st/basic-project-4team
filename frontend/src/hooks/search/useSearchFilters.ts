@@ -1,97 +1,115 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { categoryIdFromCode, initialFilterState, type PricePreset } from '../../data/search';
+import { conditionOptions, gradeOptions, tradeOptions, type PricePreset } from '../../data/search';
+import {
+  SEARCH_URL_KEYS,
+  formatWon,
+  parseFilterState,
+  parseWon,
+  presetIdFor,
+  writeFilterState,
+  type PriceRange,
+  type UrlFilterState,
+} from './searchUrlState';
 
-export interface PriceRange {
-  readonly min: number | null;
-  readonly max: number | null;
-}
-
-const parseWon = (value: string): number | null => {
-  const digits = value.replace(/[^0-9]/g, '');
-  return digits.length > 0 ? Number(digits) : null;
-};
-
-const formatWon = (value: number | null): string => (value === null ? '' : value.toLocaleString('ko-KR'));
+export type { PriceRange } from './searchUrlState';
 
 const toggleIn = (list: readonly string[], id: string): readonly string[] =>
   list.includes(id) ? list.filter((item) => item !== id) : [...list, id];
 
-const initialRange: PriceRange = {
-  min: parseWon(initialFilterState.priceMin),
-  max: parseWon(initialFilterState.priceMax),
+const ALLOWED = {
+  grades: gradeOptions.map((o) => o.id),
+  conditions: conditionOptions.map((o) => o.id),
+  trades: tradeOptions.map((o) => o.id),
 };
 
-/** All state of the structural filter panel (category, grade, price, options). */
+const FILTER_KEYS = [
+  SEARCH_URL_KEYS.category,
+  SEARCH_URL_KEYS.grades,
+  SEARCH_URL_KEYS.minPrice,
+  SEARCH_URL_KEYS.maxPrice,
+  SEARCH_URL_KEYS.excludeSold,
+  SEARCH_URL_KEYS.conditions,
+  SEARCH_URL_KEYS.trades,
+];
+
+/**
+ * 필터 패널 상태 (카테고리·등급·가격·옵션).
+ * 적용된 필터는 URL 쿼리가 기준이다 (#27) — 새로고침·뒤로가기 후에도 유지되고,
+ * 헤더 카테고리 메뉴(/search?category=코드)로 들어오면 그 카테고리로 시작한다.
+ * 가격 입력칸은 "적용"을 누르기 전까지 화면에만 둔다.
+ */
 export const useSearchFilters = () => {
-  // 헤더 카테고리 메뉴(/search?category=코드)로 들어오면 그 카테고리를 고른 상태로 시작한다.
-  const [params] = useSearchParams();
-  const urlCategoryId = categoryIdFromCode(params.get('category'));
-  const [categoryId, setCategoryId] = useState<string>(urlCategoryId ?? initialFilterState.categoryId);
+  const [params, setParams] = useSearchParams();
+  const state = parseFilterState(params, ALLOWED);
+
+  /** 필터를 바꾸면 URL에 쓰고 1페이지로 돌아간다 (기록은 남기지 않음 — 뒤로가기는 이전 화면으로). */
+  const update = useCallback(
+    (patch: Partial<UrlFilterState>) => {
+      setParams(
+        (prev) => {
+          const next = writeFilterState(prev, { ...parseFilterState(prev, ALLOWED), ...patch });
+          next.delete(SEARCH_URL_KEYS.page);
+          return next;
+        },
+        { replace: true },
+      );
+    },
+    [setParams],
+  );
+
+  const [priceMin, setPriceMinRaw] = useState<string>(formatWon(state.appliedRange.min));
+  const [priceMax, setPriceMaxRaw] = useState<string>(formatWon(state.appliedRange.max));
+  // 적용된 가격이 바뀌면(프리셋·초기화·뒤로가기) 입력칸도 맞춘다.
   useEffect(() => {
-    if (urlCategoryId) setCategoryId(urlCategoryId);
-  }, [urlCategoryId]);
-  const [grades, setGrades] = useState<readonly string[]>(initialFilterState.grades);
-  const [priceMin, setPriceMinRaw] = useState<string>(initialFilterState.priceMin);
-  const [priceMax, setPriceMaxRaw] = useState<string>(initialFilterState.priceMax);
-  const [appliedRange, setAppliedRange] = useState<PriceRange>(initialRange);
-  const [activePresetId, setActivePresetId] = useState<string | null>(null);
-  const [excludeSold, setExcludeSold] = useState<boolean>(initialFilterState.excludeSold);
-  const [conditions, setConditions] = useState<readonly string[]>(initialFilterState.conditions);
-  const [trades, setTrades] = useState<readonly string[]>(initialFilterState.trades);
+    setPriceMinRaw(formatWon(state.appliedRange.min));
+    setPriceMaxRaw(formatWon(state.appliedRange.max));
+  }, [state.appliedRange.min, state.appliedRange.max]);
 
-  const setPriceMin = useCallback((value: string) => {
-    setPriceMinRaw(formatWon(parseWon(value)));
-    setActivePresetId(null);
-  }, []);
-
-  const setPriceMax = useCallback((value: string) => {
-    setPriceMaxRaw(formatWon(parseWon(value)));
-    setActivePresetId(null);
-  }, []);
+  const setPriceMin = useCallback((value: string) => setPriceMinRaw(formatWon(parseWon(value))), []);
+  const setPriceMax = useCallback((value: string) => setPriceMaxRaw(formatWon(parseWon(value))), []);
 
   const applyPrice = useCallback(() => {
-    setAppliedRange({ min: parseWon(priceMin), max: parseWon(priceMax) });
-  }, [priceMin, priceMax]);
+    update({ appliedRange: { min: parseWon(priceMin), max: parseWon(priceMax) } });
+  }, [priceMin, priceMax, update]);
 
-  const applyPreset = useCallback((preset: PricePreset) => {
-    setPriceMinRaw(formatWon(preset.min));
-    setPriceMaxRaw(formatWon(preset.max));
-    setAppliedRange({ min: preset.min, max: preset.max });
-    setActivePresetId(preset.id);
-  }, []);
+  const applyPreset = useCallback(
+    (preset: PricePreset) => update({ appliedRange: { min: preset.min, max: preset.max } }),
+    [update],
+  );
 
   const reset = useCallback(() => {
-    setCategoryId(initialFilterState.categoryId);
-    setGrades(initialFilterState.grades);
-    setPriceMinRaw(initialFilterState.priceMin);
-    setPriceMaxRaw(initialFilterState.priceMax);
-    setAppliedRange(initialRange);
-    setActivePresetId(null);
-    setExcludeSold(initialFilterState.excludeSold);
-    setConditions(initialFilterState.conditions);
-    setTrades(initialFilterState.trades);
-  }, []);
+    setParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        [...FILTER_KEYS, SEARCH_URL_KEYS.page].forEach((key) => next.delete(key));
+        return next;
+      },
+      { replace: true },
+    );
+  }, [setParams]);
+
+  const appliedRange: PriceRange = state.appliedRange;
 
   return {
-    categoryId,
-    selectCategory: setCategoryId,
-    grades,
-    toggleGrade: (id: string) => setGrades((prev) => toggleIn(prev, id)),
+    categoryId: state.categoryId,
+    selectCategory: (id: string) => update({ categoryId: id }),
+    grades: state.grades,
+    toggleGrade: (id: string) => update({ grades: toggleIn(state.grades, id) }),
     priceMin,
     priceMax,
     setPriceMin,
     setPriceMax,
     applyPrice,
     appliedRange,
-    activePresetId,
+    activePresetId: presetIdFor(appliedRange),
     applyPreset,
-    excludeSold,
-    toggleExcludeSold: () => setExcludeSold((prev) => !prev),
-    conditions,
-    toggleCondition: (id: string) => setConditions((prev) => toggleIn(prev, id)),
-    trades,
-    toggleTrade: (id: string) => setTrades((prev) => toggleIn(prev, id)),
+    excludeSold: state.excludeSold,
+    toggleExcludeSold: () => update({ excludeSold: !state.excludeSold }),
+    conditions: state.conditions,
+    toggleCondition: (id: string) => update({ conditions: toggleIn(state.conditions, id) }),
+    trades: state.trades,
+    toggleTrade: (id: string) => update({ trades: toggleIn(state.trades, id) }),
     reset,
   };
 };

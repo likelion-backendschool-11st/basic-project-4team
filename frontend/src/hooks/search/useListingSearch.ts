@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { ApiError } from '../../api/client';
 import { getListings, type ListingSearchParams } from '../../api/listingSearch';
 import type { ListingSummary } from '../../api/types';
@@ -17,6 +18,7 @@ import { formatTimeAgo } from '../listing/listingViewHelpers';
 import type { ShowToast } from '../listing/useToast';
 import { requestWish } from '../listing/wishRequest';
 import { usePagination } from './usePagination';
+import { SEARCH_URL_KEYS, parsePage, parseSort } from './searchUrlState';
 import type { useSearchFilters } from './useSearchFilters';
 
 type SearchFilters = ReturnType<typeof useSearchFilters>;
@@ -76,29 +78,75 @@ export interface WishHandlers {
 }
 
 /**
- * 검색 결과(P-009)를 LISTING-01로 불러온다. 정렬·페이지·필터가 바뀌면 다시 불러오고,
- * 조건이 바뀌면 1페이지로 돌아간다.
+ * 검색 결과(P-009)를 LISTING-01로 불러온다. 정렬·페이지·필터가 바뀌면 다시 불러온다.
+ * 정렬·페이지는 URL 쿼리(`sort`, `page`)가 기준이라 새로고침·뒤로가기 후에도 유지된다 (#27).
+ * 정렬·필터를 바꾸면 1페이지로 돌아가고, 페이지를 바꾸면 목록 맨 위로 올라간다.
  */
 export const useListingSearch = (query: string, filters: SearchFilters, wish: WishHandlers) => {
-  const [sortKey, setSortKey] = useState<SortKey>('latest');
+  const [urlParams, setUrlParams] = useSearchParams();
+  const sortKey = parseSort(urlParams);
+  const page = parsePage(urlParams);
   const [status, setStatus] = useState<SearchStatus>('loading');
   const [items, setItems] = useState<readonly Listing[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   // 응답을 기다리는 카드 id — 그동안 같은 카드의 하트 연타는 무시한다.
   const pendingWishes = useRef(new Set<string>());
+
+  /** URL의 page를 바꾼다. 1페이지는 키를 지운다. 기록은 남기지 않는다(뒤로가기는 이전 화면으로). */
+  const writePage = useCallback(
+    (next: number) => {
+      setUrlParams(
+        (prev) => {
+          const params = new URLSearchParams(prev);
+          if (next <= 1) params.delete(SEARCH_URL_KEYS.page);
+          else params.set(SEARCH_URL_KEYS.page, String(next));
+          return params;
+        },
+        { replace: true },
+      );
+    },
+    [setUrlParams],
+  );
+
+  const changePage = useCallback(
+    (next: number) => {
+      writePage(next);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    },
+    [writePage],
+  );
+
+  const setSortKey = useCallback(
+    (key: SortKey) => {
+      setUrlParams(
+        (prev) => {
+          const params = new URLSearchParams(prev);
+          if (key === 'latest') params.delete(SEARCH_URL_KEYS.sort);
+          else params.set(SEARCH_URL_KEYS.sort, key);
+          params.delete(SEARCH_URL_KEYS.page);
+          return params;
+        },
+        { replace: true },
+      );
+    },
+    [setUrlParams],
+  );
+
   const pagination = usePagination({
     totalItems: totalCount,
     pageSize: paginationData.pageSize,
-    windowSize: paginationData.windowSize,
+    blockSize: paginationData.blockSize,
+    page,
+    onPageChange: changePage,
   });
-  const { page, setPage } = pagination;
 
   const params = useMemo(() => toSearchParams(query, filters, sortKey), [query, filters, sortKey]);
   const paramsKey = JSON.stringify(params);
 
+  // URL에 마지막 페이지보다 큰 page가 들어오면(직접 입력, 글 삭제로 페이지 감소) 마지막 페이지로 맞춘다.
   useEffect(() => {
-    setPage(1);
-  }, [paramsKey, setPage]);
+    if (status === 'success' && totalCount > 0 && page > pagination.totalPages) writePage(pagination.totalPages);
+  }, [status, totalCount, page, pagination.totalPages, writePage]);
 
   useEffect(() => {
     // 응답이 늦게 와도 이전 조건의 결과로 화면을 덮어쓰지 않게 한다.
