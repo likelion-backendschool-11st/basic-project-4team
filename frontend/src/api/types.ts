@@ -153,14 +153,19 @@ export interface ItemDetail {
   readonly sellingCount: number;
 }
 
-/** GET /items/trending 항목 — 토론방 "연관 품목". */
+/** GET /items/trending 항목 — 토론방 "실시간 많이 언급된 품목". */
 export interface TrendingItemResponse {
   readonly id: number;
   readonly slug: string;
   readonly name: string;
   readonly rarity: string | null;
   readonly category: ItemCategory;
+  /** 기간 안에 쓴 토론글 수. */
   readonly postCount: number;
+  /** 기간 안에 이 품목 토론글에 달린 댓글·답글 수. */
+  readonly commentCount: number;
+  /** postCount + commentCount — 순위 기준. */
+  readonly mentionCount: number;
   readonly marketSummary: MarketSummary | null;
 }
 
