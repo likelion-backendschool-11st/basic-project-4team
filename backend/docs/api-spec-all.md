@@ -857,8 +857,10 @@ GET /api/v1/items/{itemId}?condition=graded&gradingService=PSA&grade=10
 판매글 등록·수정 화면에서 입력한 가격이 시세와 얼마나 차이 나는지 보여주는 데 씁니다. 판매글 상세의 "최근 30일 평균 체결가"에도 씁니다.
 
 ```
-GET /api/v1/items/{itemId}/market-price?condition=graded&gradingService=PSA&grade=10&days=30
+GET /api/items/{itemId}/market-price?condition=graded&gradingService=PSA&grade=10&days=30
 ```
+
+> 구현됨 (#54): `backend/src/newsubscriber/`. `itemId`는 ITEM-03과 같이 `id` 또는 `slug`. 저가 경고 기준(`lowPriceRatio`, `lowPriceThreshold`)을 응답에 추가했다.
 
 #### Query Parameters
 
@@ -883,10 +885,20 @@ GET /api/v1/items/{itemId}/market-price?condition=graded&gradingService=PSA&grad
     "minPrice": 255000,
     "maxPrice": 365000,
     "lastSoldPrice": 310000,
-    "lastSoldAt": "2025-11-09T14:20:00+09:00"
+    "lastSoldAt": "2025-11-09T05:20:00.000Z",
+    "lowPriceRatio": 0.3,
+    "lowPriceThreshold": 224000
   }
 }
 ```
+
+| 필드 | 타입 | 설명 |
+|---|---|---|
+| `condition`, `gradingService`, `grade` | string \| null | 적용한 필터. 생략했으면 `null` (전체) |
+| `averagePrice` | number \| null | 기간 평균 체결가 (원 단위 반올림) |
+| `medianPrice` | number \| null | 중앙값. 짝수 건이면 가운데 두 값의 평균 |
+| `lowPriceRatio` | number | 저가 경고 기준 비율. DB `settings.low_price_warning_ratio` (기본 `0.3`) |
+| `lowPriceThreshold` | number \| null | `averagePrice × (1 − lowPriceRatio)`. 이보다 싸면 저가 경고. 시세가 없으면 `null` |
 
 거래 이력이 없는 경우:
 
@@ -904,7 +916,9 @@ GET /api/v1/items/{itemId}/market-price?condition=graded&gradingService=PSA&grad
     "minPrice": null,
     "maxPrice": null,
     "lastSoldPrice": null,
-    "lastSoldAt": null
+    "lastSoldAt": null,
+    "lowPriceRatio": 0.3,
+    "lowPriceThreshold": null
   }
 }
 ```
@@ -913,12 +927,13 @@ GET /api/v1/items/{itemId}/market-price?condition=graded&gradingService=PSA&grad
 
 | 상태 | code | 상황 |
 |---|---|---|
-| 400 | `INVALID_PARAMETER` | `days`가 허용값이 아님, `condition`이 `graded`가 아닌데 `grade` 지정 |
-| 404 | `ITEM_NOT_FOUND` | 없는 품목 |
+| 400 | `VALIDATION_ERROR` | `days`가 7·30·90이 아님, `condition`·`gradingService`·`grade` 값 오류, `condition=graded`가 아닌데 `gradingService`·`grade` 지정 (7장 #9에 따라 `INVALID_PARAMETER` 대신 사용) |
+| 404 | `ITEM_NOT_FOUND` | 없는 품목, 숨김 품목 |
 
 #### 비고
-- 사기 의심 경고(시세 대비 ±30% 이상)는 프론트에서 `averagePrice`로 계산
-- 기간 필터를 위해 `listings`에 **`sold_at` 컬럼이 필요**합니다 (현재 ERD에 없음)
+- 저가(사기 의심) 경고(REQ-POST-013): 입력 가격 < `lowPriceThreshold`이면 프론트가 경고. 등록을 막지는 않음
+- 시세 계산 기준은 ITEM-03과 같음: `status = 'sold'`, `deleted_at IS NULL`, `sold_at`이 최근 `days`일 이내
+- 판매글 등록·수정 화면은 선택한 품목·상태(그레이딩이면 그레이딩사·등급까지)로 이 API를 부른다
 
 ---
 
@@ -1299,6 +1314,7 @@ Content-Type: application/json
 |---|---|---|
 | 400 | `VALIDATION_ERROR` | 위 규칙 위반 (필드별 사유는 `error.details`에 담음). `imageIds`에 `type=auth` 이미지, `authImageId`에 `type=photo` 이미지를 넣은 경우도 포함 |
 | 401 | `UNAUTHORIZED` | 비로그인 |
+| 403 | `NEW_USER_PRICE_LIMIT` | 신규 가입자가 제한 금액 이상으로 등록 (아래 [신규 가입자 제한](#신규-가입자-등록-제한-req-post-018)) |
 | 404 | `ITEM_NOT_FOUND` | 없는 `itemId` |
 | 404 | `IMAGE_NOT_FOUND` | 없는 이미지이거나 내가 올린 이미지가 아님 |
 | 409 | `IMAGE_ALREADY_USED` | 다른 판매글에 이미 연결된 이미지 |
@@ -1322,7 +1338,64 @@ Content-Type: application/json
 - 새 판매글의 `status`는 `selling`
 - 판매글 저장과 `listing_images` 연결은 **한 트랜잭션**으로 처리
 - 같은 사진을 `imageIds`에 두 번 넣을 수 없고, `authImageId`는 `imageIds`와 다른 이미지여야 함
-- 시세 대비 ±30% 경고는 등록을 막지 않음 (프론트에서 ITEM-04로 계산해 안내만)
+- 시세 대비 저가 경고(기본 30%)는 등록을 막지 않음 (프론트가 ITEM-04 `lowPriceThreshold`로 안내만)
+- 검사 순서: 품목 → 신규 가입자 제한 → 이미지
+
+#### 신규 가입자 등록 제한 (REQ-POST-018)
+
+> 구현 (#54): `backend/src/newsubscriber/`. 처음 스펙(1장 확인 사항 #14 "제한 없음")에서 요구사항대로 바꿨다.
+
+- 가입 후 `settings.new_user_limit_days`(기본 **7일**)가 지나지 않은 회원은 `settings.new_user_price_limit`(기본 **1,000,000원**) **이상**으로 판매글을 등록할 수 없다 (`price < 제한 금액`만 허용).
+- LISTING-04 수정에서 **가격을 올릴 때**도 같은 검사를 한다. 내리는 수정은 막지 않는다.
+- 기준값은 DB `settings` 테이블에 있다 (REQ-COMMON-005, `docs/erd.md` 2.17). 관리자 화면이 생기기 전까지 DB에서 직접 바꾸며, 서버 재시작 없이 바로 반영된다. 행이 없거나 값이 잘못되면 기본값을 쓴다.
+- 등록·수정 화면 안내는 `GET /api/users/me/listing-limit`(아래 LIMIT-01)로 미리 보여준다.
+
+```json
+{
+  "error": {
+    "code": "NEW_USER_PRICE_LIMIT",
+    "message": "가입 후 7일이 지나지 않은 회원은 1,000,000원 이상의 판매글을 등록할 수 없습니다. (2026-11-23 14:14부터 가능)",
+    "details": [{ "field": "price", "message": "1,000,000원 미만으로 입력해 주세요." }]
+  }
+}
+```
+
+### LIMIT-01. 내 신규 가입자 제한 조회
+
+```
+GET /api/users/me/listing-limit
+```
+
+로그인 필요. 판매글 등록·수정 화면의 "신규 가입 회원 안내"에 쓴다.
+
+#### Response `200 OK`
+
+```json
+{
+  "data": {
+    "isNewUser": true,
+    "newUserDays": 7,
+    "limitPrice": 1000000,
+    "joinedAt": "2026-11-16T05:14:11.000Z",
+    "limitEndsAt": "2026-11-23T05:14:11.000Z"
+  }
+}
+```
+
+| 필드 | 타입 | 설명 |
+|---|---|---|
+| `isNewUser` | boolean | 지금 제한을 받는지 (`현재 < limitEndsAt`) |
+| `newUserDays` | number | 신규 가입자 기간(일) |
+| `limitPrice` | number | 이 금액 **이상**은 등록·가격 인상 불가 |
+| `joinedAt` | string | 가입 시각 (UTC ISO) |
+| `limitEndsAt` | string | 제한이 풀리는 시각 = `joinedAt + newUserDays일` |
+
+#### Errors
+
+| 상태 | code | 상황 |
+|---|---|---|
+| 401 | `UNAUTHORIZED` | 비로그인, 탈퇴한 회원 |
+| 401 | `INVALID_TOKEN` | 만료·위조 토큰 |
 
 ---
 
@@ -1420,6 +1493,7 @@ Content-Type: application/json
 | 400 | `VALIDATION_ERROR` | 규칙 위반, `itemId` 포함, 허용되지 않는 `condition` 변경 |
 | 401 | `UNAUTHORIZED` | 비로그인 |
 | 403 | `FORBIDDEN` | 작성자가 아님 |
+| 403 | `NEW_USER_PRICE_LIMIT` | 신규 가입자가 가격을 제한 금액 이상으로 올림 (LISTING-03 [신규 가입자 제한](#신규-가입자-등록-제한-req-post-018)) |
 | 404 | `LISTING_NOT_FOUND` | 없는 판매글 |
 | 409 | `LISTING_ALREADY_SOLD` | 거래완료된 판매글은 수정 불가 |
 
@@ -2441,7 +2515,7 @@ curl -b cookie.txt -X DELETE http://localhost:4000/api/posts/1
 - 작성·삭제와 `posts.comment_count` ±1은 한 트랜잭션. 같은 댓글을 두 번 삭제해도 한 번만 줄어든다
 - 답글 더보기: 삭제됐어도 살아 있는 답글이 있는 댓글이면 조회 가능, 답글(`parentId` 있음)의 id로 요청하면 `404 COMMENT_NOT_FOUND`
 - `author.badges`: 보유자·거래 인증 데이터(테이블)가 아직 없어 **항상 `[]`**
-- 시드(`npm run db:seed` → `db/seed.sql`): 모든 테이블을 비우고 id를 고정해 다시 넣는다(팀원 모두 같은 데이터). 회원 10명, 품목 33종, 판매글 284건(거래완료 = 시세 이력), 토론글 56개(사진·희망 체결가·투표 포함), 댓글·답글 약 290개(삭제된 댓글 포함), 리액션·좋아요·시세 전망 투표·신고. 시각은 실행 시점 기준 상대값이고, 댓글 시각은 항상 글(답글은 부모 댓글)보다 늦다. 집계 컬럼은 마지막에 실제 행 수로 맞춘다
+- 시드(`npm run db:seed` → `db/seed.sql`): 모든 테이블을 비우고 id를 고정해 다시 넣는다(팀원 모두 같은 데이터). 회원 11명(신규 가입자 확인용 `newbie` — 하루 전 가입, 데이터 없음. 데이터를 지우지 않고 이 계정만 넣으려면 `npm run db:newbie`), 품목 33종, 판매글 284건(거래완료 = 시세 이력), 토론글 56개(사진·희망 체결가·투표 포함), 댓글·답글 약 290개(삭제된 댓글 포함), 리액션·좋아요·시세 전망 투표·신고. 시각은 실행 시점 기준 상대값이고, 댓글 시각은 항상 글(답글은 부모 댓글)보다 늦다. 집계 컬럼은 마지막에 실제 행 수로 맞춘다
 
 ### 미정 항목 (팀 결정 필요)
 

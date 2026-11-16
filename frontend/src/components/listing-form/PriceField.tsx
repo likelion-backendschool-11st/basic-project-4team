@@ -1,25 +1,32 @@
 import React, { useId } from 'react';
 import { Icon } from '../common/Icon';
+import { NewUserLimitNotice } from './NewUserLimitNotice';
 import { QuickPriceButtons } from './QuickPriceButtons';
 import { pricingCopy, type FormVariant } from '../../data/listingForm';
 import { formatWon, parseWon, usePriceFeedback } from '../../hooks/listing-form/usePriceFeedback';
+import { toMarketText, toNewUserNotice, type PricePolicy } from '../../hooks/listing-form/usePricePolicy';
 
 interface PriceFieldProps {
   readonly variant: FormVariant;
   readonly value: number;
   readonly onChange: (value: number) => void;
   readonly onAdd: (amount: number) => void;
+  /** 시세(ITEM-04)·저가 경고 기준·신규 가입자 제한 (usePricePolicy). */
+  readonly policy: PricePolicy;
   /** Edit: originally registered price (drives the price-drop alert). */
   readonly originalPrice?: number;
   readonly wishCount?: number;
   readonly error?: string;
 }
 
-/** Asking-price input with live market-price feedback. */
-export const PriceField: React.FC<PriceFieldProps> = ({ variant, value, onChange, onAdd, originalPrice, wishCount = 0, error }) => {
+/** Asking-price input with live market-price feedback, low-price warning and new-user limit notice. */
+export const PriceField: React.FC<PriceFieldProps> = ({ variant, value, onChange, onAdd, policy, originalPrice, wishCount = 0, error }) => {
   const id = useId();
-  const fb = usePriceFeedback(value, variant, originalPrice);
+  const fb = usePriceFeedback(value, variant, policy.marketPrice, policy.lowPriceRatio, originalPrice);
   const isDanger = fb.tier === 'danger';
+  const marketText = toMarketText(policy);
+  const newUser = toNewUserNotice(policy.limit, value);
+  const ratioPercent = Math.round(policy.lowPriceRatio * 100);
 
   if (variant === 'create') {
     const c = pricingCopy.create;
@@ -47,8 +54,10 @@ export const PriceField: React.FC<PriceFieldProps> = ({ variant, value, onChange
         <div className="bg-mint-50 p-space-sm rounded flex flex-col sm:flex-row sm:items-center justify-between gap-space-xs mt-1">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="font-eyebrow text-eyebrow text-forest">{c.marketLabel}</span>
-            <span className="font-stat-value text-stat-value text-ink">{`${formatWon(fb.marketPrice)}${pricingCopy.currency}`}</span>
-            <span className="font-caption text-caption text-muted">{c.marketHint}</span>
+            <span className="font-stat-value text-stat-value text-ink">{marketText}</span>
+            {policy.marketPrice !== null && (
+              <span className="font-caption text-caption text-muted">{c.marketHint(policy.days, policy.tradeCount)}</span>
+            )}
           </div>
           {fb.badgeText && (
             <span
@@ -69,11 +78,12 @@ export const PriceField: React.FC<PriceFieldProps> = ({ variant, value, onChange
           <Icon className="text-[18px] text-error shrink-0 mt-0.5" name="warning" />
           <p className="font-caption text-caption leading-relaxed">
             <strong>{c.warningStrong}</strong>
-            {c.warningPrefix}
+            {c.warningPrefix(policy.marketPrice === null ? pricingCopy.market.unknown : marketText, ratioPercent)}
             <span className="underline font-bold">{c.warningFlag}</span>
             {c.warningSuffix}
           </p>
         </div>
+        {newUser && <NewUserLimitNotice body={newUser.body} overMessage={newUser.overMessage} />}
       </div>
     );
   }
@@ -102,7 +112,7 @@ export const PriceField: React.FC<PriceFieldProps> = ({ variant, value, onChange
         <div className="flex flex-wrap items-center gap-2">
           <span className="font-caption text-caption text-muted">
             {e.marketLabel}
-            <strong className="text-ink">{`${formatWon(fb.marketPrice)}${pricingCopy.currency}`}</strong>
+            <strong className="text-ink">{marketText}</strong>
           </span>
           {fb.badgeText && (
             <span
@@ -114,6 +124,7 @@ export const PriceField: React.FC<PriceFieldProps> = ({ variant, value, onChange
             </span>
           )}
         </div>
+        {newUser && <NewUserLimitNotice body={newUser.body} overMessage={newUser.overMessage} />}
         {fb.isPriceDrop && (
           <div className="p-space-xs bg-mint-50 border border-mint-200 rounded flex items-center gap-2 text-forest font-caption text-caption">
             <Icon className="text-[16px] text-primary-container shrink-0" name="notifications_active" />

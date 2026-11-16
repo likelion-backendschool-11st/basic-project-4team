@@ -13,7 +13,7 @@
 
 ## 0. 범위와 공통 규칙
 
-**만드는 테이블 (21개)**: `users`, `refresh_tokens`, `verification_codes`, `categories`, `items`, `listings`, `listing_images`, `listing_wishes`, `listing_views`, `posts`, `post_images`, `post_price_tags`, `post_polls`, `post_poll_options`, `post_poll_votes`, `post_reactions`, `comments`, `comment_likes`, `item_votes`, `reports`, `notifications`
+**만드는 테이블 (22개)**: `users`, `refresh_tokens`, `verification_codes`, `categories`, `items`, `listings`, `listing_images`, `listing_wishes`, `listing_views`, `posts`, `post_images`, `post_price_tags`, `post_polls`, `post_poll_options`, `post_poll_votes`, `post_reactions`, `comments`, `comment_likes`, `item_votes`, `reports`, `notifications`, `settings`
 
 **만들지 않는 것**
 
@@ -22,7 +22,7 @@
 | 채팅, 리뷰, 마이페이지 | 요구사항에서 미구현 (알림은 #19·#56에서 추가 — 2.16) |
 | 뱃지 | spec-gaps 1-#9 "뱃지 없음" |
 | 판매글 댓글 | spec-gaps 1-#6 "댓글은 토론글에만" |
-| `blocks`, `settings` | API 없음·보류(1-#13, #14). 필요할 때 spec-gaps 3장 설계대로 추가 (`reports`는 #76에서 추가 — 2.15) |
+| `blocks` | API 없음·보류. 필요할 때 spec-gaps 3장 설계대로 추가 (`reports`는 #76 — 2.15, `settings`는 #54 — 2.17에서 추가) |
 | 시세 집계 테이블 | 시세·랭킹은 `listings`의 거래완료 행으로 계산. 느려지면 일별 집계 테이블을 추가 |
 
 **공통 규칙**
@@ -457,6 +457,24 @@ CHECK: `type = 'photo' OR sort_order = 0` (인증 사진은 항상 0번)
 > - `created_at`만 있고 `updated_at`은 없다 (읽음은 `read_at`으로 기록).
 > - `price_change`는 판매글 수정(LISTING-04)에서 가격이 바뀌면(올리든 내리든) 찜한 회원에게 만든다. 판매자 본인 제외, 수정과 같은 트랜잭션.
 > - 대상(글·댓글·판매글)이 소프트 삭제되면 조회할 때 뺀다. API는 api-spec-all.md 9장.
+
+### 2.17 `settings` — 운영 설정 (#54, REQ-COMMON-005, spec-gaps 3장 설계)
+
+| 컬럼 | 타입 | 제약 | 설명 |
+|---|---|---|---|
+| `setting_key` | VARCHAR(50) | PK | 설정 이름 |
+| `setting_value` | VARCHAR(255) | NOT NULL | 값(문자열). 서버가 숫자로 바꿔 쓰고, 범위를 벗어나면 기본값 사용 |
+| `description` | VARCHAR(255) | NULL | 설명 |
+| `updated_at` | DATETIME | NOT NULL, ON UPDATE CURRENT_TIMESTAMP | 마지막 수정 시각 (`created_at` 없음) |
+
+| `setting_key` | 기본값 | 허용 범위 | 쓰는 곳 |
+|---|---|---|---|
+| `low_price_warning_ratio` | `0.3` | 0.01 ~ 0.99 | ITEM-04 `lowPriceRatio`·`lowPriceThreshold` (저가 경고, REQ-POST-013) |
+| `new_user_limit_days` | `7` | 0 ~ 365 | 신규 가입자 기간(일) (REQ-POST-018) |
+| `new_user_price_limit` | `1000000` | 1 ~ 1,000,000,000 | 신규 가입자 등록·가격 인상 제한 금액(원) |
+
+> 키당 1행, 삭제하지 않고 값만 수정한다. 기본 행은 `schema.sql`의 `INSERT IGNORE`로 `db:init` 때 들어가며, 이미 바꾼 값은 덮어쓰지 않는다. `db:seed`는 이 테이블을 지우지 않는다.
+> 서버는 요청마다 읽으므로 값을 바꾸면 재시작 없이 바로 반영된다. 관리자 화면은 아직 없어서 DB에서 직접 `UPDATE`한다.
 
 ## 3. 확인이 필요한 사항(확인완료)
 

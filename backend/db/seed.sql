@@ -1,7 +1,7 @@
 -- ═════════════════════════════════════════════════════════════════════════════
 -- RE:PICK 개발용 더미 데이터 (팀 공용) — npm run db:seed
 --
--- ⚠️  실행하면 모든 테이블의 데이터를 지우고(TRUNCATE) 아래 데이터로 다시 채운다.
+-- ⚠️  실행하면 모든 테이블의 데이터를 지우고(TRUNCATE) 아래 데이터로 다시 채운다. (운영 설정 settings는 그대로 둔다)
 --     로컬에서 직접 만든 글·판매글은 사라진다. 운영 DB에서는 절대 실행하지 않는다.
 --     팀원 모두 같은 id·같은 데이터를 갖도록 id를 고정해서 넣는다. (예: /listings/1 = 상세 화면 확인용)
 --
@@ -9,7 +9,7 @@
 --       mysql 콘솔·IDE에서 직접 실행할 때는 먼저 USE <DB_NAME>; 을 실행한다.
 -- 순서: npm run db:init → npm run db:seed
 --
--- 계정: test1 · test2 · test3 · pokefan · cardnewbie · resellerj · holomaster · sneakerhead · watchlover · strawhat
+-- 계정: test1 · test2 · test3 · pokefan · cardnewbie · resellerj · holomaster · sneakerhead · watchlover · strawhat · newbie
 --       비밀번호는 모두 test1234
 --
 -- 시각은 모두 실행 시점 기준 상대값(UTC_TIMESTAMP() - INTERVAL ...)이라 언제 넣어도 "N분 전", 최근 7일 순위,
@@ -21,6 +21,7 @@
 --   /community/items/charizard-ex-sar          글·댓글 많음(댓글 12개 → 더보기, 답글 5개, 삭제된 댓글), 희망 체결가, 투표 글
 --   /community/items/rolex-submariner          거래 이력·매물 없음
 --   test1~3 은 오늘 시세 전망 투표를 하지 않은 상태 → 바로 투표해 볼 수 있다
+--   newbie 로 로그인 → /sell 신규 가입 회원 안내, 1,000,000원 이상 등록 차단 (시드 후 7일 동안. 시드 없이 계정만: npm run db:newbie)
 -- ═════════════════════════════════════════════════════════════════════════════
 
 SET NAMES utf8mb4;
@@ -61,7 +62,10 @@ INSERT INTO users (id, login_id, password_hash, nickname, email, created_at) VAL
 (7, 'holomaster', '$2b$10$IOhC/QGFUV/94i/UGluqqOCdvMcWFTfxqJHoi2MV/Cg0fd.QVZcdq', '홀로그램장인', 'holomaster@repick.dev', UTC_TIMESTAMP() - INTERVAL 288000 MINUTE),
 (8, 'sneakerhead', '$2b$10$IOhC/QGFUV/94i/UGluqqOCdvMcWFTfxqJHoi2MV/Cg0fd.QVZcdq', '스니커헤드', 'sneakerhead@repick.dev', UTC_TIMESTAMP() - INTERVAL 259200 MINUTE),
 (9, 'watchlover', '$2b$10$IOhC/QGFUV/94i/UGluqqOCdvMcWFTfxqJHoi2MV/Cg0fd.QVZcdq', '시계수집가', 'watchlover@repick.dev', UTC_TIMESTAMP() - INTERVAL 216000 MINUTE),
-(10, 'strawhat', '$2b$10$IOhC/QGFUV/94i/UGluqqOCdvMcWFTfxqJHoi2MV/Cg0fd.QVZcdq', '밀짚모자선장', 'strawhat@repick.dev', UTC_TIMESTAMP() - INTERVAL 172800 MINUTE);
+(10, 'strawhat', '$2b$10$IOhC/QGFUV/94i/UGluqqOCdvMcWFTfxqJHoi2MV/Cg0fd.QVZcdq', '밀짚모자선장', 'strawhat@repick.dev', UTC_TIMESTAMP() - INTERVAL 172800 MINUTE),
+-- 신규 가입자 확인용 (#54): 하루 전 가입 → 시드 후 7일(settings.new_user_limit_days) 동안 신규 가입자 제한·안내가 보인다.
+-- 판매글·글·댓글이 없는 빈 계정이라 다른 화면 데이터에 영향이 없다. 7일이 지나면 npm run db:newbie (다른 데이터는 안 지움).
+(11, 'newbie', '$2b$10$IOhC/QGFUV/94i/UGluqqOCdvMcWFTfxqJHoi2MV/Cg0fd.QVZcdq', '새내기', 'newbie@repick.dev', UTC_TIMESTAMP() - INTERVAL 1440 MINUTE);
 
 -- ───────────── 카테고리 (code는 프론트 메뉴와 같음) ─────────────
 INSERT INTO categories (id, parent_id, code, name, sort_order) VALUES

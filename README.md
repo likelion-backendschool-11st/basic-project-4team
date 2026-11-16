@@ -54,7 +54,8 @@ cd backend
 # backend 폴더에서
 npm install
 npm run db:init    # repick DB와 테이블 생성 (여러 번 실행해도 안전)
-npm run db:seed    # 팀 공용 더미 데이터(db/seed.sql) — ⚠️ 기존 데이터를 지우고 다시 넣음. 계정 test1~3 등 10개, 비밀번호 test1234
+npm run db:seed    # 팀 공용 더미 데이터(db/seed.sql) — ⚠️ 기존 데이터를 지우고 다시 넣음. 계정 test1~3 등 11개, 비밀번호 test1234
+npm run db:newbie  # 신규 가입자 확인용 계정 newbie(/test1234)만 추가·갱신 — 다른 데이터는 지우지 않음
 
 # 프론트엔드
 cd ../frontend
@@ -82,7 +83,7 @@ npm run dev
 ```
 
 브라우저에서 http://127.0.0.1:4173/login 접속 → **`test1` / `test1234`** 로 로그인.
-(테스트 계정: `test1`, `test2`, `test3`, 비밀번호는 모두 `test1234`)
+(테스트 계정: `test1`, `test2`, `test3`, 비밀번호는 모두 `test1234`. 신규 가입자 화면은 `newbie` — 데이터를 지우지 않고 계정만 만들려면 `npm run db:newbie`)
 
 로그인 버튼을 눌렀는데 **"서버에 연결할 수 없습니다"** 가 뜨면 백엔드(터미널 1)가 꺼져 있는 것이다.
 

@@ -550,3 +550,35 @@ export interface MyComment {
   readonly createdAt: string;
   readonly post: { readonly id: number; readonly board: PostBoard; readonly itemId: string | null; readonly title: string };
 }
+
+/* 저가 경고·신규 가입자 제한 (#54) — backend/docs/api-spec-all.md ITEM-04, 3장 LISTING-03 */
+
+/** ITEM-04 품목 시세 기준가. 거래가 없으면 가격 필드가 모두 null. */
+export interface MarketPriceResponse {
+  readonly itemId: number;
+  readonly condition: ItemCondition | null;
+  readonly gradingService: GradingService | null;
+  readonly grade: Grade | null;
+  readonly days: number;
+  readonly tradeCount: number;
+  readonly averagePrice: number | null;
+  readonly medianPrice: number | null;
+  readonly minPrice: number | null;
+  readonly maxPrice: number | null;
+  readonly lastSoldPrice: number | null;
+  readonly lastSoldAt: string | null;
+  /** 저가 경고 기준 비율 (0.3 = 시세 대비 30% 이상 저렴하면 경고). */
+  readonly lowPriceRatio: number;
+  /** 이 금액보다 싸면 저가 경고. 시세가 없으면 null. */
+  readonly lowPriceThreshold: number | null;
+}
+
+/** GET /users/me/listing-limit — 신규 가입자 고가 등록 제한. */
+export interface ListingLimit {
+  readonly isNewUser: boolean;
+  readonly newUserDays: number;
+  /** 신규 가입자는 이 금액 이상으로 등록·가격 인상할 수 없다. */
+  readonly limitPrice: number;
+  readonly joinedAt: string;
+  readonly limitEndsAt: string;
+}

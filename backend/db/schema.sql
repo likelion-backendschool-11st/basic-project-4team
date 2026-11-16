@@ -2,7 +2,7 @@
 -- 설계 문서: docs/erd.md
 -- 실행: npm run db:init
 --   DB 생성(CREATE DATABASE)과 선택(USE)은 scripts/db-init.js가 .env의 DB_NAME으로 처리한다.
---   여러 번 실행해도 안전하도록 모든 문장은 IF NOT EXISTS로 작성한다.
+--   여러 번 실행해도 안전하도록 모든 문장은 IF NOT EXISTS로 작성한다. (설정 기본값만 INSERT IGNORE)
 --   주의: 이미 있는 테이블은 바뀌지 않는다. 컬럼이 바뀌었으면 로컬 DB를 지우고 다시 실행한다.
 --
 -- 공통 규칙
@@ -406,3 +406,21 @@ CREATE TABLE IF NOT EXISTS notifications (
   CONSTRAINT fk_notifications_listing FOREIGN KEY (listing_id) REFERENCES listings (id) ON DELETE CASCADE,
   CONSTRAINT chk_notifications_type CHECK (type IN ('comment', 'reply', 'price_change'))
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '알림 (댓글·답글·찜한 판매글 가격 변동)';
+
+-- ───────────────────────── 운영 설정 (#54, REQ-COMMON-005) ─────────────────────────
+-- 관리자가 바꾸는 운영 기준값. 키당 1행, 삭제하지 않고 값만 수정한다.
+-- 값이 없거나 잘못되면 서버는 코드의 기본값을 쓴다 (backend/src/newsubscriber/newsubscriber.service.js).
+CREATE TABLE IF NOT EXISTS settings (
+  setting_key   VARCHAR(50)  NOT NULL,
+  setting_value VARCHAR(255) NOT NULL,
+  description   VARCHAR(255) NULL,
+  updated_at    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (setting_key)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '운영 설정 (저가 경고·신규 가입자 제한 기준)';
+
+-- 기본값. INSERT IGNORE라 여러 번 실행해도 안전하고, 이미 바꾼 값은 덮어쓰지 않는다.
+-- (db:seed는 settings를 지우지 않는다 — 더미 데이터가 아니라 설정값이라서)
+INSERT IGNORE INTO settings (setting_key, setting_value, description) VALUES
+('low_price_warning_ratio', '0.3', '시세(30일 평균 체결가) 대비 이 비율 이상 싸면 저가(사기 주의) 경고. 0.3 = 30%'),
+('new_user_limit_days', '7', '가입 후 이 기간(일) 동안은 신규 가입자'),
+('new_user_price_limit', '1000000', '신규 가입자는 이 금액(원) 이상으로 판매글 등록·가격 인상 불가');

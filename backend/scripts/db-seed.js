@@ -20,7 +20,7 @@ async function main() {
       counts.push(`${table} ${count}`);
     }
     console.log(`✅ DB '${env.db.database}' 시드 완료 — ${counts.join(', ')}`);
-    console.log('   계정: test1~3 외 7명, 비밀번호는 모두 test1234');
+    console.log('   계정: test1~3 외 8명(신규 가입자 확인용 newbie 포함), 비밀번호는 모두 test1234');
   } finally {
     await connection.end();
   }

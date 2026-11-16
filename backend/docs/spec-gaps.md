@@ -27,8 +27,8 @@
 | 10 | 판매글 인기순 | 찜 수 **+ 조회수** (REQ-LIST-007) | 찜 수 **+ 조회수** (REQ-LIST-007) |  |
 | 11 | 새상품/중고 필터 | 새상품/중고 필드 없음, `condition`은 unopened/opened_raw/graded  | 새상품/중고 필드 없음, `condition`은 unopened/opened_raw/graded |  |
 | 12 | 카테고리별 필수 속성 | 세트명·카드번호 등 판매자가 입력 |  세트명·카드번호 등 판매자가 입력 | 카드만 |
-| 13 | 저가 경고 기준 | ±30% 고정, 프론트 계산  | ±30% 고정, 프론트 계산 |  |
-| 14 | 신규 가입자 등록 제한 | LISTING-03에 검증·에러 코드 없음 | LISTING-03에 검증·에러 코드 없음 |  |
+| 13 | 저가 경고 기준 | ±30% 고정, 프론트 계산  | ±30% 고정, 프론트 계산 | #54: 기준 비율은 DB `settings.low_price_warning_ratio`(기본 0.3), ITEM-04 `lowPriceThreshold`로 프론트가 경고 |
+| 14 | 신규 가입자 등록 제한 | LISTING-03에 검증·에러 코드 없음 | LISTING-03에 검증·에러 코드 없음 | #54: 가입 7일 이내 100만 원 이상 등록·가격 인상 시 403 `NEW_USER_PRICE_LIMIT` (DB `settings`의 `new_user_limit_days`·`new_user_price_limit`) |
 | 15 | 판매자 정보 | `seller {id, nickname, soldCount}`  | `seller {id, nickname, soldCount}` |  |
 | 16 | 판매글 삭제 | 확인 모달 후 삭제 (MYPOST-006), 예외 없음 | 확인 모달 후 삭제 (MYPOST-006), 예외 없음 | |
 | 17 | 아이디 찾기 | API 없음, | API 없음 | #45에서 구현 — 아이디·비밀번호 모두 이메일 인증코드 확인 방식 |
@@ -79,7 +79,7 @@
 | `comment_likes` | 없음 | — | UNIQUE (user_id, comment_id) |  위와 같음 (`comments.like_count ± 1`을 같은 트랜잭션에서) |
 | `item_votes` | 없음 | — | UNIQUE (user_id, item_id, 투표 날짜).  "하루" 기준은 **KST**(사용자가 느끼는 하루). 서버가 KST 날짜를 계산해 `vote_date DATE`에 저장 | — |
 | `reports` / `blocks` | 없음 (API 없음, 1-#8 — 만들 때 적용) |  `reports.reason` VARCHAR(20) + CHECK (`fraud` 사기, `spam` 도배·광고, `abuse` 욕설·비방, `inappropriate` 부적절, `etc` 기타), `detail` VARCHAR(500) NULL(`etc`면 필수). 대상은 `target_type`(`listing`/`post`/`comment`/`user`) + `target_id` |  같은 사람이 같은 대상을 **한 번만** 신고 → UNIQUE `(reporter_id, target_type, target_id)`. 차단은 UNIQUE `(blocker_id, blocked_id)`, 자기 자신 차단 불가 | 신고 `status` VARCHAR(20) (`pending` 접수 → `resolved` 조치 / `rejected` 기각), `handled_at`, `handled_by`. 처리 완료 후 **1년 보관 뒤 삭제**. 차단 해제 = 하드 삭제 |
-| 운영 설정 | 보류 | 1-#13(저가 경고는 프론트 고정값), 1-#14(신규 가입자 제한 없음)로 지금 쓸 곳이 없음. 필요해지면 `settings` 테이블(`setting_key` VARCHAR(50) PK, `setting_value` VARCHAR(255), `description` VARCHAR(255), `updated_at`)로 추가 | 키당 1행 | 삭제하지 않고 값만 수정 |
+| 운영 설정 | **추가됨 (#54)** | 저가 경고 비율·신규 가입자 기간·제한 금액을 저장 (`docs/erd.md` 2.17). `settings` 테이블(`setting_key` VARCHAR(50) PK, `setting_value` VARCHAR(255), `description` VARCHAR(255), `updated_at`)로 추가 | 키당 1행 | 삭제하지 않고 값만 수정 |
 
 ## 우선순위
 
