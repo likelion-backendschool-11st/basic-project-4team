@@ -724,10 +724,12 @@ GET /api/v1/items?q=리자몽&category=pokemon&page=1&size=10
 
 | 이름 | 타입 | 필수 | 기본값 | 설명 |
 |---|---|---|---|---|
-| `q` | string | N | - | 검색어. `name`, `set_name`, `card_no`에서 부분 일치 |
+| `q` | string | N | - | 검색어 (≤ 100자). 공백으로 나눈 **단어마다** `name`, `set_name`, `card_no` 중 하나에서 부분 일치해야 함 (AND). 생략하면 전체 |
 | `category` | string | N | - | 카테고리 `code`. 대분류 코드면 하위 카테고리까지 포함 |
 | `page` | number | N | `1` | 1부터 시작 |
 | `size` | number | N | `10` | 최대 50 |
+
+> 예) `q=리자몽 SAR #201` → "리자몽", "SAR", "201"이 각각 품목명·세트명·카드번호 어딘가에 있는 품목. 카드번호 앞의 `#`은 무시하고, 단어는 앞에서부터 5개까지만 씁니다.
 
 #### Response `200 OK`
 
@@ -744,7 +746,9 @@ GET /api/v1/items?q=리자몽&category=pokemon&page=1&size=10
         "language": "ko",
         "rarity": "SAR",
         "imageUrl": "https://cdn.repick.kr/items/101.png",
-        "category": { "id": 2, "code": "pokemon", "name": "포켓몬 카드" }
+        "category": { "id": 2, "code": "pokemon", "name": "포켓몬 카드" },
+        "latestPrice": 320000,
+        "changeRate": -2.4
       }
     ],
     "page": 1,
@@ -758,11 +762,15 @@ GET /api/v1/items?q=리자몽&category=pokemon&page=1&size=10
 
 | 상태 | code | 상황 |
 |---|---|---|
-| 400 | `INVALID_PARAMETER` | `size`가 50 초과 등 |
+| 400 | `VALIDATION_ERROR` | `size`가 50 초과, `page`·`size`가 1 이상 정수가 아님, 검색어 100자 초과 |
 | 404 | `CATEGORY_NOT_FOUND` | 존재하지 않는 `category` 코드 |
 
 #### 비고
 - 검색 결과가 0건이면 `items: []`로 200 응답 (404 아님)
+- 숨김 품목(`is_active = 0`)은 나오지 않음
+- 정렬: 품목명이 검색어와 같은 것 → 검색어로 시작하는 것 → 품목명 가나다순 → `id` 순
+- 에러 코드는 구현된 API와 같이 `VALIDATION_ERROR`를 씀 (3장 확인 사항 #4)
+- 품목마다 `latestPrice`(전체 조건 최근 체결가, 거래 없으면 `null`)·`changeRate`(전일 대비 %, ITEM-03 `marketSummary`와 같은 계산)를 붙임 — 토론글 작성의 시세 태그 선택 화면도 이 API를 씀
 
 ---
 

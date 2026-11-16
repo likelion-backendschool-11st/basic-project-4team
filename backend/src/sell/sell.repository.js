@@ -433,7 +433,67 @@ async function softDelete(connection, listingId) {
   await connection.execute('UPDATE listings SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?', [listingId]);
 }
 
+/** ITEM-01 카테고리 전체 (id 오름차순). 트리 모양은 service에서 만든다. */
+async function findCategories() {
+  const [rows] = await pool.execute('SELECT id, parent_id, code, name FROM categories ORDER BY id');
+  return rows.map((row) => ({ id: row.id, parentId: row.parent_id, code: row.code, name: row.name }));
+}
+
+/** ITEM-02 검색 조건. 검색어는 단어마다 품목명·세트명·카드번호 중 하나에 포함되어야 한다(AND). */
+function buildItemSearchWhere({ tokens, categoryIds }) {
+  const where = ['i.is_active = 1'];
+  const params = [];
+  tokens.forEach((token) => {
+    const like = `%${escapeLike(token)}%`;
+    where.push('(i.name LIKE ? OR i.set_name LIKE ? OR i.card_no LIKE ?)');
+    params.push(like, like, like);
+  });
+  if (categoryIds) {
+    where.push(`i.category_id IN (${categoryIds.map(() => '?').join(', ')})`);
+    params.push(...categoryIds);
+  }
+  return { where: `WHERE ${where.join(' AND ')}`, params };
+}
+
+/** ItemSummary 행 → API용 객체. 시세(latestPrice·changeRate)는 service에서 붙인다. */
+function toItemSummary(row) {
+  return {
+    id: row.id,
+    slug: row.slug,
+    name: row.name,
+    setName: row.set_name,
+    cardNo: row.card_no,
+    language: row.language,
+    rarity: row.rarity,
+    imageUrl: row.image_url,
+    category: { id: row.category_id, code: row.category_code, name: row.category_name },
+  };
+}
+
+/** ITEM-02 품목 검색. 품목명이 검색어와 같거나 검색어로 시작하는 품목을 먼저 보여준다. { items, totalCount } */
+async function searchItems({ q, tokens, categoryIds }, { limit, offset }) {
+  const { where, params } = buildItemSearchWhere({ tokens, categoryIds });
+  const orderBy = q
+    ? 'i.name = ? DESC, i.name LIKE ? DESC, i.name ASC, i.id ASC'
+    : 'i.name ASC, i.id ASC';
+  const orderParams = q ? [q, `${escapeLike(q)}%`] : [];
+  const [rows] = await pool.query(
+    `SELECT i.id, i.slug, i.name, i.set_name, i.card_no, i.language, i.rarity, i.image_url,
+            c.id AS category_id, c.code AS category_code, c.name AS category_name
+     FROM items i
+     JOIN categories c ON c.id = i.category_id
+     ${where}
+     ORDER BY ${orderBy}
+     LIMIT ? OFFSET ?`,
+    [...params, ...orderParams, limit, offset],
+  );
+  const [[{ totalCount }]] = await pool.query(`SELECT COUNT(*) AS totalCount FROM items i ${where}`, params);
+  return { items: rows.map(toItemSummary), totalCount };
+}
+
 module.exports = {
+  findCategories,
+  searchItems,
   insertImage,
   findActiveItem,
   findImagesByIds,

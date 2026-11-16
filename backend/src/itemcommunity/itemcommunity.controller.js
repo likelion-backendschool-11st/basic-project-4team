@@ -65,15 +65,4 @@ async function trending(req, res) {
   res.json({ data: { items } });
 }
 
-const SEARCH_MAX_SIZE = 20;
-const QUERY_MAX = 50;
-
-/** GET /api/items?q=&size= — 품목 검색 (토론글 시세 태그 선택). */
-async function search(req, res) {
-  const q = typeof req.query.q === 'string' ? req.query.q.trim() : '';
-  if (q.length === 0 || q.length > QUERY_MAX) throw badRequest(`검색어(q)는 1~${QUERY_MAX}자여야 합니다.`);
-  const size = parseRange(req.query.size, 10, SEARCH_MAX_SIZE, 'size');
-  res.json({ data: { items: await itemCommunityService.searchItems({ q, size }) } });
-}
-
-module.exports = { detail, trending, search };
+module.exports = { detail, trending };
