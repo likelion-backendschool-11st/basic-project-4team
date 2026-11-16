@@ -2,7 +2,7 @@ import type { ApiErrorBody, ApiSuccess } from './types';
 
 // 프론트(127.0.0.1)와 API 호스트를 맞춰야 로그인 쿠키가 전달된다. localhost로 바꾸면 쿠키가 안 붙는다.
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:4000/api';
-const API_ORIGIN = new URL(API_BASE_URL).origin;
+export const API_ORIGIN = new URL(API_BASE_URL).origin;
 
 /** 서버가 준 업로드 경로(/uploads/...)를 API 서버 주소로 바꾼다. 이미 전체 URL이면 그대로. */
 export const toAssetUrl = (url: string): string => (/^https?:\/\//.test(url) ? url : `${API_ORIGIN}${url}`);
