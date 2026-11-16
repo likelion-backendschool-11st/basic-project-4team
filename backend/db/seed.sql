@@ -27,6 +27,7 @@ SET NAMES utf8mb4;
 SET time_zone = '+00:00';
 
 SET FOREIGN_KEY_CHECKS = 0;
+TRUNCATE TABLE notifications;
 TRUNCATE TABLE reports;
 TRUNCATE TABLE item_votes;
 TRUNCATE TABLE comment_likes;
@@ -3193,6 +3194,35 @@ INSERT INTO reports (reporter_id, target_type, target_id, reason, detail, status
 (1, 'comment', 3, 'spam', NULL, 'pending'),
 (2, 'post', 13, 'etc', '시세 조작이 의심되는 글입니다.', 'pending'),
 (7, 'post', 52, 'fraud', NULL, 'resolved');
+
+-- ───────────── 알림 (위 댓글에서 만든다 — 글·댓글 id가 바뀌어도 맞음) ─────────────
+-- 내 글에 달린 댓글 → 글 작성자, 내 댓글에 달린 답글 → 댓글 작성자.
+INSERT INTO notifications (user_id, type, actor_id, post_id, comment_id, read_at, created_at)
+SELECT p.user_id, 'comment', c.user_id, p.id, c.id,
+  NULL, c.created_at
+FROM comments c JOIN posts p ON p.id = c.post_id
+WHERE c.parent_id IS NULL AND c.user_id <> p.user_id AND c.deleted_at IS NULL;
+INSERT INTO notifications (user_id, type, actor_id, post_id, comment_id, read_at, created_at)
+SELECT pc.user_id, 'reply', c.user_id, c.post_id, c.id,
+  NULL, c.created_at
+FROM comments c JOIN comments pc ON pc.id = c.parent_id
+WHERE c.user_id <> pc.user_id AND c.deleted_at IS NULL;
+-- 찜한 판매글 가격 인하 알림 — 회원마다 가장 최근에 찜한 판매중 글 1건 (5% 내림)
+INSERT INTO notifications (user_id, type, actor_id, listing_id, old_price, new_price, created_at)
+SELECT user_id, 'price_change', seller_id, id, ROUND(price * 1.05, -3), price, UTC_TIMESTAMP() - INTERVAL 2 HOUR
+FROM (
+  SELECT w.user_id, l.seller_id, l.id, l.price,
+    ROW_NUMBER() OVER (PARTITION BY w.user_id ORDER BY w.created_at DESC, l.id DESC) AS rn
+  FROM wishes w JOIN listings l ON l.id = w.listing_id
+  WHERE l.status = 'selling' AND l.deleted_at IS NULL
+) recent
+WHERE rn = 1;
+-- 헤더 배지가 너무 크지 않게, 회원마다 최근 5건만 안 읽음으로 둔다.
+UPDATE notifications n
+JOIN (SELECT id, ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY created_at DESC, id DESC) AS rn FROM notifications) r
+  ON r.id = n.id
+SET n.read_at = LEAST(n.created_at + INTERVAL 1 HOUR, UTC_TIMESTAMP())
+WHERE r.rn > 5;
 
 -- ───────────── 집계 컬럼을 실제 행 수로 맞춘다 ─────────────
 UPDATE listings l SET wish_count = (SELECT COUNT(*) FROM wishes w WHERE w.listing_id = l.id);

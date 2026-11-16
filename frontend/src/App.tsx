@@ -10,6 +10,7 @@ import { ListingEditPage } from './pages/ListingEditPage';
 import { LoginPage } from './pages/LoginPage';
 import { MarketDashboardPage } from './pages/MarketDashboardPage';
 import { MyListingDetailPage } from './pages/MyListingDetailPage';
+import { NotFoundPage } from './pages/NotFoundPage';
 import { SearchResultsPage } from './pages/SearchResultsPage';
 
 interface AppProps {
@@ -29,7 +30,7 @@ export const App: React.FC<AppProps> = () => (
       <Route element={<MarketDashboardPage />} path="/market" />
       <Route element={<CommunityFeedPage />} path="/community" />
       <Route element={<ItemDiscussionPage />} path="/community/items/:id" />
-      <Route element={<HomePage />} path="*" />
+      <Route element={<NotFoundPage />} path="*" />
     </Route>
   </Routes>
 );

@@ -363,3 +363,27 @@ CREATE TABLE IF NOT EXISTS reports (
   CONSTRAINT chk_reports_reason CHECK (reason IN ('fraud', 'spam', 'abuse', 'inappropriate', 'etc')),
   CONSTRAINT chk_reports_status CHECK (status IN ('pending', 'resolved', 'rejected'))
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '신고 (같은 대상 1인 1회)';
+
+-- ───────────────────────── 알림 (#19, REQ-HEADER-005) ─────────────────────────
+CREATE TABLE IF NOT EXISTS notifications (
+  id         BIGINT       NOT NULL AUTO_INCREMENT,
+  user_id    BIGINT       NOT NULL COMMENT '받는 사람',
+  type       VARCHAR(20)  NOT NULL COMMENT 'comment(내 글에 댓글) | reply(내 댓글에 답글) | price_change(찜한 판매글 가격 변동)',
+  actor_id   BIGINT       NULL     COMMENT '알림을 만든 사람 (댓글 작성자·판매자)',
+  post_id    BIGINT       NULL     COMMENT 'comment·reply',
+  comment_id BIGINT       NULL     COMMENT 'comment·reply — 새로 달린 댓글',
+  listing_id BIGINT       NULL     COMMENT 'price_change',
+  old_price  INT UNSIGNED NULL     COMMENT 'price_change 이전 가격',
+  new_price  INT UNSIGNED NULL     COMMENT 'price_change 바뀐 가격',
+  read_at    DATETIME     NULL     COMMENT 'NULL이면 안 읽음',
+  created_at DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_notifications_user_created (user_id, created_at),
+  KEY idx_notifications_user_read (user_id, read_at),
+  CONSTRAINT fk_notifications_user    FOREIGN KEY (user_id)    REFERENCES users (id)    ON DELETE CASCADE,
+  CONSTRAINT fk_notifications_actor   FOREIGN KEY (actor_id)   REFERENCES users (id)    ON DELETE SET NULL,
+  CONSTRAINT fk_notifications_post    FOREIGN KEY (post_id)    REFERENCES posts (id)    ON DELETE CASCADE,
+  CONSTRAINT fk_notifications_comment FOREIGN KEY (comment_id) REFERENCES comments (id) ON DELETE CASCADE,
+  CONSTRAINT fk_notifications_listing FOREIGN KEY (listing_id) REFERENCES listings (id) ON DELETE CASCADE,
+  CONSTRAINT chk_notifications_type CHECK (type IN ('comment', 'reply', 'price_change'))
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '알림 (댓글·답글·찜한 판매글 가격 변동)';

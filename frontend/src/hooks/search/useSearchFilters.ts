@@ -1,5 +1,6 @@
-import { useCallback, useState } from 'react';
-import { initialFilterState, type PricePreset } from '../../data/search';
+import { useCallback, useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { categoryIdFromCode, initialFilterState, type PricePreset } from '../../data/search';
 
 export interface PriceRange {
   readonly min: number | null;
@@ -23,7 +24,13 @@ const initialRange: PriceRange = {
 
 /** All state of the structural filter panel (category, grade, price, options). */
 export const useSearchFilters = () => {
-  const [categoryId, setCategoryId] = useState<string>(initialFilterState.categoryId);
+  // 헤더 카테고리 메뉴(/search?category=코드)로 들어오면 그 카테고리를 고른 상태로 시작한다.
+  const [params] = useSearchParams();
+  const urlCategoryId = categoryIdFromCode(params.get('category'));
+  const [categoryId, setCategoryId] = useState<string>(urlCategoryId ?? initialFilterState.categoryId);
+  useEffect(() => {
+    if (urlCategoryId) setCategoryId(urlCategoryId);
+  }, [urlCategoryId]);
   const [grades, setGrades] = useState<readonly string[]>(initialFilterState.grades);
   const [priceMin, setPriceMinRaw] = useState<string>(initialFilterState.priceMin);
   const [priceMax, setPriceMaxRaw] = useState<string>(initialFilterState.priceMax);

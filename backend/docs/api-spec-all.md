@@ -15,6 +15,7 @@
 | [6](#6-댓글-comment) | 댓글 (Comment) | 댓글 목록, 답글 더보기, 작성·수정·삭제 |
 | [7](#7-통일이-필요한-항목) | — | 문서 간 충돌 정리 |
 | [8](#8-시세-전망-투표-communityvote) | 시세 전망 투표 (CommunityVote) | 투표 집계 조회, 오른다/내린다 투표 |
+| [9](#9-알림-notification) | 알림 (Notification) | 알림 목록, 안 읽은 수, 읽음 처리 |
 
 ## 공통 응답 형식 (모든 문서 공통)
 
@@ -672,8 +673,10 @@ CREATE TABLE IF NOT EXISTS refresh_tokens (
 대분류 아래에 소분류를 `children`으로 묶어 반환합니다.
 
 ```
-GET /api/v1/categories
+GET /api/categories
 ```
+
+> 구현됨 (#96). 판매글 등록 카테고리 선택과 헤더 카테고리 메뉴(#18)가 함께 쓴다. 경로는 7장 1번 제안대로 `/api`를 쓴다.
 
 #### Request
 
@@ -707,7 +710,8 @@ GET /api/v1/categories
 ```
 
 #### 비고
-- 정렬: `id` 오름차순 (표시 순서 조정이 필요하면 `sort_order` 컬럼 추가)
+- 정렬: `id` 오름차순 (표시 순서 조정이 필요하면 `sort_order` 사용)
+- 헤더 카테고리 메뉴는 `/search?category={code}`로 연결한다. LISTING-01 `category`는 대분류 코드면 소분류까지 포함한다.
 - 변경이 드문 데이터라 프론트에서 캐싱 권장
 
 ---
@@ -1648,7 +1652,7 @@ ERD 확정 시 맞춰서 수정합니다.
 |---|---|---|---|---|---|
 | LIST-02 | 찜하기 | POST | `/api/listings/{listingId}/wishes` | 필수 | 검색 결과, 매물 상세 |
 | LIST-03 | 찜 해제 | DELETE | `/api/listings/{listingId}/wishes` | 필수 | 검색 결과, 매물 상세 |
-| LIST-04 | 내 찜 목록 | GET | `/api/users/me/wishes` | 필수 | 찜 목록 (화면 미구현) |
+| LIST-04 | 내 찜 목록 | GET | `/api/users/me/wishes` | 필수 | 헤더 찜한 상품 사이드바 (#19) |
 
 #### 설계 원칙
 
@@ -1890,7 +1894,7 @@ GET /api/users/me/wishes?page=1&size=20
         "registrationNo": "RPC-2026-00004",
         "title": "에어조던 1 레트로 하이 시카고 270",
         "price": 480000,
-        "status": "SELLING",
+        "status": "selling",
         "thumbnailUrl": null,
         "wishCount": 12,
         "wishedAt": "2026-11-12T08:30:00.000Z"
@@ -1900,7 +1904,7 @@ GET /api/users/me/wishes?page=1&size=20
         "registrationNo": "RPC-2026-00002",
         "title": "뮤 ex SAR 205",
         "price": 145000,
-        "status": "RESERVED",
+        "status": "reserved",
         "thumbnailUrl": null,
         "wishCount": 5,
         "wishedAt": "2026-11-11T02:10:00.000Z"
@@ -1919,15 +1923,15 @@ GET /api/users/me/wishes?page=1&size=20
 | `items[].registrationNo` | string | 화면 표시용 등록번호 |
 | `items[].title` | string | 매물 제목 |
 | `items[].price` | number | 가격 (원) |
-| `items[].status` | string | `SELLING` / `RESERVED` / `SOLD` |
-| `items[].thumbnailUrl` | string \| null | 대표 사진 URL |
+| `items[].status` | string | `selling` / `reserved` / `sold` (7장 5번: 소문자로 통일) |
+| `items[].thumbnailUrl` | string \| null | 대표 사진 URL. 사진이 없으면 품목 대표 이미지, 그것도 없으면 `null` |
 | `items[].wishCount` | number | 이 매물의 전체 찜 수 |
 | `items[].wishedAt` | string | 내가 찜한 시각 (ISO 8601, UTC) |
 | `page`, `size` | number | 요청한 페이지 정보 |
 | `totalCount` | number | 내 찜 전체 개수 |
 
 - 삭제된 매물은 목록에서 빠진다.
-- 거래완료(`SOLD`)된 매물은 목록에 남는다. 화면에서 "거래완료"로 표시한다.
+- 거래완료(`sold`)된 매물은 목록에 남는다. 화면에서 "거래완료"로 표시한다.
 
 **실패 예시**
 
@@ -2591,3 +2595,107 @@ backend/src/
 |---|---|---|
 | 1 | 집계 기간 (`erd.md` 3장 #4) | **전체 기간 누적**. 최근 N일로 바꾸려면 `vote_date >= ?` 조건만 추가하면 된다(인덱스 지원) |
 | 2 | 품목 상세(ITEM-03)에 집계를 같이 넣을지 | 넣지 않는다. 토론방 헤더가 ITEM-03과 VOTE-01을 각각 호출한다 |
+
+---
+
+# 9. 알림 (Notification)
+
+> 관련 이슈: #19 헤더 알림·채팅·찜 사이드바 / 요구사항 REQ-HEADER-005, REQ-EDIT-003
+> 공통 규칙(응답 형식, 인증 쿠키, 공통 에러 코드)은 `backend/docs/api-spec.md`를 따른다. 모든 API는 로그인 필수.
+
+### 1. API 요약
+
+| ID | 기능 | Method | URI | 사용 화면 |
+|---|---|---|---|---|
+| NOTI-01 | 알림 목록 | GET | `/api/notifications?size=20` | 헤더 알림 드롭다운 |
+| NOTI-02 | 안 읽은 수 | GET | `/api/notifications/unread-count` | 헤더 알림 배지 |
+| NOTI-03 | 하나 읽음 | PATCH | `/api/notifications/{notificationId}/read` | 알림 클릭 |
+| NOTI-04 | 모두 읽음 | POST | `/api/notifications/read-all` | 드롭다운 "모두 읽음" |
+
+### 2. 알림 종류와 생성 시점
+
+알림은 아래 동작이 성공할 때 서버가 만든다. **본인에게는 보내지 않는다.**
+
+| type | 받는 사람 | 만드는 곳 |
+|---|---|---|
+| `comment` | 글 작성자 — 내 글에 댓글이 달림 | 댓글 작성 (`POST /community/posts/:postId/comments`) |
+| `reply` | 부모 댓글 작성자 — 내 댓글에 답글이 달림. 글 작성자가 다르면 글 작성자에게는 `comment` | 위와 같음 (`parentId` 있음) |
+| `price_change` | 이 판매글을 찜한 회원 (판매자 제외) | 판매글 수정 (LISTING-04)에서 `price`가 바뀔 때. 같은 트랜잭션 |
+
+- 채팅 알림은 채팅 API가 생기면 `type`을 추가한다.
+- 댓글 알림 저장이 실패해도 댓글 작성은 성공으로 둔다 (서버 로그만 남김).
+
+### 3. Notification 객체
+
+```json
+{
+  "id": 255,
+  "type": "price_change",
+  "isRead": false,
+  "createdAt": "2026-11-16T01:09:34.000Z",
+  "actor": { "id": 3, "nickname": "테스트유저3" },
+  "post": null,
+  "comment": null,
+  "listing": { "id": 107, "title": "블랙 매지션 걸 개봉품 S급", "status": "selling", "thumbnailUrl": null },
+  "oldPrice": 60000,
+  "newPrice": 57000
+}
+```
+
+| 필드 | 타입 | 설명 |
+|---|---|---|
+| `type` | string | `comment` / `reply` / `price_change` |
+| `isRead` | boolean | 읽음 여부 |
+| `actor` | object \| null | 알림을 만든 회원 (댓글 작성자, 가격을 바꾼 판매자). 탈퇴하면 `null` |
+| `post` | object \| null | `comment`·`reply`: `{ id, itemId, board }`. `itemId`가 있으면 품목 토론방, 없으면 커뮤니티 피드로 이동 |
+| `comment` | object \| null | `comment`·`reply`: 새로 달린 댓글 `{ id, excerpt }` (40자까지, 줄바꿈은 공백) |
+| `listing` | object \| null | `price_change`: `{ id, title, status, thumbnailUrl }` |
+| `oldPrice`, `newPrice` | number \| null | `price_change`: 바뀌기 전·후 가격 |
+
+- 대상(글·댓글·판매글)이 삭제된 알림은 목록과 안 읽은 수에서 빠진다.
+
+### 4. NOTI-01 알림 목록
+
+```
+GET /api/notifications?size=20
+```
+
+| 쿼리 | 타입 | 필수 | 기본값 | 설명 |
+|---|---|---|---|---|
+| `size` | number | X | 20 | 1~50. 최신순으로 이만큼 |
+
+`200 OK`
+
+```json
+{ "data": { "items": [ /* Notification */ ], "unreadCount": 5 } }
+```
+
+### 5. NOTI-02 안 읽은 수
+
+```
+GET /api/notifications/unread-count
+```
+
+`200 OK` → `{ "data": { "unreadCount": 5 } }`
+
+헤더는 로그인할 때, 페이지를 옮길 때, 그리고 1분마다 이 API로 배지를 맞춘다.
+
+### 6. NOTI-03 하나 읽음 / NOTI-04 모두 읽음
+
+```
+PATCH /api/notifications/{notificationId}/read   → 204 (이미 읽은 알림도 204)
+POST  /api/notifications/read-all                → 204
+```
+
+### 7. 에러 코드
+
+| Code | 상태 | 의미 |
+|---|---|---|
+| `VALIDATION_ERROR` | 400 | `size`가 1~50 정수가 아님, `notificationId`가 1 이상 정수가 아님 |
+| `UNAUTHORIZED` / `INVALID_TOKEN` | 401 | 로그인 안 함 / 만료 |
+| `NOTIFICATION_NOT_FOUND` | 404 | 없는 알림이거나 **다른 회원의 알림** |
+
+### 8. DB
+
+`backend/db/schema.sql`의 `notifications` 테이블. 읽음은 `read_at`(NULL = 안 읽음)으로 표시한다.
+글·댓글·판매글·회원이 실제로 지워지면(FK CASCADE) 알림도 같이 지워진다. 시드는 시드 댓글에서 알림을 만들고, 회원마다 최근 5건만 안 읽음으로 둔다.

@@ -71,4 +71,36 @@ async function withListingLock(listingId, work) {
   }
 }
 
-module.exports = { withListingLock };
+/** 내 찜 목록 (LIST-04). 최근 찜한 순, 삭제된 판매글 제외. */
+async function findMyWishes(userId, { page, size }) {
+  const [rows] = await pool.query(
+    `SELECT l.id, l.registration_no, l.title, l.price, l.status, l.wish_count, w.created_at AS wished_at,
+       COALESCE((SELECT li.url FROM listing_images li
+         WHERE li.listing_id = l.id AND li.type = 'photo' AND li.sort_order = 0), i.image_url) AS thumbnail_url
+     FROM wishes w JOIN listings l ON l.id = w.listing_id JOIN items i ON i.id = l.item_id
+     WHERE w.user_id = ? AND l.deleted_at IS NULL
+     ORDER BY w.created_at DESC, l.id DESC
+     LIMIT ? OFFSET ?`,
+    [userId, size, (page - 1) * size],
+  );
+  const [[{ total }]] = await pool.execute(
+    `SELECT COUNT(*) AS total FROM wishes w JOIN listings l ON l.id = w.listing_id
+     WHERE w.user_id = ? AND l.deleted_at IS NULL`,
+    [userId],
+  );
+  return {
+    items: rows.map((r) => ({
+      listingId: r.id,
+      registrationNo: r.registration_no,
+      title: r.title,
+      price: r.price,
+      status: r.status,
+      thumbnailUrl: r.thumbnail_url,
+      wishCount: r.wish_count,
+      wishedAt: r.wished_at,
+    })),
+    totalCount: Number(total),
+  };
+}
+
+module.exports = { withListingLock, findMyWishes };

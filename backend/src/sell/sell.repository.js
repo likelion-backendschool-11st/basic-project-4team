@@ -358,7 +358,7 @@ async function withTransaction(fn) {
  */
 async function findForUpdate(connection, listingId) {
   const [rows] = await connection.execute(
-    `SELECT id, seller_id, status, \`condition\`, grading_service, grade, delivery, direct, direct_location
+    `SELECT id, seller_id, status, price, \`condition\`, grading_service, grade, delivery, direct, direct_location
      FROM listings WHERE id = ? AND deleted_at IS NULL FOR UPDATE`,
     [listingId],
   );
@@ -367,6 +367,7 @@ async function findForUpdate(connection, listingId) {
   return {
     id: row.id,
     sellerId: row.seller_id,
+    price: row.price,
     status: row.status,
     condition: row.condition,
     gradingService: row.grading_service,

@@ -92,15 +92,23 @@ export const filterLabels = {
 
 export const categoryOptions: readonly CategoryOption[] = [
   { id: 'all', label: '전체' },
-  { id: 'card-pokemon', label: '카드 > 포켓몬', code: 'pokemon', dividerBefore: true },
+  { id: 'cards', label: '카드 전체', code: 'cards', dividerBefore: true },
+  { id: 'card-pokemon', label: '카드 > 포켓몬', code: 'pokemon' },
   { id: 'onepiece', label: '원피스', code: 'onepiece' },
   { id: 'sports', label: '스포츠', code: 'sports' },
   { id: 'yugioh', label: '유희왕', code: 'yugioh' },
-  { id: 'sneakers-jordan', label: '운동화 > 조던', code: 'jordan', dividerBefore: true },
+  { id: 'sneakers', label: '운동화 전체', code: 'sneakers', dividerBefore: true },
+  { id: 'sneakers-jordan', label: '운동화 > 조던', code: 'jordan' },
   { id: 'collab', label: '콜라보', code: 'collab' },
   { id: 'dunk', label: '덩크', code: 'dunk' },
-  { id: 'luxury', label: '명품', code: 'luxury', dividerBefore: true },
+  { id: 'luxury', label: '명품 전체', code: 'luxury', dividerBefore: true },
+  { id: 'watch', label: '명품 > 시계', code: 'watch' },
+  { id: 'bags', label: '가방', code: 'bags' },
 ];
+
+/** URL ?category=코드 → 필터 옵션 id. 없는 코드면 null. 헤더 카테고리 메뉴가 이 형태로 연결한다. */
+export const categoryIdFromCode = (code: string | null): string | null =>
+  (code && categoryOptions.find((c) => c.code === code)?.id) || null;
 
 export const gradeOptions: readonly CheckOption[] = [
   { id: 'psa10', label: 'PSA 10' },
