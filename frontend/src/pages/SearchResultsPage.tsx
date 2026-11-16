@@ -1,4 +1,6 @@
-import React from 'react';
+import React, { useMemo } from 'react';
+import { LoginRequiredModal } from '../components/itemcommunity/LoginRequiredModal';
+import { ListingToast } from '../components/listing/ListingToast';
 import { EscrowGuideBanner } from '../components/search/EscrowGuideBanner';
 import { ListingGrid } from '../components/search/ListingGrid';
 import { Pagination } from '../components/search/Pagination';
@@ -15,6 +17,9 @@ import {
   sortBarData,
   sortOptions,
 } from '../data/search';
+import { wishCopy } from '../data/listing';
+import { useLoginGate } from '../hooks/itemcommunity/useLoginGate';
+import { useToast } from '../hooks/listing/useToast';
 import { useListingSearch } from '../hooks/search/useListingSearch';
 import { useSearchFilters } from '../hooks/search/useSearchFilters';
 import { useSearchQuery } from '../hooks/search/useSearchQuery';
@@ -27,7 +32,13 @@ interface SearchResultsPageProps {
 export const SearchResultsPage: React.FC<SearchResultsPageProps> = ({ className = '' }) => {
   const query = useSearchQuery();
   const filters = useSearchFilters();
-  const search = useListingSearch(query, filters);
+  const { toast, showToast } = useToast();
+  const loginGate = useLoginGate();
+  const wishHandlers = useMemo(
+    () => ({ ensureLogin: loginGate.ensureLogin, onLoginRequired: loginGate.prompt, showToast }),
+    [loginGate.ensureLogin, loginGate.prompt, showToast],
+  );
+  const search = useListingSearch(query, filters, wishHandlers);
   const { sortKey, setSortKey, items, pagination } = search;
   const total = search.totalCount;
 
@@ -91,6 +102,13 @@ export const SearchResultsPage: React.FC<SearchResultsPageProps> = ({ className 
         />
         <EscrowGuideBanner {...escrowBanner} />
       </div>
+      <ListingToast position="center" toast={toast} />
+      <LoginRequiredModal
+        {...wishCopy.loginRequired}
+        onClose={loginGate.close}
+        onConfirm={loginGate.goLogin}
+        open={loginGate.open}
+      />
     </div>
   );
 };
