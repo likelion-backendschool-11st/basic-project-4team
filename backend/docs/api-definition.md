@@ -134,7 +134,7 @@
 | COMM-06 | 북마크 | PUT | `/community/posts/{postId}/bookmark` | BookmarkButton | 필수 | |
 | COMM-07 | 북마크 해제 | DELETE | `/community/posts/{postId}/bookmark` | BookmarkButton | 필수 | |
 | COMM-08 | 게시글 신고 | POST | `/community/posts/{postId}/reports` | PostMoreMenu | 필수 | `reason` |
-| COMM-09 | 인기 토론 품목 | GET | `/community/trending-items` | TrendingItemsSidebar | - | `period=24h`, `limit=5` → 순위, 품목명, 등급·가격·변동률, 토론 수 |
+| COMM-09 | 실시간 많이 언급된 품목 | GET | `/items/trending` | TrendingItemsSidebar | - | `days=1`(24시간), `limit=5` → 순위, 품목명, 등급·가격·변동률, 언급 수(글+댓글). 상세는 `api-spec.md` "실시간 많이 언급된 품목" |
 
 > 댓글: 화면에는 댓글 **수**만 표시되고 댓글 UI는 아직 없음 → 댓글 API(`GET/POST /community/posts/{postId}/comments`)는 화면 구현 시 추가.
 
