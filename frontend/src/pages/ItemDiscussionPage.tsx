@@ -61,6 +61,9 @@ export const ItemDiscussionPage: React.FC<ItemDiscussionPageProps> = ({ classNam
                     focused={post.id === d.focusedPostId}
                     itemId={d.itemId}
                     key={post.id}
+                    marketPrice={d.item?.latestPrice ?? null}
+                    onDelete={d.removePost}
+                    onEdit={d.editPost}
                     post={post}
                   />
                 ))}

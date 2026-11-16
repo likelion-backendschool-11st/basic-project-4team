@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useParams } from 'react-router-dom';
-import { ApiError } from '../../api/client';
-import { createPost, getPosts } from '../../api/community';
+import { ApiError, toAssetUrl } from '../../api/client';
+import { createPost, deletePost, getPosts, updatePost } from '../../api/community';
 import type { Post } from '../../api/types';
 import {
   discussionPostCopy,
@@ -34,6 +34,13 @@ const toDiscussionPost = (post: Post): DiscussionPost => ({
   priceTag: toPriceTag(post),
   commentCount: post.commentCount,
   order: post.id,
+  editSource: post.isMine
+    ? {
+        body: post.body,
+        images: post.images.map((img) => ({ id: img.id, url: toAssetUrl(img.url) })),
+        priceTag: post.priceTag,
+      }
+    : undefined,
 });
 
 const errorMessage = (error: unknown, fallback: string): string =>
@@ -91,7 +98,6 @@ export const useItemDiscussion = () => {
     if (!loading && hasMore) fetchPage(page + 1);
   }, [loading, hasMore, page, fetchPage]);
 
-  /** 글 등록 — 이 토론방의 품목으로 고정. 로그인 확인은 페이지에서 한다. */
   /** 글 등록 — 이 토론방 품목으로 고정, 사진·희망 체결가 포함. 성공하면 true. 로그인 확인은 페이지에서 한다. */
   const addPost = useCallback(
     async (payload: DiscussionComposerPayload): Promise<boolean> => {
@@ -116,6 +122,35 @@ export const useItemDiscussion = () => {
     [item, itemId],
   );
 
+  /** 내 글 수정 — 본문·사진(전체 목록)·희망 체결가를 함께 저장한다. 성공하면 true. */
+  const editPost = useCallback(async (postId: number, payload: DiscussionComposerPayload): Promise<boolean> => {
+    try {
+      const updated = await updatePost(postId, {
+        body: payload.body,
+        imageIds: payload.imageIds,
+        priceTag: payload.priceTag,
+      });
+      setPosts((prev) => prev.map((p) => (p.id === postId ? updated : p)));
+      setError(null);
+      return true;
+    } catch (e) {
+      setError(errorMessage(e, discussionErrorCopy.update));
+      return false;
+    }
+  }, []);
+
+  /** 내 글 삭제 (소프트 삭제) — 목록과 총 개수에서 뺀다. */
+  const removePost = useCallback(async (postId: number) => {
+    try {
+      await deletePost(postId);
+      setPosts((prev) => prev.filter((p) => p.id !== postId));
+      setTotalCount((n) => Math.max(n - 1, 0));
+      setError(null);
+    } catch (e) {
+      setError(errorMessage(e, discussionErrorCopy.remove));
+    }
+  }, []);
+
   // "인증 보유자 글만 보기"는 서버(ownerOnly)에서 거른다 — 페이지·총 개수가 맞도록.
   const visiblePosts = useMemo(() => posts.map(toDiscussionPost), [posts]);
 
@@ -130,6 +165,8 @@ export const useItemDiscussion = () => {
     posts: visiblePosts,
     totalDiscussions: totalCount,
     addPost,
+    editPost,
+    removePost,
     hasMore,
     loadMore,
     loading,

@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { discussionComposer as copy } from '../../data/community';
+import { discussionComposer as copy, type DiscussionEditSource } from '../../data/community';
 import { usePhotoAttachments } from './usePhotoAttachments';
 
 /** 품목 토론방 글 등록 요청에 실어 보낼 내용. */
@@ -16,27 +16,30 @@ const parsePrice = (value: string): number | null => {
   return digits ? Number(digits) : null;
 };
 
+const formatPrice = (price: number | null): string => (price === null ? '' : price.toLocaleString('ko-KR'));
+
 /**
- * 품목 토론방 글쓰기 — 본문, 사진(최대 4장, 바로 업로드), 희망 체결가.
- * onSubmit이 true를 돌려주면(등록 성공) 입력을 비운다. ensureLogin()이 false면 업로드·등록하지 않는다.
+ * 품목 토론방 글쓰기·글 수정 — 본문, 사진(최대 4장, 바로 업로드), 희망 체결가.
+ * initial이 없으면(글쓰기) onSubmit이 true를 돌려줄 때 입력을 비운다.
+ * initial이 있으면(수정) 그 값으로 폼을 채워 시작한다. ensureLogin()이 false면 업로드·저장하지 않는다.
  */
 export const useDiscussionComposer = (
   onSubmit: (payload: DiscussionComposerPayload) => Promise<boolean>,
   ensureLogin: () => boolean,
+  initial?: DiscussionEditSource,
 ) => {
-  const [text, setTextState] = useState('');
-  const [priceOpen, setPriceOpen] = useState(false);
-  const [priceInput, setPriceInputState] = useState('');
+  const [text, setTextState] = useState(initial?.body ?? '');
+  const [priceOpen, setPriceOpen] = useState(initial?.priceTag != null);
+  const [priceInput, setPriceInputState] = useState(formatPrice(initial?.priceTag ?? null));
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const photos = usePhotoAttachments(ensureLogin, setError);
+  const photos = usePhotoAttachments(ensureLogin, setError, initial?.images);
 
   const setText = useCallback((value: string) => setTextState(value.slice(0, copy.maxLength)), []);
 
   /** 숫자만 남기고 천 단위 쉼표를 붙여 보여준다. */
   const setPriceInput = useCallback((value: string) => {
-    const price = parsePrice(value);
-    setPriceInputState(price === null ? '' : price.toLocaleString('ko-KR'));
+    setPriceInputState(formatPrice(parsePrice(value)));
   }, []);
 
   const togglePrice = useCallback(() => {
@@ -60,14 +63,14 @@ export const useDiscussionComposer = (
     setError(null);
     const ok = await onSubmit({ body: text.trim(), imageIds, priceTag: price });
     setSubmitting(false);
-    if (ok) {
+    if (ok && !initial) {
       setTextState('');
       setPriceOpen(false);
       setPriceInputState('');
       clearPhotos();
     }
     return ok;
-  }, [canSubmit, ensureLogin, priceValid, onSubmit, text, imageIds, price, clearPhotos]);
+  }, [canSubmit, ensureLogin, priceValid, onSubmit, text, imageIds, price, clearPhotos, initial]);
 
   return {
     text,
@@ -89,3 +92,5 @@ export const useDiscussionComposer = (
     error,
   };
 };
+
+export type DiscussionComposerState = ReturnType<typeof useDiscussionComposer>;

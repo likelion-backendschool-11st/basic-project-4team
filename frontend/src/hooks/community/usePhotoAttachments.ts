@@ -15,21 +15,39 @@ export interface ComposerImage {
 const { photo } = feedComposer;
 const ACCEPTED_TYPES = photo.accept.split(',');
 
+/** 이미 글에 붙어 있는 사진 (수정 폼 초기값). */
+export interface ExistingPhoto {
+  readonly id: number;
+  readonly url: string;
+}
+
+/** 직접 고른 파일의 미리보기(blob:)만 해제한다. 서버 사진 주소는 그대로 둔다. */
+const revoke = (url: string) => {
+  if (url.startsWith('blob:')) URL.revokeObjectURL(url);
+};
+
 const errorMessage = (e: unknown, fallback: string): string =>
   e instanceof ApiError && e.status !== 0 && e.status < 500 ? e.message : fallback;
 
 /**
  * 토론글 사진 첨부 — 고르는 즉시 POST /uploads/post-images로 올리고 post_images.id를 모은다 (최대 4장).
- * 피드 글쓰기·품목 토론방 글쓰기가 함께 쓴다. ensureLogin()이 false면(비로그인) 올리지 않는다.
+ * 피드 글쓰기·품목 토론방 글쓰기·글 수정이 함께 쓴다. ensureLogin()이 false면(비로그인) 올리지 않는다.
+ * initial: 수정할 때 이미 붙어 있는 사진 — 업로드 완료 상태로 시작한다.
  */
-export const usePhotoAttachments = (ensureLogin: () => boolean, onError: (message: string) => void) => {
-  const [images, setImages] = useState<readonly ComposerImage[]>([]);
+export const usePhotoAttachments = (
+  ensureLogin: () => boolean,
+  onError: (message: string) => void,
+  initial: readonly ExistingPhoto[] = [],
+) => {
+  const [images, setImages] = useState<readonly ComposerImage[]>(() =>
+    initial.map((photo) => ({ key: `saved-${photo.id}`, previewUrl: photo.url, id: photo.id, status: 'done' })),
+  );
   const keySeq = useRef(0);
   const imagesRef = useRef(images);
   imagesRef.current = images;
 
   // 미리보기용 blob URL은 화면을 떠날 때 정리한다.
-  useEffect(() => () => imagesRef.current.forEach((img) => URL.revokeObjectURL(img.previewUrl)), []);
+  useEffect(() => () => imagesRef.current.forEach((img) => revoke(img.previewUrl)), []);
 
   const addFiles = useCallback(
     (files: readonly File[]) => {
@@ -58,13 +76,13 @@ export const usePhotoAttachments = (ensureLogin: () => boolean, onError: (messag
   const removeImage = useCallback((key: string) => {
     setImages((prev) => {
       const target = prev.find((img) => img.key === key);
-      if (target) URL.revokeObjectURL(target.previewUrl);
+      if (target) revoke(target.previewUrl);
       return prev.filter((img) => img.key !== key);
     });
   }, []);
 
   const clear = useCallback(() => {
-    imagesRef.current.forEach((img) => URL.revokeObjectURL(img.previewUrl));
+    imagesRef.current.forEach((img) => revoke(img.previewUrl));
     setImages([]);
   }, []);
 

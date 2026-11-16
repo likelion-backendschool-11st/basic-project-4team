@@ -347,6 +347,14 @@ export const discussionComposer = {
   uploading: '사진 올리는 중...',
 };
 
+/** 토론방 글 수정 (카드 안에서 바로 수정, REQ-BEDIT). */
+export const discussionEditCopy = {
+  submitLabel: '수정하기',
+  submitting: '저장 중...',
+  cancelLabel: '취소',
+  deleteConfirm: '이 글을 삭제할까요? 삭제한 글은 되돌릴 수 없습니다.',
+};
+
 export type DiscussionSort = 'popular' | 'latest';
 
 export const discussionControls = {
@@ -375,14 +383,36 @@ export interface DiscussionPost {
   readonly order: number;
   /** API에서 받은 글의 숫자 id. 댓글·신고 요청에 쓴다. 목 데이터 글은 없음. */
   readonly postId?: number;
-  /** 로그인 사용자가 쓴 글이면 true → 신고 메뉴 숨김. */
+  /** 로그인 사용자가 쓴 글이면 true → 신고 대신 수정·삭제 메뉴. */
   readonly isMine?: boolean;
+  /** 수정 폼을 채울 원래 값 (내 글만). */
+  readonly editSource?: DiscussionEditSource;
+}
+
+/** 토론글 수정 폼의 초기값 — 본문, 첨부 사진(post_images.id·주소), 희망 체결가. */
+export interface DiscussionEditSource {
+  readonly body: string;
+  readonly images: readonly { readonly id: number; readonly url: string }[];
+  readonly priceTag: number | null;
 }
 
 /** API author.badges 값 → 화면 배지. owner = 이 품목 보유자, trade = 이 품목 거래완료 이력. */
 export const postBadgeMeta: Readonly<Record<string, CommunityBadge>> = {
   owner: { label: '보유자', tone: 'mint', icon: 'verified' },
   trade: { label: '거래 인증', tone: 'lime', icon: 'handshake' },
+};
+
+/** 글 사진 확대 보기 (피드·토론방 공용). */
+export const imageViewerCopy = {
+  dialogLabel: '사진 크게 보기',
+  openLabel: (n: number) => `사진 ${n} 크게 보기`,
+  closeLabel: '닫기',
+  closeIcon: 'close',
+  prevLabel: '이전 사진',
+  prevIcon: 'chevron_left',
+  nextLabel: '다음 사진',
+  nextIcon: 'chevron_right',
+  counter: (current: number, total: number) => `${current} / ${total}`,
 };
 
 /** 토론글 사진 alt 문구. */
@@ -402,6 +432,12 @@ export const discussionPostCopy = {
   menu: [
     { key: 'share', icon: 'share', label: '공유', danger: false },
     { key: 'report', icon: 'flag', label: '신고하기', danger: true },
+  ],
+  /** 내 글의 ⋮ 메뉴 (REQ-BOARD-009). */
+  ownerMenu: [
+    { key: 'share', icon: 'share', label: '공유', danger: false },
+    { key: 'edit', icon: 'edit', label: '수정하기', danger: false },
+    { key: 'delete', icon: 'delete', label: '삭제하기', danger: true },
   ],
   newPostBadge: '방금 전 작성',
   edited: '(수정됨)',
