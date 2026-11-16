@@ -9,7 +9,7 @@ export interface TrendingItemsSidebarProps {
   readonly currentItemId: string;
 }
 
-/** 연관 품목 순위 (DB 토론글 수 기준) — 현재 품목은 강조, 나머지는 각 토론방으로 이동. */
+/** 실시간 많이 언급된 품목 TOP5 (최근 24시간 글·댓글 수) — 현재 품목은 강조, 나머지는 각 토론방으로 이동. */
 export const TrendingItemsSidebar: React.FC<TrendingItemsSidebarProps> = ({ currentItemId }) => {
   const { items, status } = useTrendingItems();
   const notice =
@@ -42,7 +42,7 @@ export const TrendingItemsSidebar: React.FC<TrendingItemsSidebarProps> = ({ curr
                   <span className="font-caption text-caption text-muted truncate">{it.detail}</span>
                 </div>
               </div>
-              <span className="font-caption text-caption text-primary font-bold shrink-0">{it.count}</span>
+              <span className="font-caption text-caption text-primary font-bold shrink-0" title={it.countTitle}>{it.count}</span>
             </li>
           ) : (
             <li key={it.id}>
@@ -57,7 +57,7 @@ export const TrendingItemsSidebar: React.FC<TrendingItemsSidebarProps> = ({ curr
                     <span className="font-caption text-caption text-muted truncate">{it.detail}</span>
                   </div>
                 </div>
-                <span className="font-caption text-caption text-muted group-hover:text-on-surface shrink-0">{it.count}</span>
+                <span className="font-caption text-caption text-muted group-hover:text-on-surface shrink-0" title={it.countTitle}>{it.count}</span>
               </Link>
             </li>
           ),

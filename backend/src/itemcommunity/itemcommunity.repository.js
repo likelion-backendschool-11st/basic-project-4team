@@ -98,25 +98,46 @@ async function countSelling(itemId, filter) {
 }
 
 /**
- * 최근 days일 동안 토론글이 많은 품목 순위 (글 수 → 최근 글 순). 숨김 품목·삭제된 글은 제외.
+ * 최근 days일 동안 많이 언급된 품목 순위 (REQ-BOARD-010).
+ * 언급 = 기간 안에 쓴 토론글 + 기간 안에 그 품목 토론글에 달린 댓글·답글.
+ * 언급 수 → 마지막 언급이 최근인 순. 숨김 품목, 삭제된 글·댓글, 삭제된 글의 댓글은 제외.
  * posts.item_id가 아직 slug라 items.slug로 조인한다.
  */
 async function findTrending({ days, limit }) {
   const [rows] = await pool.query(
-    `${SELECT_ITEM.replace('SELECT', 'SELECT t.post_count,')}
+    `${SELECT_ITEM.replace('SELECT', 'SELECT t.post_count, t.comment_count, t.mention_count,')}
      JOIN (
-       SELECT item_id, COUNT(*) AS post_count, MAX(created_at) AS last_post_at
-       FROM posts
-       WHERE deleted_at IS NULL AND item_id IS NOT NULL
-         AND created_at >= UTC_TIMESTAMP() - INTERVAL ? DAY
+       SELECT item_id,
+              SUM(is_post) AS post_count,
+              SUM(1 - is_post) AS comment_count,
+              COUNT(*) AS mention_count,
+              MAX(mentioned_at) AS last_mentioned_at
+       FROM (
+         SELECT p.item_id, 1 AS is_post, p.created_at AS mentioned_at
+         FROM posts p
+         WHERE p.deleted_at IS NULL AND p.item_id IS NOT NULL
+           AND p.created_at >= UTC_TIMESTAMP() - INTERVAL ? DAY
+         UNION ALL
+         SELECT p.item_id, 0 AS is_post, c.created_at AS mentioned_at
+         FROM comments c
+         JOIN posts p ON p.id = c.post_id
+         WHERE c.deleted_at IS NULL AND p.deleted_at IS NULL AND p.item_id IS NOT NULL
+           AND c.created_at >= UTC_TIMESTAMP() - INTERVAL ? DAY
+       ) m
        GROUP BY item_id
      ) t ON t.item_id = i.slug
      WHERE i.is_active = 1
-     ORDER BY t.post_count DESC, t.last_post_at DESC
+     ORDER BY t.mention_count DESC, t.last_mentioned_at DESC, i.id
      LIMIT ?`,
-    [days, limit],
+    [days, days, limit],
   );
-  return rows.map((row) => ({ ...toItem(row), postCount: Number(row.post_count) }));
+  // SUM 결과는 DECIMAL이라 문자열로 온다.
+  return rows.map((row) => ({
+    ...toItem(row),
+    postCount: Number(row.post_count),
+    commentCount: Number(row.comment_count),
+    mentionCount: Number(row.mention_count),
+  }));
 }
 
 module.exports = { findByIdOrSlug, findLastTrade, countRecentTrades, countSelling, findTrending };

@@ -454,20 +454,26 @@ export interface TrendingItem {
   readonly rank: number;
   readonly name: string;
   readonly detail: string;
+  /** 언급 수 표시 문구 ("12회"). */
   readonly count: string;
+  /** 언급 수 내역 ("토론글 3개 · 댓글 9개"). */
+  readonly countTitle: string;
 }
 
+/** REQ-BOARD-010 실시간 많이 언급된 품목 — 최근 24시간 글·댓글 수 TOP5. */
 export const trendingSidebar = {
   icon: 'whatshot',
-  title: '연관 품목',
-  /** GET /items/trending 의 days와 맞춘다. */
-  days: 7,
+  title: '실시간 많이 언급된 품목',
+  /** GET /items/trending 의 days. 1 = 최근 24시간. */
+  days: 1,
   limit: 5,
-  period: '최근 7일 기준',
-  description: '토론 글이 가장 활발한 컬렉터블 품목 순위입니다.',
+  /** "실시간" — 이 간격(ms)마다 순위를 다시 불러온다. */
+  refreshMs: 60_000,
+  period: '최근 24시간 기준',
+  description: '토론 글과 댓글이 가장 많이 달린 품목 순위입니다.',
   currentBadge: '현재',
   loading: '순위를 불러오는 중...',
-  empty: '최근 토론이 있는 품목이 없습니다.',
+  empty: '최근 24시간 동안 언급된 품목이 없습니다.',
   error: '순위를 불러오지 못했습니다.',
   /** "SAR · 320,000원 (+18.1%)" — 거래 이력이 없으면 "거래 이력 없음". */
   detail: (label: string, price: number | null, rate: number) => {
@@ -475,7 +481,10 @@ export const trendingSidebar = {
     const change = rate === 0 ? '보합' : `${rate > 0 ? '+' : ''}${rate.toFixed(1)}%`;
     return `${label} · ${price.toLocaleString('ko-KR')}원 (${change})`;
   },
-  count: (n: number) => `${n.toLocaleString('ko-KR')}건`,
+  /** 언급 수(글 + 댓글). */
+  count: (n: number) => `${n.toLocaleString('ko-KR')}회`,
+  /** 숫자에 마우스를 올리면 보이는 내역. */
+  countTitle: (posts: number, comments: number) => `토론글 ${posts}개 · 댓글 ${comments}개`,
 };
 
 export const guidelines = {

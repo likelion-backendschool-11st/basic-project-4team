@@ -56,7 +56,7 @@ function parseRange(value, fallback, max, label) {
   return Number(value);
 }
 
-/** GET /api/items/trending — 토론이 활발한 품목 순위 (토론방 "연관 품목"). */
+/** GET /api/items/trending — 많이 언급된(글+댓글) 품목 순위 (토론방 "실시간 많이 언급된 품목"). */
 async function trending(req, res) {
   const items = await itemCommunityService.getTrendingItems({
     days: parseRange(req.query.days, TRENDING_DEFAULT.days, TRENDING_MAX.days, 'days'),

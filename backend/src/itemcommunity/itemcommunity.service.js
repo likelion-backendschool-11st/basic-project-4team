@@ -65,6 +65,8 @@ async function getTrendingItems({ days, limit }) {
     rarity: item.rarity,
     category: item.category,
     postCount: item.postCount,
+    commentCount: item.commentCount,
+    mentionCount: item.mentionCount,
     marketSummary: summaries[i],
   }));
 }
