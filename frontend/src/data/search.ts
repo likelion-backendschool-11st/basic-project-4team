@@ -206,12 +206,13 @@ export const listingLabels = {
   status: { selling: '판매중', reserved: '예약중', sold: '거래완료' } as Record<ListingStatus, string>,
 };
 
+/** REQ-LIST-011 — 한 페이지 10개, 페이지 번호는 5개 단위 묶음 (#27). */
 export const paginationData = {
   pageSize: 10,
-  windowSize: 5,
+  blockSize: 5,
   navAria: '검색 결과 페이지 이동',
-  prevAria: '이전 페이지',
-  nextAria: '다음 페이지',
+  prevAria: '이전 5페이지',
+  nextAria: '다음 5페이지',
   summaryPrefix: '총',
   summaryMiddle: '개의 등록 상품 중',
   summarySuffix: '번째 표시',

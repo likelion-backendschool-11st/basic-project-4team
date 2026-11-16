@@ -94,7 +94,7 @@ export const useListingSearch = (filters: SearchFilters, availability: FilterAva
   const pagination = usePagination({
     totalItems: totalCount,
     pageSize: paginationData.pageSize,
-    windowSize: paginationData.windowSize,
+    blockSize: paginationData.blockSize,
     page,
     onPageChange: setPage,
   });

@@ -15,7 +15,7 @@ interface PaginationProps {
   readonly summary: React.ReactNode;
 }
 
-/** "< 1 2 3 4 5 >" page navigation with a summary line. */
+/** "< 1 2 3 4 5 >" 페이지 이동 (REQ-LIST-011). 화살표는 앞·뒤 5페이지 묶음으로 이동한다. */
 export const Pagination: React.FC<PaginationProps> = ({
   page,
   pages,

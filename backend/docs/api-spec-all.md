@@ -1176,6 +1176,16 @@ GET /api/v1/listings?q=리자몽&category=pokemon&condition=graded&grades=PSA-10
 - `deleted_at`이 있는 판매글은 제외
 - 결과가 0건이면 `items: []`로 200 응답 (404 아님)
 - `priceDiffRate`는 판매글과 **같은 품목·상태·그레이딩사·등급**의 30일 평균 체결가 기준 (ITEM-04와 같은 계산)
+- 정렬 (#27): 값이 같으면 아래 순서로 정해 페이지를 넘겨도 순서가 흔들리지 않는다
+
+  | `sort` | 정렬 기준 |
+  |---|---|
+  | `latest` | 등록일 최신 → `id` 큰 순 |
+  | `priceAsc` | 가격 낮은 순 → `id` 큰 순 |
+  | `priceDesc` | 가격 높은 순 → `id` 큰 순 |
+  | `popular` | 찜 수(`wish_count`) 많은 순 → 조회수(`view_count`) 많은 순 → 등록일 최신 → `id` 큰 순 |
+- `page`가 마지막 페이지보다 크면 `items: []`와 실제 `totalCount`로 200 응답. 화면(P-009)은 마지막 페이지로 다시 요청한다
+- 화면(P-009) 페이지 번호는 5개 묶음(1~5, 6~10)으로 보여주고, 화살표는 앞·뒤 묶음으로 이동한다 (REQ-LIST-011)
 
 ---
 
