@@ -10,7 +10,7 @@ const PASSWORD_MIN = 8;
 const PASSWORD_MAX = 72; // bcrypt는 72바이트 이후를 무시한다
 const NICKNAME_MAX = 30;
 const EMAIL_MAX = 255;
-const RESET_CODE_PATTERN = /^\d{6}$/;
+const VERIFICATION_CODE_PATTERN = /^\d{6}$/;
 
 // JS에서 접근 못 하는 httpOnly 쿠키에 토큰을 담아 XSS로 탈취되지 않게 한다.
 const cookieOptions = {
@@ -94,40 +94,76 @@ async function me(req, res) {
   res.json({ data: { user } });
 }
 
-/** 아이디 찾기 — 가입 여부와 관계없이 같은 응답을 준다. */
-async function findId(req, res) {
-  const email = asLowerString(req.body?.email);
-  assertEmail(email);
-  await accountRecoveryService.sendLoginIdReminder(email);
-  res.json({ data: { sent: true } });
-}
-
-/** 비밀번호 찾기 1단계: 인증코드 메일 요청 — 일치 여부와 관계없이 같은 응답을 준다. */
-async function requestPasswordReset(req, res) {
-  const loginId = asLowerString(req.body?.loginId);
-  const email = asLowerString(req.body?.email);
-  if (!loginId) {
-    throw badRequest('아이디를 입력해 주세요.');
-  }
-  assertEmail(email);
-  await accountRecoveryService.requestPasswordReset({ loginId, email });
-  res.json({ data: { sent: true, resendAfterSeconds: accountRecoveryService.RESET_CODE_RESEND_SECONDS } });
-}
-
-/** 비밀번호 찾기 2단계: 인증코드 확인 + 새 비밀번호 저장. */
-async function resetPassword(req, res) {
-  const loginId = asLowerString(req.body?.loginId);
-  const code = asTrimmedString(req.body?.code);
-  const newPassword = asPassword(req.body?.newPassword);
-  if (!loginId) {
-    throw badRequest('아이디를 입력해 주세요.');
-  }
-  if (!RESET_CODE_PATTERN.test(code)) {
+function readCode(value) {
+  const code = asTrimmedString(value);
+  if (!VERIFICATION_CODE_PATTERN.test(code)) {
     throw badRequest('인증코드 6자리 숫자를 입력해 주세요.');
   }
+  return code;
+}
+
+function readLoginId(value) {
+  const loginId = asLowerString(value);
+  if (!loginId) {
+    throw badRequest('아이디를 입력해 주세요.');
+  }
+  return loginId;
+}
+
+function readEmail(value) {
+  const email = asLowerString(value);
+  assertEmail(email);
+  return email;
+}
+
+/** 아이디 찾기 1단계: 인증코드 메일 요청 — 가입 여부와 관계없이 같은 응답. */
+async function requestFindId(req, res) {
+  const email = readEmail(req.body?.email);
+  res.json({ data: await accountRecoveryService.requestFindId(email) });
+}
+
+/** 아이디 찾기 2단계: 인증코드 확인 → 아이디. */
+async function verifyFindId(req, res) {
+  const email = readEmail(req.body?.email);
+  const code = readCode(req.body?.code);
+  res.json({ data: await accountRecoveryService.verifyFindId({ email, code }) });
+}
+
+/** 비밀번호 찾기 1단계: 인증코드 메일 요청 — 일치 여부와 관계없이 같은 응답. */
+async function requestPasswordReset(req, res) {
+  const loginId = readLoginId(req.body?.loginId);
+  const email = readEmail(req.body?.email);
+  res.json({ data: await accountRecoveryService.requestPasswordReset({ loginId, email }) });
+}
+
+/** 비밀번호 찾기 2단계: 인증코드 확인 → 재설정 토큰. */
+async function verifyPasswordReset(req, res) {
+  const loginId = readLoginId(req.body?.loginId);
+  const email = readEmail(req.body?.email);
+  const code = readCode(req.body?.code);
+  res.json({ data: await accountRecoveryService.verifyPasswordReset({ loginId, email, code }) });
+}
+
+/** 비밀번호 찾기 3단계: 재설정 토큰 + 새 비밀번호 저장. */
+async function confirmPasswordReset(req, res) {
+  const resetToken = asTrimmedString(req.body?.resetToken);
+  const newPassword = asPassword(req.body?.newPassword);
+  if (!resetToken) {
+    throw badRequest('재설정 토큰이 없습니다. 인증코드 확인부터 다시 진행해 주세요.');
+  }
   assertPassword(newPassword);
-  await accountRecoveryService.resetPassword({ loginId, code, newPassword });
+  await accountRecoveryService.confirmPasswordReset({ resetToken, newPassword });
   res.status(204).end();
 }
 
-module.exports = { signup, login, logout, me, findId, requestPasswordReset, resetPassword };
+module.exports = {
+  signup,
+  login,
+  logout,
+  me,
+  requestFindId,
+  verifyFindId,
+  requestPasswordReset,
+  verifyPasswordReset,
+  confirmPasswordReset,
+};

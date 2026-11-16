@@ -2,57 +2,35 @@ import React from 'react';
 import { findPasswordCopy } from '../../data/auth';
 import type { FieldErrors } from '../../hooks/auth/authFormHelpers';
 import type { FindPasswordField, FindPasswordValues } from '../../hooks/auth/useFindPasswordForm';
-import { AuthSecondaryAction } from './AuthSecondaryAction';
 import { FormField } from './FormField';
 import { PasswordToggleButton } from './PasswordToggleButton';
 import { SubmitButton } from './SubmitButton';
 
-interface PasswordResetConfirmFormProps {
+interface NewPasswordFormProps {
   readonly values: FindPasswordValues;
   readonly errors: FieldErrors<FindPasswordField>;
   readonly showPassword: boolean;
   readonly submitting: boolean;
-  readonly resending: boolean;
-  /** 0이면 바로 다시 받을 수 있다. */
-  readonly resendIn: number;
   readonly onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   readonly onTogglePassword: () => void;
-  readonly onResend: () => void;
-  readonly onBack: () => void;
   readonly onSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
 }
 
-/* data-component="PasswordResetConfirmForm" — 비밀번호 찾기 2단계: 인증코드·새 비밀번호 */
-export const PasswordResetConfirmForm: React.FC<PasswordResetConfirmFormProps> = ({
+/* data-component="NewPasswordForm" — 비밀번호 찾기 3단계: 새 비밀번호 */
+export const NewPasswordForm: React.FC<NewPasswordFormProps> = ({
   values,
   errors,
   showPassword,
   submitting,
-  resending,
-  resendIn,
   onChange,
   onTogglePassword,
-  onResend,
-  onBack,
   onSubmit,
 }) => {
   const passwordType = showPassword ? 'text' : 'password';
   return (
-    <form className="space-y-5" id="passwordResetConfirmForm" noValidate onSubmit={onSubmit}>
-      <FormField
-        autoComplete="one-time-code"
-        errorText={errors.code ?? ''}
-        hasError={Boolean(errors.code)}
-        id="resetCode"
-        inputMode="numeric"
-        label={findPasswordCopy.codeLabel}
-        maxLength={6}
-        name="code"
-        onChange={onChange}
-        placeholder={findPasswordCopy.codePlaceholder}
-        type="text"
-        value={values.code}
-      />
+    <form className="space-y-5" id="newPasswordForm" noValidate onSubmit={onSubmit}>
+      {/* 비밀번호 관리자가 어느 계정의 비밀번호인지 알 수 있게 아이디를 숨겨서 함께 둔다. */}
+      <input autoComplete="username" className="hidden" name="username" readOnly type="text" value={values.loginId} />
       <FormField
         autoComplete="new-password"
         errorText={errors.newPassword ?? ''}
@@ -80,25 +58,15 @@ export const PasswordResetConfirmForm: React.FC<PasswordResetConfirmFormProps> =
         type={passwordType}
         value={values.newPasswordConfirm}
       />
-      <div className="space-y-3 pt-2">
+      <div className="pt-2">
         <SubmitButton
           label={findPasswordCopy.confirmSubmit}
           loading={submitting}
           loadingLabel={findPasswordCopy.confirmSubmitting}
         />
-        <AuthSecondaryAction
-          disabled={resending || resendIn > 0}
-          label={resendIn > 0 ? findPasswordCopy.resendWait(resendIn) : findPasswordCopy.resend}
-          onClick={onResend}
-        />
       </div>
-      <p className="text-center text-sm">
-        <button className="text-muted hover:text-ink font-medium transition-colors" onClick={onBack} type="button">
-          {findPasswordCopy.back}
-        </button>
-      </p>
     </form>
   );
 };
 
-export default PasswordResetConfirmForm;
+export default NewPasswordForm;

@@ -1,8 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ChangeEvent, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { confirmPasswordReset, requestPasswordReset } from '../../api/auth';
-import { AUTH_RULES, findPasswordCopy, type LoginRedirectState } from '../../data/auth';
+import {
+  confirmPasswordReset,
+  requestPasswordReset,
+  verifyPasswordReset,
+  type PasswordResetVerifyResponse,
+} from '../../api/auth';
+import { ApiError } from '../../api/client';
+import { findPasswordCopy, verificationCopy, type LoginRedirectState } from '../../data/auth';
 import { ROUTES } from '../../data/layout';
 import {
   hasFieldErrors,
@@ -12,15 +18,18 @@ import {
   type AuthFeedback,
   type FieldErrors,
 } from './authFormHelpers';
+import { useVerificationCode } from './useVerificationCode';
 
-/** request: 아이디·이메일 입력 → confirm: 인증코드·새 비밀번호 입력 */
-export type FindPasswordStep = 'request' | 'confirm';
+/** request: 아이디·이메일 → verify: 인증코드 → reset: 새 비밀번호 */
+export type FindPasswordStep = 'request' | 'verify' | 'reset';
 
-export type FindPasswordField = 'loginId' | 'email' | 'code' | 'newPassword' | 'newPasswordConfirm';
+export type FindPasswordField = 'loginId' | 'email' | 'newPassword' | 'newPasswordConfirm';
 
 export type FindPasswordValues = Readonly<Record<FindPasswordField, string>>;
 
-const EMPTY_VALUES: FindPasswordValues = { loginId: '', email: '', code: '', newPassword: '', newPasswordConfirm: '' };
+const EMPTY_VALUES: FindPasswordValues = { loginId: '', email: '', newPassword: '', newPasswordConfirm: '' };
+
+const STEP_INDEX: Readonly<Record<FindPasswordStep, number>> = { request: 0, verify: 1, reset: 2 };
 
 const isField = (name: string): name is FindPasswordField => name in EMPTY_VALUES;
 
@@ -29,8 +38,7 @@ const validateRequest = (values: FindPasswordValues): FieldErrors<FindPasswordFi
   email: isValidEmail(values.email.trim()) ? undefined : findPasswordCopy.emailError,
 });
 
-const validateConfirm = (values: FindPasswordValues): FieldErrors<FindPasswordField> => ({
-  code: AUTH_RULES.resetCodePattern.test(values.code.trim()) ? undefined : findPasswordCopy.codeError,
+const validateReset = (values: FindPasswordValues): FieldErrors<FindPasswordField> => ({
   newPassword: isValidPassword(values.newPassword) ? undefined : findPasswordCopy.newPasswordError,
   newPasswordConfirm:
     values.newPasswordConfirm && values.newPasswordConfirm === values.newPassword
@@ -38,7 +46,7 @@ const validateConfirm = (values: FindPasswordValues): FieldErrors<FindPasswordFi
       : findPasswordCopy.newPasswordConfirmError,
 });
 
-/** 비밀번호 찾기 2단계 폼. 변경에 성공하면 로그인 화면으로 보낸다. */
+/** 비밀번호 찾기 3단계 폼. 변경에 성공하면 로그인 화면으로 보낸다. */
 export const useFindPasswordForm = () => {
   const navigate = useNavigate();
   const [step, setStep] = useState<FindPasswordStep>('request');
@@ -46,9 +54,8 @@ export const useFindPasswordForm = () => {
   const [errors, setErrors] = useState<FieldErrors<FindPasswordField>>({});
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [resending, setResending] = useState(false);
-  const [resendIn, setResendIn] = useState(0);
   const [feedback, setFeedback] = useState<AuthFeedback | null>(null);
+  const [resetToken, setResetToken] = useState<string | null>(null);
   const mounted = useRef(true);
 
   useEffect(() => {
@@ -58,12 +65,20 @@ export const useFindPasswordForm = () => {
     };
   }, []);
 
-  // 재발송 대기 시간 카운트다운 (서버의 재발송 제한과 같은 시간)
-  useEffect(() => {
-    if (resendIn <= 0) return undefined;
-    const timer = window.setTimeout(() => setResendIn((s) => s - 1), 1000);
-    return () => window.clearTimeout(timer);
-  }, [resendIn]);
+  const loginId = values.loginId.trim().toLowerCase();
+  const email = values.email.trim().toLowerCase();
+
+  const verification = useVerificationCode<PasswordResetVerifyResponse>({
+    request: useCallback(() => requestPasswordReset({ loginId, email }), [email, loginId]),
+    verify: useCallback((code: string) => verifyPasswordReset({ loginId, email, code }), [email, loginId]),
+    onVerified: useCallback((response: PasswordResetVerifyResponse) => {
+      setResetToken(response.resetToken);
+      setFeedback(null);
+      setStep('reset');
+    }, []),
+    setFeedback,
+  });
+  const { begin } = verification;
 
   const onChange = useCallback((e: ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -73,11 +88,6 @@ export const useFindPasswordForm = () => {
   }, []);
 
   const togglePassword = useCallback(() => setShowPassword((v) => !v), []);
-
-  const normalized = useCallback(
-    () => ({ loginId: values.loginId.trim().toLowerCase(), email: values.email.trim().toLowerCase() }),
-    [values.email, values.loginId],
-  );
 
   const onRequestSubmit = useCallback(
     async (e: FormEvent<HTMLFormElement>) => {
@@ -89,41 +99,34 @@ export const useFindPasswordForm = () => {
       setFeedback(null);
       setSubmitting(true);
       try {
-        const { resendAfterSeconds } = await requestPasswordReset(normalized());
+        const response = await requestPasswordReset({ loginId, email });
         if (!mounted.current) return;
-        setStep('confirm');
-        setResendIn(resendAfterSeconds);
-        setFeedback({ kind: 'info', message: findPasswordCopy.sentNotice });
+        begin(response);
+        setStep('verify');
+        setFeedback({ kind: 'info', message: verificationCopy.sentNotice(email) });
       } catch (err) {
         if (mounted.current) setFeedback({ kind: 'error', message: toAuthErrorMessage(err) });
       } finally {
         if (mounted.current) setSubmitting(false);
       }
     },
-    [normalized, submitting, values],
+    [begin, email, loginId, submitting, values],
   );
 
-  const resend = useCallback(async () => {
-    if (resending || resendIn > 0) return;
-    setResending(true);
-    try {
-      const { resendAfterSeconds } = await requestPasswordReset(normalized());
-      if (!mounted.current) return;
-      setResendIn(resendAfterSeconds);
-      setValues((prev) => ({ ...prev, code: '' }));
-      setFeedback({ kind: 'info', message: findPasswordCopy.resent });
-    } catch (err) {
-      if (mounted.current) setFeedback({ kind: 'error', message: toAuthErrorMessage(err) });
-    } finally {
-      if (mounted.current) setResending(false);
-    }
-  }, [normalized, resendIn, resending]);
+  /** 첫 단계로 돌아간다. 새 비밀번호 입력값과 재설정 토큰은 버린다. */
+  const backToRequest = useCallback(() => {
+    setStep('request');
+    setErrors({});
+    setResetToken(null);
+    setValues((prev) => ({ ...prev, newPassword: '', newPasswordConfirm: '' }));
+    setFeedback(null);
+  }, []);
 
-  const onConfirmSubmit = useCallback(
+  const onResetSubmit = useCallback(
     async (e: FormEvent<HTMLFormElement>) => {
       e.preventDefault();
-      if (submitting) return;
-      const nextErrors = validateConfirm(values);
+      if (submitting || !resetToken) return;
+      const nextErrors = validateReset(values);
       setErrors(nextErrors);
       if (hasFieldErrors(nextErrors)) {
         setFeedback({ kind: 'error', message: findPasswordCopy.invalidFields });
@@ -132,8 +135,7 @@ export const useFindPasswordForm = () => {
       setFeedback(null);
       setSubmitting(true);
       try {
-        const { loginId } = normalized();
-        await confirmPasswordReset({ loginId, code: values.code.trim(), newPassword: values.newPassword });
+        await confirmPasswordReset({ resetToken, newPassword: values.newPassword });
         const state: LoginRedirectState = {
           loginId,
           noticeTitle: findPasswordCopy.doneTitle,
@@ -142,38 +144,31 @@ export const useFindPasswordForm = () => {
         navigate(ROUTES.login, { replace: true, state });
       } catch (err) {
         if (!mounted.current) return;
+        // 재설정 가능 시간(10분)이 지났으면 처음 단계부터 다시 해야 한다.
+        if (err instanceof ApiError && err.code === 'INVALID_RESET_TOKEN') {
+          backToRequest();
+        }
         setFeedback({ kind: 'error', message: toAuthErrorMessage(err) });
-        setValues((prev) => ({ ...prev, code: '' }));
       } finally {
         if (mounted.current) setSubmitting(false);
       }
     },
-    [navigate, normalized, submitting, values],
+    [backToRequest, loginId, navigate, resetToken, submitting, values],
   );
-
-  /** 아이디·이메일 입력 단계로 돌아간다. */
-  const backToRequest = useCallback(() => {
-    setStep('request');
-    setFeedback(null);
-    setErrors({});
-    setValues((prev) => ({ ...prev, code: '', newPassword: '', newPasswordConfirm: '' }));
-  }, []);
 
   return {
     step,
+    stepIndex: STEP_INDEX[step],
     values,
     errors,
     showPassword,
     submitting,
-    resending,
-    resendIn,
     feedback,
-    sentTo: normalized().email,
+    verification,
     onChange,
     togglePassword,
     onRequestSubmit,
-    onConfirmSubmit,
-    resend,
+    onResetSubmit,
     backToRequest,
   };
 };

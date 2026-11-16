@@ -2,93 +2,118 @@ const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const env = require('../config/env');
 const usersRepository = require('../repositories/users.repository');
-const passwordResetCodesRepository = require('../repositories/passwordResetCodes.repository');
+const verificationCodesRepository = require('../repositories/verificationCodes.repository');
 const { sendMailInBackground } = require('../utils/mailer');
+const { verificationCodeMail } = require('../utils/mailTemplates');
 const HttpError = require('../utils/HttpError');
 
 const BCRYPT_ROUNDS = 10;
-const RESET_CODE_TTL_MINUTES = 10;
-const RESET_CODE_MAX_ATTEMPTS = 5;
-// 같은 회원에게 인증 메일을 연달아 보내지 않도록 하는 최소 간격
-const RESET_CODE_RESEND_SECONDS = 60;
+const CODE_TTL_MINUTES = 10;
+const CODE_MAX_ATTEMPTS = 5;
+// 같은 회원·같은 용도로 인증 메일을 연달아 보내지 않도록 하는 최소 간격
+const RESEND_SECONDS = 60;
+// 인증 성공 후 새 비밀번호를 입력할 수 있는 시간
+const RESET_TOKEN_TTL_MINUTES = 10;
+
+const PURPOSE = { findId: 'find_id', resetPassword: 'reset_password' };
+
+/** 요청 단계 공통 응답. 가입 여부와 관계없이 같은 값을 준다. */
+const REQUEST_RESPONSE = { sent: true, resendAfterSeconds: RESEND_SECONDS, expiresInSeconds: CODE_TTL_MINUTES * 60 };
+
+// "코드 틀림"과 "코드 없음(없는 계정 포함)"을 같은 에러로 묶는다 — 다르면 이메일 가입 여부가 드러난다.
+const invalidCode = () =>
+  new HttpError(
+    400,
+    'INVALID_VERIFICATION_CODE',
+    `인증코드가 올바르지 않거나 만료되었습니다. ${CODE_MAX_ATTEMPTS}회 잘못 입력하면 인증코드를 다시 받아야 합니다.`,
+  );
 
 /** 6자리 코드는 경우의 수가 적어 단순 해시로는 DB 유출 시 바로 역산된다. 서버 비밀키로 HMAC 한다. */
-function hashCode(userId, code) {
-  return crypto.createHmac('sha256', env.jwt.secret).update(`${userId}:${code}`).digest('hex');
+function hashCode(purpose, userId, code) {
+  return crypto.createHmac('sha256', env.jwt.secret).update(`${purpose}:${userId}:${code}`).digest('hex');
 }
 
-/** 아이디 찾기 (REQ-LOGIN-004). 가입된 이메일이면 그 메일로 아이디를 보낸다. 가입 여부는 응답으로 알려주지 않는다. */
-async function sendLoginIdReminder(email) {
-  const user = await usersRepository.findByEmail(email);
-  if (!user) return;
+function hashToken(token) {
+  return crypto.createHash('sha256').update(token).digest('hex');
+}
+
+/** 인증코드를 만들어 저장하고 메일로 보낸다. 재발송 대기 시간 안이면 조용히 넘어간다. */
+async function issueCode(user, purpose) {
+  const lastSentAt = await verificationCodesRepository.findLatestCreatedAt(user.id, purpose);
+  if (lastSentAt && Date.now() - new Date(lastSentAt).getTime() < RESEND_SECONDS * 1000) {
+    return; // 직전 메일의 코드가 아직 유효하다
+  }
+  const code = String(crypto.randomInt(0, 1_000_000)).padStart(6, '0');
+  await verificationCodesRepository.replaceCode({
+    userId: user.id,
+    purpose,
+    codeHash: hashCode(purpose, user.id, code),
+    ttlMinutes: CODE_TTL_MINUTES,
+  });
   sendMailInBackground({
     to: user.email,
-    subject: '[RE:PICK] 아이디 안내',
-    text: [
-      `${user.nickname}님, RE:PICK 아이디를 안내해 드립니다.`,
-      '',
-      `아이디: ${user.loginId}`,
-      '',
-      '본인이 요청하지 않았다면 이 메일은 무시하셔도 됩니다.',
-    ].join('\n'),
+    ...verificationCodeMail({ purpose, nickname: user.nickname, code, ttlMinutes: CODE_TTL_MINUTES }),
   });
 }
 
-/** 비밀번호 찾기 1단계: 아이디·이메일이 맞으면 인증코드를 메일로 보낸다. 일치 여부는 응답으로 알려주지 않는다. */
+/** 아이디 찾기 1단계: 가입된 이메일이면 인증코드 메일 발송. */
+async function requestFindId(email) {
+  const user = await usersRepository.findByEmail(email);
+  if (user) await issueCode(user, PURPOSE.findId);
+  return REQUEST_RESPONSE;
+}
+
+/** 아이디 찾기 2단계: 코드가 맞으면 아이디를 돌려준다. */
+async function verifyFindId({ email, code }) {
+  const user = await usersRepository.findByEmail(email);
+  if (!user) throw invalidCode();
+  const ok = await verificationCodesRepository.verifyCode({
+    userId: user.id,
+    purpose: PURPOSE.findId,
+    codeHash: hashCode(PURPOSE.findId, user.id, code),
+    maxAttempts: CODE_MAX_ATTEMPTS,
+  });
+  if (!ok) throw invalidCode();
+  return { loginId: user.loginId, createdAt: user.createdAt };
+}
+
+/** 비밀번호 찾기 1단계: 아이디·이메일이 같은 회원이면 인증코드 메일 발송. */
 async function requestPasswordReset({ loginId, email }) {
   const user = await usersRepository.findByLoginIdAndEmail(loginId, email);
-  if (!user) return;
-
-  const lastSentAt = await passwordResetCodesRepository.findLatestCreatedAt(user.id);
-  if (lastSentAt && Date.now() - new Date(lastSentAt).getTime() < RESET_CODE_RESEND_SECONDS * 1000) {
-    return; // 직전 메일의 코드가 아직 유효하므로 조용히 넘어간다
-  }
-
-  const code = String(crypto.randomInt(0, 1_000_000)).padStart(6, '0');
-  await passwordResetCodesRepository.replaceCode({
-    userId: user.id,
-    codeHash: hashCode(user.id, code),
-    ttlMinutes: RESET_CODE_TTL_MINUTES,
-  });
-  sendMailInBackground({
-    to: user.email,
-    subject: '[RE:PICK] 비밀번호 재설정 인증코드',
-    text: [
-      `${user.nickname}님, 비밀번호 재설정 인증코드입니다.`,
-      '',
-      `인증코드: ${code}`,
-      '',
-      `${RESET_CODE_TTL_MINUTES}분 안에 입력해 주세요. 본인이 요청하지 않았다면 이 메일은 무시하셔도 됩니다.`,
-    ].join('\n'),
-  });
+  if (user) await issueCode(user, PURPOSE.resetPassword);
+  return REQUEST_RESPONSE;
 }
 
-/** 비밀번호 찾기 2단계: 인증코드가 맞으면 새 비밀번호로 바꾼다. */
-async function resetPassword({ loginId, code, newPassword }) {
-  const invalid = new HttpError(400, 'INVALID_RESET_CODE', '인증코드가 올바르지 않거나 만료되었습니다. 인증코드를 다시 받아 주세요.');
-  const user = await usersRepository.findByLoginId(loginId);
-  if (!user) throw invalid;
-
-  const passwordHash = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
-  const outcome = await passwordResetCodesRepository.consumeCode({
+/** 비밀번호 찾기 2단계: 코드가 맞으면 새 비밀번호 저장에 쓸 일회용 재설정 토큰을 발급한다. */
+async function verifyPasswordReset({ loginId, email, code }) {
+  const user = await usersRepository.findByLoginIdAndEmail(loginId, email);
+  if (!user) throw invalidCode();
+  const resetToken = crypto.randomBytes(32).toString('base64url');
+  const ok = await verificationCodesRepository.verifyCode({
     userId: user.id,
-    codeHash: hashCode(user.id, code),
-    passwordHash,
-    maxAttempts: RESET_CODE_MAX_ATTEMPTS,
+    purpose: PURPOSE.resetPassword,
+    codeHash: hashCode(PURPOSE.resetPassword, user.id, code),
+    maxAttempts: CODE_MAX_ATTEMPTS,
+    resetTokenHash: hashToken(resetToken),
+    tokenTtlMinutes: RESET_TOKEN_TTL_MINUTES,
   });
+  if (!ok) throw invalidCode();
+  return { resetToken, expiresInSeconds: RESET_TOKEN_TTL_MINUTES * 60 };
+}
 
-  if (outcome.result === 'mismatch') {
-    throw new HttpError(400, 'RESET_CODE_MISMATCH', `인증코드가 일치하지 않습니다. (남은 시도 ${outcome.remaining}회)`);
+/** 비밀번호 찾기 3단계: 재설정 토큰으로 새 비밀번호 저장. */
+async function confirmPasswordReset({ resetToken, newPassword }) {
+  const passwordHash = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
+  const ok = await verificationCodesRepository.consumeResetToken({ tokenHash: hashToken(resetToken), passwordHash });
+  if (!ok) {
+    throw new HttpError(400, 'INVALID_RESET_TOKEN', '비밀번호 변경 가능 시간이 지났거나 이미 변경했습니다. 처음부터 다시 진행해 주세요.');
   }
-  if (outcome.result === 'locked') {
-    throw new HttpError(429, 'RESET_CODE_LOCKED', '인증코드를 5회 잘못 입력했습니다. 인증코드를 다시 받아 주세요.');
-  }
-  if (outcome.result !== 'ok') throw invalid;
 }
 
 module.exports = {
-  sendLoginIdReminder,
+  requestFindId,
+  verifyFindId,
   requestPasswordReset,
-  resetPassword,
-  RESET_CODE_RESEND_SECONDS,
+  verifyPasswordReset,
+  confirmPasswordReset,
 };

@@ -51,7 +51,8 @@ export const AUTH_RULES = {
   passwordMin: 8,
   passwordMaxBytes: 72,
   nicknameMax: 30,
-  resetCodePattern: /^\d{6}$/,
+  verificationCodeLength: 6,
+  verificationCodePattern: /^\d{6}$/,
 } as const;
 
 /** 공통 에러 문구 (회원가입·찾기 화면). */
@@ -96,28 +97,51 @@ export const signupCopy = {
   doneMessage: '가입한 아이디로 로그인해 주세요.',
 };
 
+/** 인증코드 입력 단계 (아이디·비밀번호 찾기 공통). */
+export const verificationCopy = {
+  codeLabel: '인증코드',
+  codePlaceholder: '숫자 6자리',
+  codeError: '메일로 받은 6자리 숫자를 입력해 주세요.',
+  sentNotice: (email: string) => `입력한 정보와 일치하는 계정이 있다면 ${email} 으로 인증코드를 보냈습니다.`,
+  spamHint: '메일이 오지 않으면 스팸함을 확인하거나, 입력한 정보를 다시 확인해 주세요.',
+  expiresIn: (time: string) => `남은 시간 ${time}`,
+  expired: '인증코드가 만료되었습니다. 인증코드를 다시 받아 주세요.',
+  expiredShort: '만료됨',
+  submit: '인증하기',
+  submitting: '확인 중...',
+  resend: '인증코드 다시 받기',
+  resendWait: (seconds: number) => `${seconds}초 후 다시 받기`,
+  resent: '인증코드를 다시 보냈습니다. 가장 최근 메일의 코드만 사용할 수 있습니다.',
+  back: '정보 다시 입력',
+};
+
 export const findIdCopy = {
   title: '아이디 찾기',
-  description: '가입할 때 등록한 이메일을 입력하면 해당 메일로 아이디를 보내드립니다.',
+  steps: ['이메일 입력', '인증코드 확인', '아이디 확인'] as readonly string[],
+  requestDescription: '가입할 때 등록한 이메일로 인증코드를 보내드립니다.',
+  verifyDescription: '메일로 받은 인증코드 6자리를 입력해 주세요.',
+  resultDescription: '이메일 인증이 완료되었습니다.',
   emailLabel: '이메일',
   emailPlaceholder: 'example@repick.dev',
   emailError: '올바른 이메일 주소를 입력해 주세요.',
-  submit: '확인',
-  submitting: '확인 중...',
+  submit: '인증코드 받기',
+  submitting: '요청 중...',
   cancel: '취소',
-  sentTitle: '메일을 확인해 주세요',
-  sentMessage: (email: string) =>
-    `${email} 으로 가입된 계정이 있다면 아이디를 보내드렸습니다. 메일이 오지 않으면 스팸함을 확인하거나 이메일 주소를 다시 확인해 주세요.`,
-  toLogin: '로그인하러 가기',
+  resultLabel: '회원님의 아이디',
+  joinedAt: (date: string) => `가입일 ${date}`,
+  toLogin: '로그인하기',
   toFindPassword: '비밀번호 찾기',
-  retry: '다른 이메일로 찾기',
+  /** 로그인 화면으로 넘어갈 때 보여줄 안내. */
+  foundTitle: '아이디를 찾았습니다.',
+  foundMessage: '비밀번호를 입력해 로그인해 주세요.',
 };
 
 export const findPasswordCopy = {
   title: '비밀번호 찾기',
-  requestDescription: '아이디와 가입한 이메일을 입력하면 비밀번호 재설정 인증코드를 메일로 보내드립니다.',
-  confirmDescription: (email: string) =>
-    `${email} 으로 보낸 6자리 인증코드와 새 비밀번호를 입력해 주세요. 인증코드는 10분 동안 유효합니다.`,
+  steps: ['계정 확인', '인증코드 확인', '새 비밀번호'] as readonly string[],
+  requestDescription: '아이디와 가입한 이메일을 입력하면 인증코드를 보내드립니다.',
+  verifyDescription: '메일로 받은 인증코드 6자리를 입력해 주세요.',
+  resetDescription: '인증이 완료되었습니다. 새 비밀번호를 입력해 주세요. (10분 안에 변경)',
   loginIdLabel: '아이디',
   loginIdPlaceholder: '아이디를 입력해 주세요',
   loginIdError: '아이디를 입력해 주세요.',
@@ -127,9 +151,6 @@ export const findPasswordCopy = {
   requestSubmit: '인증코드 받기',
   requestSubmitting: '요청 중...',
   cancel: '취소',
-  codeLabel: '인증코드',
-  codePlaceholder: '숫자 6자리',
-  codeError: '메일로 받은 6자리 숫자를 입력해 주세요.',
   newPasswordLabel: '새 비밀번호',
   newPasswordPlaceholder: '8자 이상',
   newPasswordError: '비밀번호는 8자 이상으로 입력해 주세요. (최대 72바이트)',
@@ -139,12 +160,7 @@ export const findPasswordCopy = {
   passwordToggleLabel: '비밀번호 표시 전환',
   confirmSubmit: '비밀번호 변경',
   confirmSubmitting: '변경 중...',
-  resend: '인증코드 다시 받기',
-  resendWait: (seconds: number) => `${seconds}초 후 다시 받기`,
-  resent: '인증코드를 다시 보냈습니다. 가장 최근 메일의 코드만 사용할 수 있습니다.',
-  sentNotice: '입력한 정보와 일치하는 계정이 있다면 인증코드를 보냈습니다. 메일이 오지 않으면 아이디와 이메일을 다시 확인해 주세요.',
   invalidFields: '입력한 내용을 다시 확인해 주세요.',
-  back: '아이디·이메일 다시 입력',
   /** 변경 성공 후 로그인 화면에 보여줄 안내. */
   doneTitle: '비밀번호가 변경되었습니다!',
   doneMessage: '새 비밀번호로 로그인해 주세요.',
