@@ -9,6 +9,7 @@ const itemCommunityRoutes = require('./itemcommunity/itemcommunity.routes');
 const commentRoutes = require('./comment/comment.routes');
 const reportRoutes = require('./report/report.routes');
 const communityVoteRoutes = require('./communityVote/communityVote.routes');
+const wishRoutes = require('./wish/wish.routes');
 const errorHandler = require('./middlewares/errorHandler');
 const HttpError = require('./utils/HttpError');
 
@@ -23,6 +24,7 @@ app.get('/api/health', (req, res) => res.json({ data: { status: 'ok' } }));
 app.use('/api/auth', authRoutes);
 app.use('/api/posts', communityRoutes);
 app.use('/api/listings', sellRoutes);
+app.use('/api/listings', wishRoutes);
 app.use('/api/items', itemCommunityRoutes);
 app.use('/api/community', commentRoutes);
 app.use('/api/reports', reportRoutes);
