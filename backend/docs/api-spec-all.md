@@ -1004,6 +1004,7 @@ GET /api/v1/items/{itemId}/listings?excludeListingId=882194&sort=priceAsc&size=1
 | LISTING-08 | 찜하기 → [4장 LIST-02](#4-찜-wish) | POST | `/listings/{listingId}/wishes` | 필수 | 검색 결과, 판매글 상세 |
 | LISTING-09 | 찜 해제 → [4장 LIST-03](#4-찜-wish) | DELETE | `/listings/{listingId}/wishes` | 필수 | 검색 결과, 판매글 상세 |
 | LISTING-10 | 판매자의 다른 판매글 | GET | `/users/{userId}/listings` | 선택 | 판매글 상세 판매자 카드 |
+| UPLOAD-01 | 이미지 업로드 | POST | `/uploads/images` | 필수 | 판매글 등록·수정 사진 |
 
 > "같은 품목의 다른 매물"은 **ITEM-05**(`GET /items/{itemId}/listings`)를 사용합니다.
 > 이미지 파일 업로드는 **UPLOAD-01**(`POST /uploads/images`)로 먼저 올리고, 받은 `imageId`를 판매글 등록·수정에 넘깁니다.
@@ -1284,16 +1285,85 @@ Content-Type: application/json
 
 | 상태 | code | 상황 |
 |---|---|---|
-| 400 | `VALIDATION_ERROR` | 위 규칙 위반 (필드별 사유는 `error.details`에 담음) |
+| 400 | `VALIDATION_ERROR` | 위 규칙 위반 (필드별 사유는 `error.details`에 담음). `imageIds`에 `type=auth` 이미지, `authImageId`에 `type=photo` 이미지를 넣은 경우도 포함 |
 | 401 | `UNAUTHORIZED` | 비로그인 |
 | 404 | `ITEM_NOT_FOUND` | 없는 `itemId` |
 | 404 | `IMAGE_NOT_FOUND` | 없는 이미지이거나 내가 올린 이미지가 아님 |
 | 409 | `IMAGE_ALREADY_USED` | 다른 판매글에 이미 연결된 이미지 |
 
+`VALIDATION_ERROR` 응답 예시 — 위반한 규칙을 모두 담고, `message`는 첫 번째 사유입니다.
+
+```json
+{
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "제목은 1~100자여야 합니다.",
+    "details": [
+      { "field": "title", "message": "제목은 1~100자여야 합니다." },
+      { "field": "tradeMethod", "message": "택배 거래와 직거래 중 하나 이상 선택해야 합니다." }
+    ]
+  }
+}
+```
+
 #### 비고
 - 새 판매글의 `status`는 `selling`
 - 판매글 저장과 `listing_images` 연결은 **한 트랜잭션**으로 처리
+- 같은 사진을 `imageIds`에 두 번 넣을 수 없고, `authImageId`는 `imageIds`와 다른 이미지여야 함
 - 시세 대비 ±30% 경고는 등록을 막지 않음 (프론트에서 ITEM-04로 계산해 안내만)
+
+---
+
+### UPLOAD-01. 이미지 업로드
+
+판매글 사진·실물 인증 사진을 **한 장씩** 올립니다. 받은 `imageId`를 LISTING-03 `imageIds` / `authImageId`에 넘깁니다.
+
+```
+POST /api/v1/uploads/images
+Content-Type: multipart/form-data
+```
+
+#### Request (multipart/form-data)
+
+| 필드 | 타입 | 필수 | 규칙 |
+|---|---|---|---|
+| `image` | file | Y | JPEG · PNG · WebP, 10MB 이하, 1장 |
+| `type` | string | N | `photo`(상품 사진, 기본값) / `auth`(실물 인증 사진) |
+
+#### 서버 처리
+
+- 파일 내용으로 형식을 다시 확인 (확장자·MIME만 믿지 않음)
+- 긴 변 **1600px 이하**로 줄이고(작은 이미지는 키우지 않음) **WebP(품질 80)**로 변환
+- EXIF(촬영 위치 등)는 지우고, 회전 정보만 픽셀에 반영
+- `backend/uploads/listings/{UUID}.webp`에 저장, `/uploads/...` 경로로 서빙 (원본은 저장하지 않음)
+- `listing_images`에 `listing_id = NULL`로 저장 → 판매글 등록 때 연결
+
+#### Response `201 Created`
+
+```json
+{
+  "data": {
+    "imageId": 5001,
+    "url": "http://127.0.0.1:4000/uploads/listings/3f6c1e1a-....webp",
+    "type": "photo"
+  }
+}
+```
+
+> `url`은 `PUBLIC_BASE_URL` 환경변수 + `/uploads/listings/{파일명}`으로 만든 절대 주소라 `<img src>`에 바로 씁니다.
+
+#### Errors
+
+| 상태 | code | 상황 |
+|---|---|---|
+| 400 | `VALIDATION_ERROR` | `image` 파일 없음, 2장 이상, `type` 값 오류 |
+| 400 | `INVALID_IMAGE` | 손상되어 읽을 수 없는 이미지 |
+| 401 | `UNAUTHORIZED` | 비로그인 |
+| 413 | `IMAGE_TOO_LARGE` | 10MB 초과 |
+| 415 | `UNSUPPORTED_IMAGE_TYPE` | JPEG · PNG · WebP가 아님 |
+
+#### 비고
+- 업로드만 하고 등록하지 않은 이미지(`listing_id IS NULL`)는 24시간 뒤 정리 대상 (정리 작업은 추후 구현)
 
 ---
 
@@ -1553,7 +1623,7 @@ ERD 확정 시 맞춰서 수정합니다.
 3. **ListingSummary 필드 맞추기** — ITEM-05 응답 예시에 `wishCount`, `priceDiffRate`, `item`이 없습니다. 카드 컴포넌트를 함께 쓰려면 ITEM-05에도 추가해야 합니다.
 4. **에러 코드 이름** — 이미 구현된 auth API는 `VALIDATION_ERROR`를 쓰고, item 명세는 `INVALID_PARAMETER`를 씁니다. 이 명세는 구현된 쪽(`VALIDATION_ERROR`)을 따랐습니다. 하나로 통일이 필요합니다.
 5. **운동화·명품 속성** — 검색 화면에 사이즈 필터가 있지만, 사이즈·스타일코드 같은 운동화/명품 속성을 판매글에 저장할 곳이 아직 없습니다. 카드 카테고리부터 구현하고 나중에 `attributes`(JSON) 컬럼 추가를 검토합니다.
-6. **이미지 업로드 방식** — UPLOAD-01 명세가 확정되어야 `imageIds` 방식이 맞는지 확정됩니다. 업로드 없이 URL만 넘기는 방식으로 시작한다면 `imageIds` 대신 `imageUrls`를 받도록 바꿉니다.
+6. ~~**이미지 업로드 방식**~~ — **확정**: 서버 경유 multipart(UPLOAD-01)로 올리고 `imageIds` 방식을 씁니다. 파일은 백엔드 로컬(`backend/uploads/`)에 저장합니다. 배포 시 외부 스토리지(S3 등)로 옮길 때도 API 형식은 그대로 둡니다.
 
 ---
 
