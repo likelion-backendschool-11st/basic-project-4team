@@ -6,7 +6,8 @@ import { ROUTES } from '../../data/layout';
 import { Icon } from '../common/Icon';
 
 export interface FeedPostActionsProps {
-  readonly itemId: string;
+  /** 품목 slug. 댓글 펼치기가 없고 품목이 있을 때만 토론방 링크가 된다. */
+  readonly itemId: string | null;
   readonly commentLabel: string;
   readonly commentIcon: string;
   /** 있으면 "댓글"이 토론방 이동 링크 대신 아래로 펼치는 버튼이 된다. */
@@ -33,10 +34,14 @@ export const FeedPostActions: React.FC<FeedPostActionsProps> = ({
         <Icon className="text-[16px]" name={commentIcon} /> {commentLabel}
         <Icon className="text-[16px]" name={commentsOpen ? commentCopy.collapseIcon : commentCopy.expandIcon} />
       </button>
-    ) : (
+    ) : itemId ? (
       <Link className="flex items-center gap-1 hover:text-on-surface" to={ROUTES.itemDiscussion(itemId)}>
         <Icon className="text-[16px]" name={commentIcon} /> {commentLabel}
       </Link>
+    ) : (
+      <span className="flex items-center gap-1">
+        <Icon className="text-[16px]" name={commentIcon} /> {commentLabel}
+      </span>
     )}
     <button className="flex items-center gap-1 hover:text-on-surface" type="button">
       <Icon className="text-[16px]" name="share" /> {feedCopy.shareLabel}

@@ -2,19 +2,14 @@ import { useEffect, useState } from 'react';
 import { ApiError } from '../../api/client';
 import { getItemDetail } from '../../api/itemcommunity';
 import type { ItemDetail } from '../../api/types';
-import { defaultDiscussionItem, type DiscussionItem } from '../../data/community';
+import type { DiscussionItem } from '../../data/community';
 import { itemSummaryCopy } from '../../data/itemcommunity';
 import { ROUTES } from '../../data/layout';
 
 export type ItemDetailStatus = 'loading' | 'ready' | 'notFound' | 'error';
 
-type Fallback = Pick<DiscussionItem, 'sentiment' | 'totalDiscussions'>;
-
-/**
- * ITEM-03 응답 → 토론방 헤더용 DiscussionItem.
- * 감성 투표·토론 글 수는 board API 담당이라 아직 목 데이터(fallback)를 쓴다.
- */
-const toDiscussionItem = (detail: ItemDetail, routeId: string, fallback: Fallback): DiscussionItem => {
+/** ITEM-03 응답 → 토론방 헤더용 DiscussionItem. (시세 전망 투표는 SentimentPoll, 토론 글 수는 목록 API가 따로 불러온다) */
+const toDiscussionItem = (detail: ItemDetail, routeId: string): DiscussionItem => {
   const summary = detail.marketSummary;
   const change = summary?.changeAmount ?? 0;
   return {
@@ -34,13 +29,11 @@ const toDiscussionItem = (detail: ItemDetail, routeId: string, fallback: Fallbac
       ...detail.breadcrumbs.map((c) => ({ label: c.name, to: itemSummaryCopy.categoryTo(c.code) })),
     ],
     breadcrumbCurrent: itemSummaryCopy.breadcrumbCurrent(detail.name),
-    sentiment: fallback.sentiment,
-    totalDiscussions: fallback.totalDiscussions,
   };
 };
 
 /** 품목 토론방 헤더 데이터 (ITEM-03). itemId는 라우트의 :id(slug 또는 숫자 id). */
-export const useItemDetail = (itemId: string, fallback: Fallback = defaultDiscussionItem) => {
+export const useItemDetail = (itemId: string) => {
   const [item, setItem] = useState<DiscussionItem | null>(null);
   const [status, setStatus] = useState<ItemDetailStatus>('loading');
 
@@ -51,7 +44,7 @@ export const useItemDetail = (itemId: string, fallback: Fallback = defaultDiscus
     getItemDetail(itemId)
       .then((detail) => {
         if (cancelled) return;
-        setItem(toDiscussionItem(detail, itemId, fallback));
+        setItem(toDiscussionItem(detail, itemId));
         setStatus('ready');
       })
       .catch((e: unknown) => {
@@ -61,7 +54,6 @@ export const useItemDetail = (itemId: string, fallback: Fallback = defaultDiscus
     return () => {
       cancelled = true;
     };
-    // fallback은 목 데이터라 바뀌지 않는다. itemId가 바뀔 때만 다시 불러온다.
   }, [itemId]);
 
   return { item, status };

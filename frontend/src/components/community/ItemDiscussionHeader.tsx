@@ -6,6 +6,8 @@ import { SentimentPoll } from './SentimentPoll';
 
 export interface ItemDiscussionHeaderProps {
   readonly item: DiscussionItem;
+  /** 투표 전 로그인 확인. 비로그인이면 false. */
+  readonly ensureLogin: () => boolean;
 }
 
 const trendTone: Record<DiscussionItem['trend'], string> = {
@@ -21,7 +23,7 @@ const trendIcon: Record<DiscussionItem['trend'], string | null> = {
 };
 
 /** Item summary (thumb, grade, price, change), 현재 매물 link and sentiment gauge. */
-export const ItemDiscussionHeader: React.FC<ItemDiscussionHeaderProps> = ({ item }) => (
+export const ItemDiscussionHeader: React.FC<ItemDiscussionHeaderProps> = ({ item, ensureLogin }) => (
   /* data-component="ItemDiscussionHeader" */
   <section className="bg-surface-container-lowest rounded-lg p-space-md shadow-sm">
     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-space-md pb-space-sm">
@@ -62,7 +64,7 @@ export const ItemDiscussionHeader: React.FC<ItemDiscussionHeaderProps> = ({ item
         </Link>
       </div>
     </div>
-    <SentimentPoll key={item.id} seed={item.sentiment} />
+    <SentimentPoll ensureLogin={ensureLogin} itemId={item.id} key={item.id} />
   </section>
 );
 

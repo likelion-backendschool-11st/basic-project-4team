@@ -1,20 +1,72 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { ApiError } from '../../api/client';
+import { castCommunityVote, getCommunityVote } from '../../api/communityVote';
+import type { CommunityVote, VoteDirection } from '../../api/types';
+import { sentimentCopy } from '../../data/community';
+import { useAuth } from '../auth/useAuth';
 
-export type SentimentSide = 'up' | 'down';
+export type SentimentSide = VoteDirection;
 
-/** 오른다/내린다 market sentiment gauge — one vote per user, switchable. */
-export const useSentimentVote = (seed: { readonly up: number; readonly down: number }) => {
-  const [choice, setChoice] = useState<SentimentSide | null>(null);
+/**
+ * 오른다/내린다 시세 전망 투표 — 품목당 하루(KST) 1회, 투표 후 변경 불가.
+ * ensureLogin이 false를 돌려주면(비로그인) 투표하지 않는다.
+ */
+export const useSentimentVote = (itemId: string, ensureLogin: () => boolean) => {
+  const { status } = useAuth();
+  const [data, setData] = useState<CommunityVote | null>(null);
+  const [voting, setVoting] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
 
-  const state = useMemo(() => {
-    const up = seed.up + (choice === 'up' ? 1 : 0);
-    const down = seed.down + (choice === 'down' ? 1 : 0);
-    const total = up + down;
-    const upPct = total === 0 ? 50 : Math.round((up / total) * 100);
-    return { up, down, upPct, downPct: 100 - upPct };
-  }, [seed.up, seed.down, choice]);
+  // 로그인 상태가 바뀌면 myVote·canVote가 달라지므로 다시 불러온다.
+  useEffect(() => {
+    if (status === 'loading') return undefined;
+    let cancelled = false;
+    getCommunityVote(itemId)
+      .then((vote) => {
+        if (!cancelled) setData(vote);
+      })
+      .catch(() => {
+        if (!cancelled) setMessage(sentimentCopy.loadError);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [itemId, status]);
 
-  const vote = useCallback((side: SentimentSide) => setChoice(side), []);
+  const vote = useCallback(
+    async (side: SentimentSide) => {
+      if (voting || !ensureLogin()) return;
+      if (data?.myVote) {
+        setMessage(sentimentCopy.alreadyVoted);
+        return;
+      }
+      setVoting(true);
+      try {
+        setData(await castCommunityVote(itemId, side));
+        setMessage(null);
+      } catch (e) {
+        if (e instanceof ApiError && e.code === 'ALREADY_VOTED') {
+          setMessage(sentimentCopy.alreadyVoted);
+          setData(await getCommunityVote(itemId).catch(() => data));
+        } else {
+          setMessage(sentimentCopy.voteError);
+        }
+      } finally {
+        setVoting(false);
+      }
+    },
+    [voting, ensureLogin, data, itemId],
+  );
 
-  return { ...state, choice, vote };
+  return {
+    up: data?.up ?? 0,
+    down: data?.down ?? 0,
+    upPct: data?.upRate ?? 50,
+    downPct: data?.downRate ?? 50,
+    choice: data?.myVote ?? null,
+    voted: Boolean(data?.myVote),
+    voting,
+    message,
+    vote,
+  };
 };

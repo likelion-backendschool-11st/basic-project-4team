@@ -4,6 +4,7 @@ const HttpError = require('../utils/HttpError');
 const BOARDS = ['pokemon', 'sneakers', 'onepiece', 'watch', 'free'];
 const TAGS = ['analysis', 'verify', 'unboxing', 'poll', 'qna', 'info'];
 const SORTS = ['latest', 'popular'];
+const REACTION_TYPES = ['fire', 'surprised', 'laugh', 'ice'];
 const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 50;
 const TITLE_MAX = 100;
@@ -68,7 +69,10 @@ const FIELD_PARSERS = {
 };
 
 async function list(req, res) {
-  const { board, itemId, tag, sort, page, size } = req.query;
+  const { board, itemId, tag, ownerOnly, sort, page, size } = req.query;
+  if (ownerOnly !== undefined && ownerOnly !== 'true' && ownerOnly !== 'false') {
+    throw badRequest('ownerOnly는 true 또는 false여야 합니다.');
+  }
   const parsedPage = page === undefined ? 1 : toPositiveInt(page);
   const parsedSize = size === undefined ? DEFAULT_PAGE_SIZE : toPositiveInt(size);
   if (Number.isNaN(parsedPage)) throw badRequest('page는 1 이상의 정수여야 합니다.');
@@ -81,6 +85,7 @@ async function list(req, res) {
       board: parseEnum(board, BOARDS, '게시판(board)'),
       itemId: parseOptionalText(itemId, ITEM_ID_MAX, '품목 ID(itemId)'),
       tag: parseEnum(tag, TAGS, '태그(tag)'),
+      ownerOnly: ownerOnly === 'true',
       sort: parseEnum(sort, SORTS, '정렬(sort)') ?? 'latest',
       page: parsedPage,
       size: parsedSize,
@@ -131,4 +136,19 @@ async function remove(req, res) {
   res.status(204).end();
 }
 
-module.exports = { list, detail, create, update, remove };
+/** PUT /api/posts/:id/reaction — 이모지 남기기·바꾸기. */
+async function react(req, res) {
+  const postId = parsePostId(req);
+  const type = req.body?.type;
+  if (typeof type !== 'string' || !REACTION_TYPES.includes(type)) {
+    throw badRequest(`이모지(type) 값이 올바르지 않습니다. (${REACTION_TYPES.join(', ')})`);
+  }
+  res.json({ data: await communityService.setReaction(postId, req.user.id, type) });
+}
+
+/** DELETE /api/posts/:id/reaction — 이모지 취소. */
+async function unreact(req, res) {
+  res.json({ data: await communityService.removeReaction(parsePostId(req), req.user.id) });
+}
+
+module.exports = { list, detail, create, update, remove, react, unreact };

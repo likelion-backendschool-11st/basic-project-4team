@@ -1,10 +1,12 @@
 import { apiRequest } from './client';
-import type { Post, PostBoard, PostListResponse, PostSort, PostTag } from './types';
+import type { Post, PostBoard, PostListResponse, PostSort, PostTag, ReactionSummary, ReactionType } from './types';
 
 export interface PostListQuery {
   readonly board?: PostBoard;
   readonly itemId?: string;
   readonly tag?: PostTag;
+  /** true면 이 품목 보유자가 쓴 글만 (품목 토론방 "인증 보유자 글만 보기"). */
+  readonly ownerOnly?: boolean;
   readonly sort?: PostSort;
   readonly page?: number;
   readonly size?: number;
@@ -60,3 +62,11 @@ export const updatePost = async (id: number, body: UpdatePostRequest): Promise<P
 /** 토론글 삭제(소프트 삭제). 작성자만 가능. */
 export const deletePost = (id: number): Promise<void> =>
   apiRequest<void>(`/posts/${id}`, { method: 'DELETE' });
+
+/** 이모지 남기기·바꾸기 (글당 1인 1개). 로그인 필요. */
+export const setPostReaction = (id: number, type: ReactionType): Promise<ReactionSummary> =>
+  apiRequest<ReactionSummary>(`/posts/${id}/reaction`, { method: 'PUT', body: JSON.stringify({ type }) });
+
+/** 이모지 취소. 로그인 필요. */
+export const removePostReaction = (id: number): Promise<ReactionSummary> =>
+  apiRequest<ReactionSummary>(`/posts/${id}/reaction`, { method: 'DELETE' });

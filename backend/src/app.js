@@ -26,6 +26,7 @@ app.get('/api/health', (req, res) => res.json({ data: { status: 'ok' } }));
 app.use('/api/auth', authRoutes);
 app.use('/api/posts', communityRoutes);
 app.use('/api/listings', sellRoutes);
+app.use('/api/listings', wishRoutes);
 app.use('/api/items', itemCommunityRoutes);
 app.use('/api/community', commentRoutes);
 app.use('/api/reports', reportRoutes);

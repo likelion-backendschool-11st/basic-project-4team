@@ -4,7 +4,6 @@ import { ApiError } from '../../api/client';
 import { createPost, deletePost, getPosts, updatePost } from '../../api/community';
 import type { Post, PostBoard, PostTag } from '../../api/types';
 import {
-  discussionReactionTemplate,
   feedBoardMeta,
   feedComposer,
   feedErrorCopy,
@@ -14,6 +13,7 @@ import {
 } from '../../data/community';
 import { ROUTES } from '../../data/layout';
 import { useAuth } from '../auth/useAuth';
+import { toBadges, toImages, toReactionSeeds } from './postMapping';
 
 const PAGE_SIZE = 10;
 
@@ -25,18 +25,20 @@ const toFeedPost = (post: Post): FeedPost => {
     id: `post-${post.id}`,
     postId: post.id,
     category: meta.category,
-    board: { label: meta.label, icon: meta.icon, itemId: post.itemId ?? meta.itemId },
+    board: { label: meta.label, icon: meta.icon, itemId: post.itemId },
     author: {
       name: post.author.nickname,
       initials: post.author.nickname.slice(0, 1),
       tone: post.isMine ? 'primary' : 'neutral',
     },
+    badge: toBadges(post)[0],
     timeAgo: formatTimeAgo(post.createdAt),
     context: tagLabel,
     title: post.title ?? '',
     body: post.body,
-    // 토론글 이모지 4종(🔥😮😂🧊). 이모지 반응 API(#59)가 생기기 전까지는 0에서 시작해 화면에서만 토글된다.
-    reactions: discussionReactionTemplate(0, 0, 0, 0),
+    images: toImages(post),
+    reactions: toReactionSeeds(post),
+    myReaction: post.myReaction,
     commentCount: post.commentCount,
     isMine: post.isMine,
     edited: post.editedAt !== null,
@@ -100,6 +102,9 @@ export const useCommunityFeed = () => {
     return true;
   }, [status, navigate]);
 
+  /** 이모지처럼 로그인이 필요한 동작 전에 호출. 비로그인이면 로그인 화면으로 보내고 false. */
+  const ensureLogin = useCallback(() => !requireLogin(), [requireLogin]);
+
   const addPost = useCallback(
     async (text: string) => {
       if (requireLogin()) return;
@@ -149,6 +154,7 @@ export const useCommunityFeed = () => {
     addPost,
     editPost,
     removePost,
+    ensureLogin,
     hasMore,
     loadMore,
     loading,
