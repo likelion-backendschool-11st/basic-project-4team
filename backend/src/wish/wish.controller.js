@@ -22,4 +22,19 @@ async function remove(req, res) {
   res.json({ data: wish });
 }
 
-module.exports = { add, remove };
+/** page·size 쿼리 — page ≥ 1, size 1~50. */
+function parsePaging(query) {
+  const read = (value, fallback) => (value === undefined ? fallback : /^[1-9]\d*$/.test(String(value)) ? Number(value) : NaN);
+  const page = read(query.page, 1);
+  const size = read(query.size, 20);
+  if (!Number.isSafeInteger(page)) throw new HttpError(400, 'VALIDATION_ERROR', 'page는 1 이상의 정수여야 합니다.');
+  if (!Number.isSafeInteger(size) || size > 50) throw new HttpError(400, 'VALIDATION_ERROR', 'size는 1~50 사이의 정수여야 합니다.');
+  return { page, size };
+}
+
+/** GET /api/users/me/wishes — 내 찜 목록 (LIST-04). */
+async function listMine(req, res) {
+  res.json({ data: await wishService.listMyWishes(req.user.id, parsePaging(req.query)) });
+}
+
+module.exports = { add, remove, listMine };

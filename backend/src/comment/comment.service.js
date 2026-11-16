@@ -1,4 +1,5 @@
 const commentRepository = require('./comment.repository');
+const notificationService = require('../notification/notification.service');
 const HttpError = require('../utils/HttpError');
 
 // 댓글마다 함께 내려주는 답글 미리보기 개수. 나머지는 답글 더보기 API로.
@@ -99,6 +100,7 @@ async function createComment(postId, userId, { body, parentId }) {
     }
   }
   const { id, commentCount } = await commentRepository.create({ postId, userId, parentId, body });
+  await notificationService.notifyComment({ postId, commentId: id, parentId, actorId: userId });
   return { comment: await getComment(id, userId), commentCount };
 }
 

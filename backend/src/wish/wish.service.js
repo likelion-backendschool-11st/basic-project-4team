@@ -39,4 +39,10 @@ async function removeWish(listingId, userId) {
   });
 }
 
-module.exports = { addWish, removeWish };
+/** 내 찜 목록 (LIST-04). */
+async function listMyWishes(userId, { page, size }) {
+  const { items, totalCount } = await wishRepository.findMyWishes(userId, { page, size });
+  return { items, page, size, totalCount };
+}
+
+module.exports = { addWish, removeWish, listMyWishes };

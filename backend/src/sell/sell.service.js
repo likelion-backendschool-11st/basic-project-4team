@@ -6,6 +6,7 @@ const sellRepository = require('./sell.repository');
 const itemCommunityService = require('../itemcommunity/itemcommunity.service');
 const env = require('../config/env');
 const HttpError = require('../utils/HttpError');
+const notificationService = require('../notification/notification.service');
 
 const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
 const LISTING_IMAGE_DIR = 'listings';
@@ -284,6 +285,12 @@ async function updateListing(listingId, userId, fields) {
     await sellRepository.updateListing(connection, listingId, listingFields);
     if (imageIds) await sellRepository.replacePhotos(connection, listingId, imageIds);
     if (authImageId !== undefined) await sellRepository.replaceAuthImage(connection, listingId, authImageId);
+    // 가격이 바뀌면 이 판매글을 찜한 회원에게 알림 (REQ-EDIT-003)
+    if (rest.price !== undefined) {
+      await notificationService.notifyPriceChange(connection, {
+        listingId, sellerId: current.sellerId, oldPrice: current.price, newPrice: rest.price,
+      });
+    }
   });
   // 작성자 본인 조회라 조회수는 오르지 않는다.
   return getListingDetail(listingId, { viewerId: userId });

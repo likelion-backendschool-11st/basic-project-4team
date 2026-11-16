@@ -72,6 +72,7 @@ docs/             컨벤션, API 정의서
 | `/market` | 시세 대시보드 | MarketDashboardPage |
 | `/community` | P-017 커뮤니티 피드 | CommunityFeedPage |
 | `/community/items/:id` | P-018 품목별 토론방 | ItemDiscussionPage |
+| 그 외 모든 경로 | 404 오류 페이지 | NotFoundPage |
 
 ## 반드시 지킬 것
 
