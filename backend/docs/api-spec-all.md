@@ -1049,7 +1049,7 @@ GET /api/v1/items/{itemId}/listings?excludeListingId=882194&sort=priceAsc&size=1
 | `ItemCondition` | `unopened` / `opened_raw` / `graded` | 미개봉 / 개봉 노슬랩 / 그레이딩 슬랩 |
 | `GradingService` | `PSA` / `BGS` / `CGC` / `BRG` | `condition = graded`일 때만 값이 있음 |
 | `Grade` | `10` / `9.5` / `9` / `8.5` / `8` / `7` | 문자열. `7`은 "7 이하" |
-| `ListingSort` | `latest` / `priceAsc` / `priceDesc` / `popular` | `popular` = 찜 수 많은 순 |
+| `ListingSort` | `latest` / `priceAsc` / `priceDesc` / `popular` | `popular` = 찜 수 많은 순, 같으면 조회수 많은 순 |
 
 > 값은 [2장 카테고리·품목](#2-카테고리품목-item)의 시세 필터 파라미터, 프론트 `data/listingForm.ts`와 같은 소문자 값을 씁니다.
 
@@ -1067,7 +1067,7 @@ LISTING-01, LISTING-10, ITEM-05가 **같은 형식**으로 응답합니다. 프�
 | `condition` | ItemCondition | | `"graded"` |
 | `gradingService` | string \| null | | `"PSA"` |
 | `grade` | string \| null | | `"10"` |
-| `thumbnailUrl` | string \| null | `listing_images`에서 `sort_order = 0`인 이미지 | `"https://..."` |
+| `thumbnailUrl` | string \| null | `listing_images`에서 `sort_order = 0`인 사진. 없으면 품목 대표 이미지, 그것도 없으면 `null` | `"https://..."` |
 | `directLocation` | string \| null | 직거래 불가면 `null` | `"서울 관악구 남현동"` |
 | `wishCount` | number | 찜 수 | `38` |
 | `isWished` | boolean | 로그인 시 내 찜 여부, 비로그인이면 항상 `false` | `false` |
@@ -1102,7 +1102,7 @@ ListingSummary의 모든 필드에 아래 필드가 더해집니다.
 ### LISTING-01. 판매글 검색·목록
 
 ```
-GET /api/v1/listings?q=리자몽&category=pokemon&condition=graded&grades=PSA-10,BGS-9.5&minPrice=100000&maxPrice=500000&tradeMethod=direct&excludeSold=true&sort=latest&page=1&size=10
+GET /api/v1/listings?q=리자몽&category=pokemon&condition=graded&grades=PSA-10,BGS-9.5&minPrice=100000&maxPrice=500000&tradeMethod=direct&itemState=used&excludeSold=true&sort=latest&page=1&size=10
 ```
 
 #### Query Parameters
@@ -1117,12 +1117,17 @@ GET /api/v1/listings?q=리자몽&category=pokemon&condition=graded&grades=PSA-10
 | `minPrice` | number | N | - | 최소 가격 (이상) |
 | `maxPrice` | number | N | - | 최대 가격 (이하) |
 | `tradeMethod` | string | N | - | `delivery` / `direct`. 둘 다면 쉼표로 구분 (하나라도 만족하면 포함) |
+| `itemState` | string | N | - | `new`(새상품 = `unopened`) / `used`(중고 = `opened_raw`, `graded`). 둘 다면 제한 없음. 등급 조건과는 AND |
+| `sizes` | string | N | - | 운동화 사이즈 구간 `le230`(230 이하) / `235-250` / `255-265` / `270-280` / `ge285`(285 이상), 쉼표로 여러 개. `attributes.sizeMm` 기준이라 사이즈가 없는 글은 빠짐 |
 | `excludeSold` | boolean | N | `true` | `true`면 `sold` 제외 |
 | `sort` | string | N | `latest` | `ListingSort` |
 | `page` | number | N | `1` | 1부터 시작 |
 | `size` | number | N | `10` | 최대 50 |
 
 > 검색 화면의 등급 필터 "미개봉"은 `condition=unopened`, "그레이딩 없음"은 `condition=opened_raw`로 보냅니다.
+> 옵션의 "새상품/중고"는 `itemState`로 보냅니다. 사이즈 필터는 운동화 카테고리를 골랐을 때만 켜지고 `sizes`로 보냅니다.
+> 운동화 사이즈는 `listings.attributes`의 `{ "sizeMm": 275 }`에 저장합니다. 시드 데이터는 제목의 `275mm`에서 채우고, 판매글 등록 화면에는 아직 사이즈 입력이 없습니다.
+> 검색 화면 주소(`/search?q=&category=&grades=psa10&size=270-280&state=new&trade=direct&minPrice=&maxPrice=&includeSold=1&sort=&page=`)에 조건을 모두 남겨 새로고침·뒤로가기 때 유지합니다.
 
 #### Response `200 OK`
 

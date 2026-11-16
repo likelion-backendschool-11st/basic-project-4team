@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ROUTES } from '../../data/layout';
 import type { Listing, ListingStatus, PriceDiffTone } from '../../data/search';
@@ -35,6 +35,8 @@ export const ListingCard: React.FC<ListingCardProps> = ({
   statusLabels,
 }) => {
   const status = statusStyles[listing.status];
+  // 이미지 주소가 깨졌으면(파일 삭제 등) 빈 이미지 표시로 바꾼다.
+  const [imageFailed, setImageFailed] = useState(false);
   const detailPath = ROUTES.listingDetail(listing.id);
 
   return (
@@ -42,12 +44,19 @@ export const ListingCard: React.FC<ListingCardProps> = ({
     <article className="bg-surface-container-lowest rounded shadow-sm hover:shadow-md transition-shadow flex flex-col overflow-hidden group">
       <div className="relative w-full aspect-[4/5] bg-canvas-soft overflow-hidden">
         <Link aria-label={listing.title} to={detailPath}>
-          <img
-            alt={listing.imageAlt}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-            loading="lazy"
-            src={listing.imageUrl}
-          />
+          {listing.imageUrl && !imageFailed ? (
+            <img
+              alt={listing.imageAlt}
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+              loading="lazy"
+              onError={() => setImageFailed(true)}
+              src={listing.imageUrl}
+            />
+          ) : (
+            <span className="w-full h-full flex items-center justify-center text-faint">
+              <Icon className="text-[40px]" name="image" />
+            </span>
+          )}
         </Link>
         <button
           aria-label={wishAria}

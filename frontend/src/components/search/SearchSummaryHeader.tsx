@@ -3,19 +3,34 @@ import { Link } from 'react-router-dom';
 import type { Breadcrumb } from '../../data/search';
 
 interface SearchSummaryHeaderProps {
+  /** 검색어. 비어 있으면 title만 보여준다. */
   readonly query: string;
+  /** 검색어가 없을 때 제목 (카테고리 이름 또는 "전체 판매글"). */
+  readonly title: string;
   readonly resultLabel: string;
   readonly totalText: string;
   readonly breadcrumbs: readonly Breadcrumb[];
 }
 
-/** "'키워드' 검색 결과 총 N개" title with breadcrumb trail. */
-export const SearchSummaryHeader: React.FC<SearchSummaryHeaderProps> = ({ query, resultLabel, totalText, breadcrumbs }) => (
+/** "'키워드' 검색 결과 총 N개" (검색어가 없으면 카테고리 이름) + 경로(breadcrumb). */
+export const SearchSummaryHeader: React.FC<SearchSummaryHeaderProps> = ({
+  query,
+  title,
+  resultLabel,
+  totalText,
+  breadcrumbs,
+}) => (
   // data-component="SearchSummaryHeader"
   <section className="py-space-lg flex flex-col md:flex-row md:items-baseline justify-between gap-space-sm">
     <div className="flex flex-wrap items-baseline gap-space-xs">
       <h1 className="font-heading-2 text-heading-2 text-ink tracking-tight font-bold">
-        <span className="text-primary-container font-extrabold">‘{query}’</span> {resultLabel}
+        {query ? (
+          <>
+            <span className="text-primary-container font-extrabold">‘{query}’</span> {resultLabel}
+          </>
+        ) : (
+          title
+        )}
       </h1>
       <span className="font-stat-value text-stat-value text-muted font-normal">{totalText}</span>
     </div>
