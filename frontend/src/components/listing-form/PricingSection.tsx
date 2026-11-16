@@ -3,6 +3,7 @@ import { PriceField } from './PriceField';
 import { SectionCard } from './SectionCard';
 import { TitleField } from './TitleField';
 import { pricingCopy } from '../../data/listingForm';
+import type { PricePolicy } from '../../hooks/listing-form/usePricePolicy';
 
 interface PricingSectionProps {
   readonly step: number;
@@ -11,6 +12,7 @@ interface PricingSectionProps {
   readonly onTitleChange: (value: string) => void;
   readonly onPriceChange: (value: number) => void;
   readonly onAddPrice: (amount: number) => void;
+  readonly pricePolicy: PricePolicy;
   readonly titleError?: string;
   readonly priceError?: string;
 }
@@ -23,13 +25,21 @@ export const PricingSection: React.FC<PricingSectionProps> = ({
   onTitleChange,
   onPriceChange,
   onAddPrice,
+  pricePolicy,
   titleError,
   priceError,
 }) => (
   // data-component="ListingPricingSection"
   <SectionCard step={step} title={pricingCopy.create.title} variant="create">
     <TitleField error={titleError} onChange={onTitleChange} value={title} variant="create" />
-    <PriceField error={priceError} onAdd={onAddPrice} onChange={onPriceChange} value={price} variant="create" />
+    <PriceField
+      error={priceError}
+      onAdd={onAddPrice}
+      onChange={onPriceChange}
+      policy={pricePolicy}
+      value={price}
+      variant="create"
+    />
   </SectionCard>
 );
 

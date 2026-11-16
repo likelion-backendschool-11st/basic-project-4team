@@ -1,10 +1,9 @@
 import { useMemo } from 'react';
-import { FRAUD_THRESHOLD_RATIO, MARKET_PRICE, pricingCopy, type FormVariant } from '../../data/listingForm';
+import { FRAUD_THRESHOLD_RATIO, pricingCopy, type FormVariant } from '../../data/listingForm';
 
 export type PriceTier = 'none' | 'danger' | 'fair' | 'above';
 
 export interface PriceFeedback {
-  readonly marketPrice: number;
   readonly diffPercent: number | null;
   readonly tier: PriceTier;
   readonly badgeText: string;
@@ -16,19 +15,24 @@ export interface PriceFeedback {
 export const formatWon = (n: number): string => (n > 0 ? n.toLocaleString('ko-KR') : '');
 export const parseWon = (raw: string): number => parseInt(raw.replace(/[^0-9]/g, ''), 10) || 0;
 
-/** Compares the asking price to the market price and derives the feedback badge. */
+/**
+ * Compares the asking price to the market price (ITEM-04) and derives the feedback badge.
+ * 시세가 없으면(거래 없음·불러오기 전) 비교하지 않는다.
+ */
 export const usePriceFeedback = (
   price: number,
   variant: FormVariant,
+  marketPrice: number | null,
+  lowPriceRatio: number = FRAUD_THRESHOLD_RATIO,
   originalPrice?: number,
-  marketPrice: number = MARKET_PRICE,
 ): PriceFeedback =>
   useMemo<PriceFeedback>(() => {
-    if (price <= 0) {
-      return { marketPrice, diffPercent: null, tier: 'none', badgeText: '', isFraudRisk: false, isPriceDrop: false };
+    const isPriceDrop = originalPrice !== undefined && price > 0 && price < originalPrice;
+    if (price <= 0 || marketPrice === null || marketPrice <= 0) {
+      return { diffPercent: null, tier: 'none', badgeText: '', isFraudRisk: false, isPriceDrop };
     }
     const diff = ((price - marketPrice) / marketPrice) * 100;
-    const isFraudRisk = price < marketPrice * (1 - FRAUD_THRESHOLD_RATIO);
+    const isFraudRisk = price < marketPrice * (1 - lowPriceRatio);
     const tier: PriceTier = isFraudRisk ? 'danger' : diff < 0 ? 'fair' : 'above';
     const t = pricingCopy.tiers;
     const tierText =
@@ -38,12 +42,5 @@ export const usePriceFeedback = (
       variant === 'create'
         ? `${pricingCopy.diffPrefix}${pct} ${tierText}`
         : `${pricingCopy.diffPrefix}${pct} (${tierText})`;
-    return {
-      marketPrice,
-      diffPercent: diff,
-      tier,
-      badgeText,
-      isFraudRisk,
-      isPriceDrop: originalPrice !== undefined && price < originalPrice,
-    };
-  }, [price, variant, originalPrice, marketPrice]);
+    return { diffPercent: diff, tier, badgeText, isFraudRisk, isPriceDrop };
+  }, [price, variant, marketPrice, lowPriceRatio, originalPrice]);

@@ -7,6 +7,7 @@ const itemCommunityService = require('../itemcommunity/itemcommunity.service');
 const env = require('../config/env');
 const HttpError = require('../utils/HttpError');
 const notificationService = require('../notification/notification.service');
+const newSubscriberService = require('../newsubscriber/newsubscriber.service');
 
 const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
 const LISTING_IMAGE_DIR = 'listings';
@@ -175,6 +176,8 @@ async function createListing(sellerId, input) {
   const item = await sellRepository.findActiveItem(input.itemId);
   if (!item) throw new HttpError(404, 'ITEM_NOT_FOUND', '존재하지 않는 품목입니다.');
 
+  // 신규 가입자 고가 등록 제한 (REQ-POST-018)
+  await newSubscriberService.assertListingPriceAllowed(sellerId, input.price);
   await assertImagesLinkable(sellerId, input);
 
   const created = await sellRepository.createListing(
@@ -280,6 +283,10 @@ async function updateListing(listingId, userId, fields) {
 
     const { imageIds, authImageId, ...rest } = fields;
     const listingFields = resolveListingFields(current, rest);
+    // 가격을 올리는 수정에도 신규 가입자 제한을 건다 (REQ-POST-018). 내리는 수정은 막지 않는다.
+    if (rest.price !== undefined && rest.price > current.price) {
+      await newSubscriberService.assertListingPriceAllowed(userId, rest.price);
+    }
     await assertAttachableImages(connection, listingId, userId, { imageIds, authImageId });
 
     await sellRepository.updateListing(connection, listingId, listingFields);

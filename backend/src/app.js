@@ -17,7 +17,8 @@ const uploadRoutes = require('./sell/upload.routes');
 const itemRoutes = require('./sell/item.routes');
 const categoryRoutes = require('./sell/category.routes');
 const postUploadRoutes = require('./upload/upload.routes');
-const chatRoutes = require('./chat/chat.routes');
+const newSubscriberItemRoutes = require('./newsubscriber/newsubscriber.item.routes');
+const newSubscriberMeRoutes = require('./newsubscriber/newsubscriber.me.routes');
 const errorHandler = require('./middlewares/errorHandler');
 const HttpError = require('./utils/HttpError');
 
@@ -47,9 +48,11 @@ app.use('/api/listings', sellRoutes);
 app.use('/api/listings', wishRoutes);
 app.use('/api/categories', categoryRoutes); // GET / (ITEM-01)
 app.use('/api/items', itemRoutes); // GET / 품목 검색 (ITEM-02) — itemCommunityRoutes보다 먼저
+app.use('/api/items', newSubscriberItemRoutes); // GET /:itemId/market-price (ITEM-04)
 app.use('/api/items', itemCommunityRoutes); // GET /trending, GET /:itemId (ITEM-03)
 app.use('/api/users/me', myWishRoutes); // GET /wishes
 app.use('/api/users/me', mypageRoutes); // 마이페이지: summary, listings, purchases, posts, comments, nickname, password
+app.use('/api/users/me', newSubscriberMeRoutes); // GET /listing-limit
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/community', commentRoutes);
 app.use('/api/reports', reportRoutes);

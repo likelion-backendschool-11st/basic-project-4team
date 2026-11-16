@@ -15,6 +15,7 @@ import { submitCopy } from '../../data/listingForm';
 import { useDeleteListing } from '../../hooks/listing-form/useDeleteListing';
 import { useEditListing } from '../../hooks/listing-form/useEditListing';
 import { useListingForm } from '../../hooks/listing-form/useListingForm';
+import { usePricePolicy } from '../../hooks/listing-form/usePricePolicy';
 
 interface ListingEditFormProps {
   /** LISTING-02로 불러온 내 판매글. */
@@ -29,6 +30,7 @@ export const ListingEditForm: React.FC<ListingEditFormProps> = ({ listing, class
   const form = useListingForm(edit.initialValues, { variant: 'edit', listingId: id, onSubmit: edit.onSubmit });
   const { deleting, deleteError, confirmAndRemove } = useDeleteListing(id);
   const { values, errors, setField } = form;
+  const pricePolicy = usePricePolicy(values.itemId, values.attributes);
   const cancelTo = ROUTES.myListingDetail(id);
   const messages = [...Object.values(errors), form.submitError, deleteError].filter((m): m is string => Boolean(m));
 
@@ -72,6 +74,7 @@ export const ListingEditForm: React.FC<ListingEditFormProps> = ({ listing, class
               onTitleChange={(v) => setField('title', v)}
               originalPrice={edit.originalPrice}
               price={values.price}
+              pricePolicy={pricePolicy}
               priceError={errors.price}
               step={3}
               title={values.title}

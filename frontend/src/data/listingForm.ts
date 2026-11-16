@@ -56,8 +56,10 @@ export interface ListingFormValues {
 
 export const MAX_PHOTOS = 10;
 export const MAX_DESCRIPTION = 1000;
-export const MARKET_PRICE = 320000;
-/** Listing more than this ratio below market price raises the fraud warning flag. */
+/**
+ * Listing more than this ratio below market price raises the fraud warning flag.
+ * 등록·수정 화면은 서버 설정값(ITEM-04 lowPriceRatio)을 쓰고, 이 값은 응답 전·검색 카드용 기본값이다.
+ */
 export const FRAUD_THRESHOLD_RATIO = 0.3;
 export const NEW_LISTING_ID = 'RPC-2025-NEW';
 
@@ -424,9 +426,10 @@ export const pricingCopy = {
     titlePlaceholder: '포켓몬 151 리자몽 ex SAR PSA 10 급처합니다',
     priceLabel: '판매 희망 가격 (필수)',
     marketLabel: '현재 시장 시세',
-    marketHint: '(최근 5건 평균 체결가)',
+    marketHint: (days: number, count: number) => `(최근 ${days}일 평균 체결가 · ${count}건)`,
     warningStrong: '안심 거래 경고 기준 안내:',
-    warningPrefix: ' 시세(320,000원) 대비 30% 이상 과도하게 저렴하게 등록할 경우, 구매자 보호를 위해 목록에 ',
+    warningPrefix: (market: string, percent: number) =>
+      ` 시세(${market}) 대비 ${percent}% 이상 과도하게 저렴하게 등록할 경우, 구매자 보호를 위해 목록에 `,
     warningFlag: '‘시세 급락 사기 주의’',
     warningSuffix: ' 경고 플래그가 자동 노출되며 실물 인증 검증이 강화됩니다.',
   },
@@ -443,6 +446,22 @@ export const pricingCopy = {
     dropSuffix: '의 수집가에게 즉시 실시간 알림이 발송됩니다!',
   },
   currency: '원',
+  /** 시세 값 자리에 보여줄 상태 문구 (ITEM-04 응답 전·거래 없음 등). */
+  market: {
+    noItem: '품목 선택 후 표시',
+    loading: '시세 확인 중...',
+    noTrade: '최근 거래 없음',
+    error: '시세를 불러오지 못했어요',
+    /** 시세를 모를 때 경고 문구의 시세 자리. */
+    unknown: '시세',
+  },
+  /** 신규 가입자 고가 등록 제한 안내 (GET /users/me/listing-limit). */
+  newUser: {
+    strong: '신규 가입 회원 안내:',
+    body: (days: number, limit: string, until: string) =>
+      ` 가입 후 ${days}일(${until}까지)에는 ${limit} 이상으로 판매글을 등록하거나 가격을 올릴 수 없어요.`,
+    over: (limit: string) => `${limit} 미만으로 입력해 주세요.`,
+  },
   diffPrefix: '시세 대비 ',
   tiers: {
     danger: '시세 급락 주의',
