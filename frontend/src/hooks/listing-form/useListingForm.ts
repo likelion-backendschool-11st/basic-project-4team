@@ -22,12 +22,21 @@ export interface UseListingFormOptions {
   /** Listing id (edit mode). Create mode navigates to a mock new id. */
   readonly listingId?: string;
   readonly redirectDelayMs?: number;
+  /**
+   * 실제 저장. 실패하면 화면에 보여줄 문구를 담은 Error를 던진다.
+   * 없으면 저장 없이 상세로 이동한다 (등록 화면 목 동작).
+   */
+  readonly onSubmit?: (values: ListingFormValues) => Promise<void>;
 }
 
 export interface ListingFormApi {
   readonly values: ListingFormValues;
   readonly errors: ListingErrors;
   readonly submitting: boolean;
+  /** 저장이 끝나 상세로 이동하기 직전 (완료 토스트 표시용). */
+  readonly saved: boolean;
+  /** 서버 저장 실패 문구. */
+  readonly submitError: string | null;
   readonly setField: <K extends keyof ListingFormValues>(key: K, value: ListingFormValues[K]) => void;
   readonly setAttribute: <K extends keyof ListingAttributes>(key: K, value: ListingAttributes[K]) => void;
   readonly setMainCategory: (main: string) => void;
@@ -57,12 +66,14 @@ export const validateListing = (v: ListingFormValues): ListingErrors => {
  */
 export const useListingForm = (
   initialValues: ListingFormValues,
-  { variant, listingId, redirectDelayMs = 1600 }: UseListingFormOptions,
+  { variant, listingId, redirectDelayMs = 1600, onSubmit }: UseListingFormOptions,
 ): ListingFormApi => {
   const navigate = useNavigate();
   const [values, setValues] = useState<ListingFormValues>(initialValues);
   const [errors, setErrors] = useState<ListingErrors>({});
   const [submitting, setSubmitting] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [attempted, setAttempted] = useState(false);
   const timer = useRef<number | undefined>(undefined);
 
@@ -102,7 +113,7 @@ export const useListingForm = (
   }, []);
 
   const handleSubmit = useCallback(
-    (e?: React.FormEvent) => {
+    async (e?: React.FormEvent) => {
       e?.preventDefault();
       if (submitting) return;
       setAttempted(true);
@@ -110,16 +121,29 @@ export const useListingForm = (
       setErrors(nextErrors);
       if (Object.keys(nextErrors).length > 0) return;
       setSubmitting(true);
+      setSubmitError(null);
+      if (onSubmit) {
+        try {
+          await onSubmit(values);
+        } catch (err) {
+          setSubmitError(err instanceof Error ? err.message : String(err));
+          setSubmitting(false);
+          return;
+        }
+      }
+      setSaved(true);
       const id = variant === 'edit' && listingId ? listingId : NEW_LISTING_ID;
       timer.current = window.setTimeout(() => navigate(ROUTES.myListingDetail(id)), redirectDelayMs);
     },
-    [submitting, values, variant, listingId, navigate, redirectDelayMs],
+    [submitting, values, variant, listingId, navigate, redirectDelayMs, onSubmit],
   );
 
   return {
     values,
     errors,
     submitting,
+    saved,
+    submitError,
     setField,
     setAttribute,
     setMainCategory,

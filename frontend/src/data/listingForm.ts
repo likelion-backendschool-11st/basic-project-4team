@@ -17,6 +17,10 @@ export interface ListingPhoto {
   readonly label: string;
   /** Bottom-right caption (e.g. 정면 01). */
   readonly caption?: string;
+  /** 서버에 이미 올라가 있는 이미지 id (수정 화면에서 불러온 사진). */
+  readonly imageId?: number;
+  /** 이번에 새로 고른 파일. 저장할 때 업로드해서 imageId를 받는다. */
+  readonly file?: File;
 }
 
 export type ItemCondition = 'unopened' | 'opened_raw' | 'graded';
@@ -130,6 +134,15 @@ export const conditionOptions: readonly ConditionOption[] = [
 /** Edit mode only offers sealed vs graded, and a graded slab cannot revert to sealed. */
 export const editConditionVisible: readonly ItemCondition[] = ['unopened', 'graded'];
 export const editConditionDisabled: readonly ItemCondition[] = ['unopened'];
+
+/** 수정 화면에서 원래 상태별로 고를 수 있는 상태 (LISTING-04: 미개봉 → 그레이딩만 허용). */
+export const editConditionRules: Readonly<
+  Record<ItemCondition, { readonly visible: readonly ItemCondition[]; readonly disabled: readonly ItemCondition[] }>
+> = {
+  unopened: { visible: ['unopened', 'graded'], disabled: [] },
+  graded: { visible: editConditionVisible, disabled: editConditionDisabled },
+  opened_raw: { visible: ['opened_raw'], disabled: [] },
+};
 
 export const quickPriceSteps: readonly { readonly label: string; readonly amount: number }[] = [
   { label: '+1만', amount: 10000 },
@@ -481,6 +494,27 @@ export const submitCopy = {
     editTitle: '판매글 수정이 정상적으로 저장되었습니다!',
     editBody: '찜한 사용자에게 가격 변동 알림이 발송됩니다.',
   },
+} as const;
+
+/** P-015 판매글 수정 — API 연동 상태 문구. */
+export const editPageCopy = {
+  loading: '판매글 정보를 불러오는 중입니다...',
+  notFoundTitle: '판매글을 찾을 수 없습니다',
+  notFoundBody: '삭제되었거나 존재하지 않는 판매글입니다.',
+  errorTitle: '판매글을 불러오지 못했습니다',
+  errorBody: '잠시 후 다시 시도해 주세요.',
+  forbiddenTitle: '수정할 수 없는 판매글입니다',
+  forbiddenBody: '판매글 작성자 본인만 수정할 수 있습니다. 로그인 상태를 확인해 주세요.',
+  soldTitle: '거래완료된 판매글입니다',
+  soldBody: '거래완료된 판매글은 시세 데이터 보호를 위해 수정할 수 없습니다.',
+  homeLabel: '홈으로',
+  detailLabel: '판매글 보기',
+  photoLabel: (n: number) => `사진 ${n}`,
+  authPhotoLabel: '실물인증',
+  submitError: '저장하지 못했습니다. 잠시 후 다시 시도해 주세요.',
+  deleteError: '삭제하지 못했습니다. 잠시 후 다시 시도해 주세요.',
+  networkError: '서버에 연결할 수 없습니다. 네트워크 상태를 확인해 주세요.',
+  missingPhotoFile: '사진 파일을 다시 선택해 주세요.',
 } as const;
 
 export const validationMessages = {

@@ -34,7 +34,7 @@ export const useAuthPhoto = (
     if (blobUrl.current) URL.revokeObjectURL(blobUrl.current);
     const src = URL.createObjectURL(file);
     blobUrl.current = src;
-    setPhoto({ id: `auth-${Date.now()}`, src, alt: file.name, label: '실물인증' });
+    setPhoto({ id: `auth-${Date.now()}`, src, alt: file.name, label: '실물인증', file });
     setReplaced(true);
   }, []);
 

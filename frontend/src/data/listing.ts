@@ -161,6 +161,25 @@ export const listingDetailCopy = {
   },
 };
 
+/** P-013 내 판매글 상세 API 연동 문구 (LISTING-02 응답 → 판매자 화면). */
+export const sellerDetailCopy = {
+  notOwnerTitle: '내 판매글이 아닙니다',
+  notOwnerBody: '판매글 작성자 본인만 관리 화면을 볼 수 있습니다. 로그인 상태를 확인해 주세요.',
+  buyerViewLabel: '판매글 보기',
+  registered: (timeAgo: string, date: string) => `등록시간: ${timeAgo} (${date})`,
+  avgValue: (price: string) => `${price}원`,
+  cheaperNote: (rate: number) => `시장 평균보다 약 ${rate}% 저렴하게 등록되어 빠른 판매가 예상됩니다.`,
+  pricierNote: (rate: number) => `시장 평균보다 약 ${rate}% 높게 등록되어 있습니다.`,
+  sameNote: '시장 평균과 같은 가격으로 등록되어 있습니다.',
+  noMarketNote: '최근 30일 거래 이력이 없어 시세와 비교할 수 없습니다.',
+  tradeDelivery: '택배 배송',
+  tradeDirect: (location: string | null) => (location ? `직거래 (${location})` : '직거래'),
+  tradeSeparator: ' / ',
+  languageLabel: '카드 언어판본',
+  rarityLabel: '레어도/일련번호',
+  deleteFailedIcon: 'error',
+};
+
 /* ------------------------------------------------------------------ */
 /* P-010 Buyer view                                                    */
 /* ------------------------------------------------------------------ */
