@@ -10,7 +10,6 @@ import { CommentSection } from '../comment/CommentSection';
 import { ReportModal } from '../comment/ReportModal';
 import { Icon } from '../common/Icon';
 import { AuthorAvatar } from './AuthorAvatar';
-import { BookmarkButton } from './BookmarkButton';
 import { PostImages } from './PostImages';
 import { PostMoreMenu } from './PostMoreMenu';
 import { ReactionBar } from './ReactionBar';
@@ -28,7 +27,7 @@ export interface DiscussionPostCardProps {
 const commentButtonClass =
   'flex items-center gap-1 px-space-sm py-1 rounded-lg bg-surface-container-lowest font-ui-sm text-ui-sm text-on-surface-variant hover:text-primary transition-colors shadow-sm';
 
-/** Item discussion post: author row, body, optional photos, reactions + comment(펼치기)/bookmark. */
+/** Item discussion post: author row, body, optional photos, reactions + comment(펼치기). */
 export const DiscussionPostCard: React.FC<DiscussionPostCardProps> = ({ post, itemId, ensureLogin, focused = false }) => {
   const { postId } = post;
   const { status } = useAuth();
@@ -73,7 +72,9 @@ export const DiscussionPostCard: React.FC<DiscussionPostCardProps> = ({ post, it
       {post.images && post.images.length > 0 && <PostImages images={post.images} variant="strip" />}
       {/* Reactions & Meta Row — data-component="Footer" */}
       <footer className="flex flex-wrap items-center justify-between gap-space-sm bg-surface-container-low/50 rounded-lg p-space-xs">
-        <ReactionBar canToggle={ensureLogin} seeds={post.reactions} variant="chip" />
+        {postId !== undefined && (
+          <ReactionBar canToggle={ensureLogin} postId={postId} seeds={post.reactions} selected={post.myReaction} variant="chip" />
+        )}
         <div className="flex items-center gap-space-xs">
           {postId !== undefined ? (
             <button aria-expanded={comments.open} className={commentButtonClass} onClick={comments.toggle} type="button">
@@ -91,7 +92,6 @@ export const DiscussionPostCard: React.FC<DiscussionPostCardProps> = ({ post, it
               </span>
             </Link>
           )}
-          <BookmarkButton />
         </div>
       </footer>
       {report.notice && (

@@ -24,6 +24,22 @@ export interface ApiErrorBody {
 export type PostBoard = 'pokemon' | 'sneakers' | 'onepiece' | 'watch' | 'free';
 export type PostTag = 'analysis' | 'verify' | 'unboxing' | 'poll' | 'qna' | 'info';
 export type PostSort = 'latest' | 'popular';
+export type ReactionType = 'fire' | 'surprised' | 'laugh' | 'ice';
+/** owner = 이 품목 보유자, trade = 이 품목 거래완료 이력. 품목 없는 글은 빈 배열. */
+export type AuthorBadge = 'owner' | 'trade';
+
+export type ReactionCounts = Readonly<Record<ReactionType, number>>;
+
+/** PUT·DELETE /posts/:id/reaction 응답. */
+export interface ReactionSummary {
+  readonly reactions: ReactionCounts;
+  readonly myReaction: ReactionType | null;
+}
+
+export interface PostImage {
+  readonly id: number;
+  readonly url: string;
+}
 
 export interface Post {
   readonly id: number;
@@ -32,8 +48,11 @@ export interface Post {
   readonly itemId: string | null;
   readonly title: string | null;
   readonly body: string;
-  readonly author: { readonly id: number; readonly nickname: string };
+  readonly author: { readonly id: number; readonly nickname: string; readonly badges: readonly AuthorBadge[] };
   readonly reactionCount: number;
+  readonly reactions: ReactionCounts;
+  readonly myReaction: ReactionType | null;
+  readonly images: readonly PostImage[];
   readonly commentCount: number;
   readonly isMine: boolean;
   /** 수정한 적이 없으면 null. "(수정됨)" 표시용. */
@@ -86,6 +105,17 @@ export interface ItemDetail {
   /** 거래 이력이 없으면 null. */
   readonly marketSummary: MarketSummary | null;
   readonly sellingCount: number;
+}
+
+/** GET /items/trending 항목 — 토론방 "연관 품목". */
+export interface TrendingItemResponse {
+  readonly id: number;
+  readonly slug: string;
+  readonly name: string;
+  readonly rarity: string | null;
+  readonly category: ItemCategory;
+  readonly postCount: number;
+  readonly marketSummary: MarketSummary | null;
 }
 
 /* ------------------------------------------------------------------ */

@@ -44,4 +44,25 @@ async function detail(req, res) {
   res.json({ data: item });
 }
 
-module.exports = { detail };
+const TRENDING_DEFAULT = { days: 7, limit: 5 };
+const TRENDING_MAX = { days: 30, limit: 20 };
+
+/** 1~max 정수 쿼리. 없으면 기본값. */
+function parseRange(value, fallback, max, label) {
+  if (value === undefined) return fallback;
+  if (typeof value !== 'string' || !/^[1-9]\d*$/.test(value) || Number(value) > max) {
+    throw badRequest(`${label}는 1~${max} 사이의 정수여야 합니다.`);
+  }
+  return Number(value);
+}
+
+/** GET /api/items/trending — 토론이 활발한 품목 순위 (토론방 "연관 품목"). */
+async function trending(req, res) {
+  const items = await itemCommunityService.getTrendingItems({
+    days: parseRange(req.query.days, TRENDING_DEFAULT.days, TRENDING_MAX.days, 'days'),
+    limit: parseRange(req.query.limit, TRENDING_DEFAULT.limit, TRENDING_MAX.limit, 'limit'),
+  });
+  res.json({ data: { items } });
+}
+
+module.exports = { detail, trending };

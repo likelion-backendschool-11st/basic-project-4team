@@ -34,7 +34,13 @@ export const CommunityFeedPage: React.FC<CommunityFeedPageProps> = ({ className 
               </p>
             )}
             {feed.posts.map((post) => (
-              <FeedPostCard key={post.id} onDelete={feed.removePost} onEdit={feed.editPost} post={post} />
+              <FeedPostCard
+                ensureLogin={feed.ensureLogin}
+                key={post.id}
+                onDelete={feed.removePost}
+                onEdit={feed.editPost}
+                post={post}
+              />
             ))}
             {!feed.loading && !feed.error && feed.posts.length === 0 && (
               <p className="py-space-lg text-center font-body-sm text-body-sm text-muted">{feedCopy.emptyLabel}</p>
