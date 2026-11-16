@@ -171,6 +171,15 @@ export const listingDetailCopy = {
   },
 };
 
+/** P-010 상세에서 작성자 본인에게만 보이는 관리 버튼 문구 (isOwner = true). */
+export const ownerActionCopy = {
+  notice: '내가 등록한 판매글입니다.',
+  editLabel: '수정하기',
+  deleteLabel: '삭제하기',
+  deletingLabel: '삭제 중...',
+  manageLabel: '내 판매글 관리',
+};
+
 /** P-013 내 판매글 상세 API 연동 문구 (LISTING-02 응답 → 판매자 화면). */
 export const sellerDetailCopy = {
   notOwnerTitle: '내 판매글이 아닙니다',
