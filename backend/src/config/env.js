@@ -16,6 +16,10 @@ module.exports = {
   isProduction: process.env.NODE_ENV === 'production',
   port: Number(process.env.PORT ?? 4000),
   corsOrigin: process.env.CORS_ORIGIN ?? 'http://127.0.0.1:4173',
+  // 업로드 이미지 URL 앞부분. 프론트(다른 포트)가 <img src>로 바로 쓸 수 있게 절대 주소로 저장한다.
+  publicBaseUrl: (process.env.PUBLIC_BASE_URL ?? 'http://127.0.0.1:4000').replace(/\/+$/, ''),
+  // 업로드 파일 저장 폴더 (backend/uploads, git 제외)
+  uploadDir: path.join(__dirname, '..', '..', 'uploads'),
   db: {
     host: process.env.DB_HOST ?? '127.0.0.1',
     port: Number(process.env.DB_PORT ?? 3306),

@@ -1,8 +1,16 @@
 const crypto = require('crypto');
+const fs = require('fs/promises');
+const path = require('path');
+const sharp = require('sharp');
 const sellRepository = require('./sell.repository');
+const env = require('../config/env');
 const HttpError = require('../utils/HttpError');
 
 const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
+const LISTING_IMAGE_DIR = 'listings';
+const IMAGE_MAX_SIDE = 1600;
+const IMAGE_WEBP_QUALITY = 80;
+const ALLOWED_IMAGE_FORMATS = ['jpeg', 'png', 'webp'];
 
 function listingNotFound() {
   return new HttpError(404, 'LISTING_NOT_FOUND', '판매글을 찾을 수 없습니다.');

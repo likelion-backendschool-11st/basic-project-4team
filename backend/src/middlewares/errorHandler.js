@@ -1,10 +1,12 @@
 const HttpError = require('../utils/HttpError');
 
-/** 모든 에러를 { error: { code, message } } 형식으로 응답한다. */
+/** 모든 에러를 { error: { code, message, details? } } 형식으로 응답한다. */
 // eslint-disable-next-line no-unused-vars
 function errorHandler(err, req, res, next) {
   if (err instanceof HttpError) {
-    return res.status(err.status).json({ error: { code: err.code, message: err.message } });
+    const error = { code: err.code, message: err.message };
+    if (err.details !== undefined) error.details = err.details;
+    return res.status(err.status).json({ error });
   }
   // express.json()이 잘못된 JSON 본문을 받은 경우
   if (err.type === 'entity.parse.failed') {
