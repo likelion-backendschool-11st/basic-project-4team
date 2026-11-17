@@ -1,6 +1,6 @@
 const uploadService = require('./upload.service');
 const HttpError = require('../utils/HttpError');
-const { PUBLIC_PREFIX } = require('./upload.middleware');
+const { UPLOAD_DIRS, relativeUrl } = require('../file/file.storage');
 
 /** POST /api/uploads/post-images — 토론글 사진 1장 업로드. 글 등록 때 imageIds로 연결한다. */
 async function postImage(req, res) {
@@ -8,7 +8,7 @@ async function postImage(req, res) {
   const image = await uploadService.registerPostImage(
     req.user.id,
     req.file,
-    `${PUBLIC_PREFIX}/posts/${req.file.filename}`,
+    relativeUrl(UPLOAD_DIRS.posts, req.file.filename),
   );
   res.status(201).json({ data: { image } });
 }
@@ -19,7 +19,7 @@ async function chatImage(req, res) {
   const image = await uploadService.registerChatImage(
     req.user.id,
     req.file,
-    `${PUBLIC_PREFIX}/chat/${req.file.filename}`,
+    relativeUrl(UPLOAD_DIRS.chat, req.file.filename),
   );
   res.status(201).json({ data: { image } });
 }

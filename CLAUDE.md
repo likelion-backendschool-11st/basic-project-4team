@@ -41,6 +41,7 @@ npm run db:init        # DB·테이블 생성 — .env 정보로 db/schema.sql �
 npm run db:seed        # 팀 공용 더미 데이터(db/seed.sql) — 모든 데이터를 지우고 다시 넣음. 계정 test1~3 등 / test1234
 npm run db:newbie      # 신규 가입자 확인용 계정 newbie(/test1234)만 추가·갱신 (데이터 안 지움, 7일 지나면 다시 실행)
 npm run db:market      # 일별 시세 집계(item_price_daily)를 거래완료 판매글로 다시 만듦 (데이터 안 지움, init·seed 때 자동 실행)
+npm run files:cleanup  # 24시간 넘게 판매글·글·채팅에 안 쓴 업로드 사진(행+파일) 정리 — 서버도 하루 1번 자동 실행 (-- --hours=0: 전부)
 npm run dev            # 개발 서버 (http://localhost:4000, 파일 변경 시 자동 재시작)
 npm start              # 일반 실행
 ```
@@ -57,6 +58,7 @@ backend/
   db/schema.sql   테이블 정의 (IF NOT EXISTS로만 작성)
   scripts/        db-init.js, db-seed.js (mysql CLI 없이 mysql2로 실행 — Mac/Windows 공통)
   src/            app.js, server.js, config/, routes/, controllers/, services/, repositories/, middlewares/, utils/
+  src/file/       파일(이미지) 서버 — 업로드 폴더·URL·/uploads 서빙(file.storage), 미연결 사진 정리(file.cleanup)
 docs/             컨벤션, API 정의서
 ```
 

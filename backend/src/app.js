@@ -23,6 +23,7 @@ const newSubscriberMeRoutes = require('./newsubscriber/newsubscriber.me.routes')
 const chatRoutes = require('./chat/chat.routes');
 const itemRequestRoutes = require('./itemrequest/itemrequest.routes');
 const marketRoutes = require('./market/market.routes');
+const { serveUploads } = require('./file/file.storage');
 const errorHandler = require('./middlewares/errorHandler');
 const HttpError = require('./utils/HttpError');
 
@@ -33,17 +34,8 @@ app.use(cors({ origin: env.corsOrigin, credentials: true }));
 app.use(express.json());
 app.use(cookieParser());
 
-// 업로드한 이미지 파일 서빙 (판매글 사진 + uploads/posts 토론글 사진).
-// 파일명이 랜덤 UUID라 내용이 바뀌지 않으므로 오래 캐시해도 되고, 목록 노출 없이 경로로만 접근한다.
-app.use(
-  '/uploads',
-  express.static(env.uploadDir, {
-    maxAge: '7d',
-    index: false,
-    dotfiles: 'deny',
-    setHeaders: (res) => res.setHeader('X-Content-Type-Options', 'nosniff'),
-  }),
-);
+// 파일(이미지) 서버 — 업로드한 판매글·토론글·채팅 사진과 시드 사진 서빙 (src/file/file.storage.js)
+app.use('/uploads', serveUploads());
 
 app.get('/api/health', (req, res) => res.json({ data: { status: 'ok' } }));
 app.use('/api/auth', authRoutes);
