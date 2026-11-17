@@ -12,10 +12,35 @@ function required(key) {
   return value;
 }
 
+const isProduction = process.env.NODE_ENV === 'production';
+
+/** 'https://a.com, https://b.com/' → ['https://a.com', 'https://b.com']. 끝의 /는 브라우저 Origin 헤더와 맞추려고 지운다. */
+function parseOrigins(value) {
+  return value
+    .split(',')
+    .map((origin) => origin.trim().replace(/\/+$/, ''))
+    .filter(Boolean);
+}
+
+/**
+ * DB_SSL=true면 TLS로 접속한다 (클라우드 MySQL은 대부분 필수).
+ * DB_SSL_CA에 CA 인증서(PEM)를 넣으면 그것으로 검증한다. 한 줄 환경변수로 넣을 수 있게 \n 글자를 줄바꿈으로 바꾼다.
+ */
+function dbSsl() {
+  if (process.env.DB_SSL !== 'true') return undefined;
+  const ca = process.env.DB_SSL_CA ? process.env.DB_SSL_CA.replace(/\\n/g, '\n') : undefined;
+  return { rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED !== 'false', ...(ca ? { ca } : {}) };
+}
+
 module.exports = {
-  isProduction: process.env.NODE_ENV === 'production',
+  isProduction,
   port: Number(process.env.PORT ?? 4000),
-  corsOrigin: process.env.CORS_ORIGIN ?? 'http://127.0.0.1:4173',
+  // 프론트 주소(들). 쉼표로 여러 개 — 배포 주소 + Vercel 미리보기 주소 등. CORS와 채팅 WebSocket Origin 검사에 쓴다.
+  corsOrigins: parseOrigins(process.env.CORS_ORIGIN ?? 'http://127.0.0.1:4173'),
+  // 프론트(Vercel)와 API가 다른 사이트면 로그인 쿠키가 SameSite=None이어야 전달된다. 배포(production) 기본값은 none.
+  cookieSameSite: process.env.COOKIE_SAMESITE || (isProduction ? 'none' : 'lax'),
+  // Render·Railway 같은 프록시 뒤에서 실행할 때 req.secure·req.ip를 프록시 헤더로 판단한다.
+  trustProxy: process.env.TRUST_PROXY === 'true' || isProduction,
   // 업로드 이미지 URL 앞부분. 프론트(다른 포트)가 <img src>로 바로 쓸 수 있게 절대 주소로 저장한다.
   publicBaseUrl: (process.env.PUBLIC_BASE_URL ?? 'http://127.0.0.1:4000').replace(/\/+$/, ''),
   // 업로드 파일 저장 폴더. 기본 backend/uploads (git 제외). 배포 시 서버 재배포에도 남는 폴더로 바꿀 수 있다.
@@ -28,6 +53,7 @@ module.exports = {
     user: required('DB_USER'),
     password: process.env.DB_PASSWORD ?? '',
     database: process.env.DB_NAME ?? 'repick',
+    ssl: dbSsl(),
   },
   jwt: {
     secret: required('JWT_SECRET'),

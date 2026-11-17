@@ -1,7 +1,11 @@
 import type { ApiErrorBody, ApiSuccess } from './types';
 
 // 프론트(127.0.0.1)와 API 호스트를 맞춰야 로그인 쿠키가 전달된다. localhost로 바꾸면 쿠키가 안 붙는다.
+// 배포(Vercel)에서는 VITE_API_BASE_URL에 백엔드 주소를 꼭 넣는다 — 빌드할 때 값이 박힌다 (docs/deploy.md).
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:4000/api';
+if (import.meta.env.PROD && !import.meta.env.VITE_API_BASE_URL) {
+  console.error('[RE:PICK] VITE_API_BASE_URL이 설정되지 않아 로컬 API(127.0.0.1:4000)로 요청합니다. 배포 환경변수를 확인하세요.');
+}
 export const API_ORIGIN = new URL(API_BASE_URL).origin;
 
 /** 서버가 준 업로드 경로(/uploads/...)를 API 서버 주소로 바꾼다. 이미 전체 URL이면 그대로. */
