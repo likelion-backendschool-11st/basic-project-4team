@@ -127,6 +127,9 @@ export const sizeOptions: readonly CheckOption[] = [
   { id: 'ge285', label: '285 이상' },
 ];
 
+/** 가격 입력칸 최대 자릿수 — 99억 9,999만 원까지. */
+export const PRICE_MAX_DIGITS = 10;
+
 export const pricePresets: readonly PricePreset[] = [
   { id: 'lt10', label: '10만 이하', min: null, max: 100000 },
   { id: '10to50', label: '10만-50만', min: 100000, max: 500000 },

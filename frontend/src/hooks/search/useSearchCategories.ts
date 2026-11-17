@@ -63,6 +63,8 @@ export const useSearchCategories = (selectedCode: string) => {
       /** 칩에서 선택 표시할 id. 없는(모르는) code면 전체. */
       selectedId: top ? selectedCode : ALL_ID,
       selectedName: child?.name ?? top?.name ?? null,
+      /** 주소의 카테고리 code가 DB 카테고리에 없음 (트리를 불러온 뒤에만 판단). 화면은 전체로 되돌린다. */
+      unknownCode: categories !== null && selectedCode !== '' && !top,
       breadcrumbs,
       /** 등급(PSA·BGS·미개봉) 필터: 전체 또는 카드 카테고리일 때만 (REQ-LIST-003). */
       gradeEnabled: !selectedCode || !top || top.code === CARD_CATEGORY_CODE,

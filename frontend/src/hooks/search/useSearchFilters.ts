@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import {
   conditionOptions,
   gradeOptions,
+  PRICE_MAX_DIGITS,
   pricePresets,
   SEARCH_PARAM,
   sizeOptions,
@@ -18,7 +19,8 @@ export interface PriceRange {
 }
 
 const parseWon = (value: string | null): number | null => {
-  const digits = (value ?? '').replace(/[^0-9]/g, '');
+  // 너무 긴 숫자는 앞자리만 쓴다 (JS 정수 정밀도·서버 검증 범위 안).
+  const digits = (value ?? '').replace(/[^0-9]/g, '').slice(0, PRICE_MAX_DIGITS);
   return digits.length > 0 ? Number(digits) : null;
 };
 
@@ -54,8 +56,12 @@ export const useSearchFilters = () => {
   const sizes = useMemo(() => readList(sizesParam, sizeOptions), [sizesParam]);
   const conditions = useMemo(() => readList(statesParam, conditionOptions), [statesParam]);
   const trades = useMemo(() => readList(tradesParam, tradeOptions), [tradesParam]);
-  const minPrice = parseWon(params.get(SEARCH_PARAM.minPrice));
-  const maxPrice = parseWon(params.get(SEARCH_PARAM.maxPrice));
+  // 주소를 손으로 고쳐 최소 > 최대가 되면 서버가 400을 돌려주므로, 두 값을 바꿔 읽는다.
+  const rawMin = parseWon(params.get(SEARCH_PARAM.minPrice));
+  const rawMax = parseWon(params.get(SEARCH_PARAM.maxPrice));
+  const crossed = rawMin !== null && rawMax !== null && rawMin > rawMax;
+  const minPrice = crossed ? rawMax : rawMin;
+  const maxPrice = crossed ? rawMin : rawMax;
   const appliedRange = useMemo<PriceRange>(() => ({ min: minPrice, max: maxPrice }), [minPrice, maxPrice]);
   const excludeSold = params.get(SEARCH_PARAM.includeSold) !== '1';
   const sortParam = params.get(SEARCH_PARAM.sort);

@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { LoginRequiredModal } from '../components/itemcommunity/LoginRequiredModal';
 import { ListingToast } from '../components/listing/ListingToast';
 import { EscrowGuideBanner } from '../components/search/EscrowGuideBanner';
@@ -35,6 +35,12 @@ interface SearchResultsPageProps {
 export const SearchResultsPage: React.FC<SearchResultsPageProps> = ({ className = '' }) => {
   const filters = useSearchFilters();
   const categories = useSearchCategories(filters.categoryCode);
+  // 없는 카테고리 주소(/search?category=잘못된값)는 칩은 "전체"인데 결과가 0건이 되므로 주소에서 뺀다.
+  const { unknownCode } = categories;
+  const { selectCategory } = filters;
+  useEffect(() => {
+    if (unknownCode) selectCategory('');
+  }, [unknownCode, selectCategory]);
   const { toast, showToast } = useToast();
   const loginGate = useLoginGate();
   const wishHandlers = useMemo(

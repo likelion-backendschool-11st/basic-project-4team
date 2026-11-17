@@ -41,6 +41,9 @@ export const PriceRangeFilter: React.FC<PriceRangeFilterProps> = ({
           className={`w-32 ${inputBase}`}
           inputMode="numeric"
           onChange={(event) => onMinChange(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') onApply();
+          }}
           placeholder={minPlaceholder}
           type="text"
           value={min}
@@ -53,6 +56,9 @@ export const PriceRangeFilter: React.FC<PriceRangeFilterProps> = ({
           className={`w-36 ${inputBase}`}
           inputMode="numeric"
           onChange={(event) => onMaxChange(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') onApply();
+          }}
           placeholder={maxPlaceholder}
           type="text"
           value={max}
