@@ -15,6 +15,8 @@ interface SelectFieldProps {
   readonly emphasize?: boolean;
   readonly disabled?: boolean;
   readonly className?: string;
+  /** 값이 비어 있을 때 보여줄 안내 (고를 수 없는 첫 옵션). */
+  readonly placeholder?: string;
 }
 
 const toneClass: Record<SelectFieldTone, string> = {
@@ -35,6 +37,7 @@ export const SelectField: React.FC<SelectFieldProps> = ({
   emphasize = false,
   disabled = false,
   className = '',
+  placeholder,
 }) => {
   const id = useId();
   const isCompact = tone === 'compact';
@@ -52,12 +55,17 @@ export const SelectField: React.FC<SelectFieldProps> = ({
         <select
           className={`w-full rounded focus:outline-none focus:ring-0 ${toneClass[tone]} ${
             isCompact ? '' : 'appearance-none bg-none border-0 pr-10'
-          } ${emphasize ? 'font-bold text-forest' : 'text-ink'}`}
+          } ${!value ? 'text-faint' : emphasize ? 'font-bold text-forest' : 'text-ink'}`}
           disabled={disabled}
           id={id}
           onChange={(e) => onChange(e.target.value)}
           value={value}
         >
+          {placeholder !== undefined && (
+            <option disabled value="">
+              {placeholder}
+            </option>
+          )}
           {options.map((o) => (
             <option key={o.value} value={o.value}>
               {useShortLabel ? (o.shortLabel ?? o.label) : o.label}

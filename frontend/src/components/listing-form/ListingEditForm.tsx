@@ -11,7 +11,7 @@ import { SubmitToast } from './SubmitToast';
 import { TradeOptionsSection } from './TradeOptionsSection';
 import type { ListingDetail } from '../../api/types';
 import { ROUTES } from '../../data/layout';
-import { submitCopy } from '../../data/listingForm';
+import { CARD_MAIN_CATEGORY, submitCopy } from '../../data/listingForm';
 import { useDeleteListing } from '../../hooks/listing-form/useDeleteListing';
 import { useEditListing } from '../../hooks/listing-form/useEditListing';
 import { useListingForm } from '../../hooks/listing-form/useListingForm';
@@ -61,6 +61,7 @@ export const ListingEditForm: React.FC<ListingEditFormProps> = ({ listing, class
                 conditionDisabled={edit.conditionDisabled}
                 conditionVisible={edit.conditionVisible}
                 onChange={form.setAttribute}
+                showItemAttributes={values.mainCategory === CARD_MAIN_CATEGORY}
                 value={values.attributes}
                 variant="edit"
               />

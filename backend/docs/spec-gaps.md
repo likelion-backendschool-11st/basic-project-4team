@@ -26,7 +26,7 @@
 | 9 | 작성자 뱃지 | | | 뱃지 없음 |
 | 10 | 판매글 인기순 | 찜 수 **+ 조회수** (REQ-LIST-007) | 찜 수 **+ 조회수** (REQ-LIST-007) |  |
 | 11 | 새상품/중고 필터 | 새상품/중고 필드 없음, `condition`은 unopened/opened_raw/graded  | 새상품/중고 필드 없음, `condition`은 unopened/opened_raw/graded |  |
-| 12 | 카테고리별 필수 속성 | 세트명·카드번호 등 판매자가 입력 |  세트명·카드번호 등 판매자가 입력 | 카드만 |
+| 12 | 카테고리별 필수 속성 | 세트명·카드번호 등 판매자가 입력 |  세트명·카드번호 등 판매자가 입력 | 카드만. #33: 세트명·카드번호·언어·희귀도는 품목(`items`) 값을 읽기 전용으로 보여주고, 판매자는 상태·그레이딩 업체·등급만 선택. 운동화·명품 속성(POST-007·008)은 미구현 |
 | 13 | 저가 경고 기준 | ±30% 고정, 프론트 계산  | ±30% 고정, 프론트 계산 | #54: 기준 비율은 DB `settings.low_price_warning_ratio`(기본 0.3), ITEM-04 `lowPriceThreshold`로 프론트가 경고 |
 | 14 | 신규 가입자 등록 제한 | LISTING-03에 검증·에러 코드 없음 | LISTING-03에 검증·에러 코드 없음 | #54: 가입 7일 이내 100만 원 이상 등록·가격 인상 시 403 `NEW_USER_PRICE_LIMIT` (DB `settings`의 `new_user_limit_days`·`new_user_price_limit`) |
 | 15 | 판매자 정보 | `seller {id, nickname, soldCount}`  | `seller {id, nickname, soldCount}` |  |

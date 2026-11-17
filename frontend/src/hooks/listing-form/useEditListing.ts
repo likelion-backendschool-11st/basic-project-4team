@@ -94,7 +94,8 @@ const buildUpdateRequest = async (listing: ListingDetail, values: ListingFormVal
   }
 
   const { condition, gradingService, grade } = values.attributes;
-  if (condition !== listing.condition) body.condition = condition;
+  // 수정 화면은 원래 상태로 시작하므로 비어 있지 않다 (빈 값은 validateListing이 막는다).
+  if (condition && condition !== listing.condition) body.condition = condition;
   if (condition === 'graded' && (body.condition || gradingService !== listing.gradingService || grade !== listing.grade)) {
     body.gradingService = gradingService;
     body.grade = grade;

@@ -3,7 +3,8 @@ import { conditionOptions, type FormVariant, type ItemCondition } from '../../da
 
 interface ConditionSelectorProps {
   readonly variant: FormVariant;
-  readonly value: ItemCondition;
+  /** 빈 문자열이면 아직 고르지 않은 상태. */
+  readonly value: ItemCondition | '';
   readonly onChange: (value: ItemCondition) => void;
   /** Subset of options to show (edit shows sealed vs graded only). */
   readonly visible?: readonly ItemCondition[];

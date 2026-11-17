@@ -18,6 +18,8 @@ const toCreateRequest = (
   authImageId: number,
 ): CreateListingRequest => {
   const { condition, gradingService, grade } = v.attributes;
+  // validateListing을 통과했으므로 condition은 비어 있지 않다.
+  if (!condition) throw new Error('상품 상태가 선택되지 않았습니다.');
   return {
     itemId,
     imageIds,
