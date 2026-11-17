@@ -10,6 +10,8 @@ interface TopGainersWidgetProps {
   readonly currency: string;
   readonly volumePrefix: string;
   readonly volumeSuffix: string;
+  /** 오른 품목이 없을 때 문구. */
+  readonly emptyLabel: string;
 }
 
 /** "전일 상승 Top 5" side widget. */
@@ -21,6 +23,7 @@ export const TopGainersWidget: React.FC<TopGainersWidgetProps> = ({
   currency,
   volumePrefix,
   volumeSuffix,
+  emptyLabel,
 }) => (
   // data-component="TopGainersWidget"
   <div className="lg:col-span-4 min-w-0 bg-canvas border border-surface-container rounded-xl p-space-md shadow-sm flex flex-col">
@@ -29,12 +32,13 @@ export const TopGainersWidget: React.FC<TopGainersWidgetProps> = ({
       <span className="text-caption text-muted">{caption}</span>
     </div>
     <div className="divide-y divide-surface-container flex-1 flex flex-col justify-between">
+      {items.length === 0 ? <p className="py-space-lg text-center font-caption text-caption text-muted">{emptyLabel}</p> : null}
       {items.map((item) => (
         <TopGainerRow
           currency={currency}
           item={item}
           key={item.id}
-          to={linkFor(item.id)}
+          to={linkFor(item.slug)}
           volumePrefix={volumePrefix}
           volumeSuffix={volumeSuffix}
         />

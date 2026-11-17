@@ -13,7 +13,7 @@
 
 ## 0. 범위와 공통 규칙
 
-**만드는 테이블 (25개)**: `users`, `refresh_tokens`, `verification_codes`, `categories`, `items`, `listings`, `listing_images`, `listing_wishes`, `listing_views`, `posts`, `post_images`, `post_price_tags`, `post_polls`, `post_poll_options`, `post_poll_votes`, `post_reactions`, `comments`, `comment_likes`, `item_votes`, `reports`, `notifications`, `settings`, `chat_rooms`, `chat_messages`, `chat_images`
+**만드는 테이블 (26개)**: `users`, `refresh_tokens`, `verification_codes`, `categories`, `items`, `listings`, `listing_images`, `listing_wishes`, `listing_views`, `posts`, `post_images`, `post_price_tags`, `post_polls`, `post_poll_options`, `post_poll_votes`, `post_reactions`, `comments`, `comment_likes`, `item_votes`, `reports`, `notifications`, `settings`, `chat_rooms`, `chat_messages`, `chat_images`, `item_price_daily`
 
 **만들지 않는 것**
 
@@ -23,7 +23,6 @@
 | 뱃지 | spec-gaps 1-#9 "뱃지 없음" |
 | 판매글 댓글 | spec-gaps 1-#6 "댓글은 토론글에만" |
 | `blocks` | API 없음·보류. 필요할 때 spec-gaps 3장 설계대로 추가 (`reports`는 #76 — 2.15, `settings`는 #54 — 2.17에서 추가) |
-| 시세 집계 테이블 | 시세·랭킹은 `listings`의 거래완료 행으로 계산. 느려지면 일별 집계 테이블을 추가 |
 
 **공통 규칙**
 
@@ -524,6 +523,31 @@ CHECK: `text`면 `body`만, `image`면 `image_id`만 있어야 한다.
 | `uploader_id` | BIGINT | NOT NULL, FK → `users` ON DELETE CASCADE | 올린 사람만 메시지로 보낼 수 있음 |
 | `url` | VARCHAR(500) | NOT NULL | `/uploads/chat/<UUID>.<확장자>` (서버 기준 경로) |
 | `created_at` | DATETIME | NOT NULL | 보내지 않은 사진 정리 기준 (정리 작업은 아직 없음) |
+
+### 2.21 `item_price_daily` — 일별 시세 집계 (#48, REQ-COMMON-004)
+
+거래완료 판매글 체결가를 품목·등급·체결일(KST)별로 모은 표. 시세 대시보드(MARKET-01~05)가 읽는다. 원본은 `listings`라 언제든 다시 만들 수 있다.
+
+| 컬럼 | 타입 | 제약 | 설명 |
+|---|---|---|---|
+| `id` | BIGINT | PK | |
+| `item_id` | BIGINT | FK → items, NOT NULL | |
+| `category_id` | BIGINT | FK → categories, NOT NULL | `items.category_id` 복사본 (카테고리별 집계) |
+| `grade_key` | VARCHAR(20) | NOT NULL | graded면 `psa-10`처럼 `{그레이딩사 소문자}-{등급}`, 아니면 `condition` |
+| `trade_date` | DATE | NOT NULL | 체결일 (KST) |
+| `trade_count` | INT UNSIGNED | NOT NULL, CHECK > 0 | 체결 건수 |
+| `total_price` | BIGINT UNSIGNED | NOT NULL | 체결가 합계 (평균 = 합계 ÷ 건수) |
+| `min_price` / `max_price` | INT UNSIGNED | NOT NULL | |
+| `median_price` | INT UNSIGNED | NOT NULL | 그날 체결가 중앙값 (짝수 개면 가운데 두 값 평균) |
+| `last_price` / `last_sold_at` | INT UNSIGNED / DATETIME | NOT NULL | 그날 마지막 체결 |
+
+| 인덱스 | 컬럼 | 용도 |
+|---|---|---|
+| `uk_item_price_daily` (UNIQUE) | `item_id, grade_key, trade_date` | 한 칸에 한 행 — 거래완료 시 `INSERT … ON DUPLICATE KEY UPDATE` |
+| `idx_item_price_daily_category` | `category_id, grade_key, trade_date` | 카테고리·등급별 30일 범위 조회 |
+
+> 갱신: 거래완료 처리(LISTING-07)와 **같은 트랜잭션**에서 그 품목·등급·날짜 칸을 `listings`로부터 다시 계산한다(증감이 아니라 재계산이라 어긋나지 않음). 거래완료 판매글은 수정·삭제가 막혀 있어 다른 갱신 경로는 없다.
+> 전체 재생성: `npm run db:market` (`db:init`·`db:seed`도 마지막에 실행). SQL로 직접 거래완료를 넣었다면 이 명령을 실행한다.
 
 ## 3. 확인이 필요한 사항(확인완료)
 

@@ -20,6 +20,7 @@ const postUploadRoutes = require('./upload/upload.routes');
 const newSubscriberItemRoutes = require('./newsubscriber/newsubscriber.item.routes');
 const newSubscriberMeRoutes = require('./newsubscriber/newsubscriber.me.routes');
 const chatRoutes = require('./chat/chat.routes');
+const marketRoutes = require('./market/market.routes');
 const errorHandler = require('./middlewares/errorHandler');
 const HttpError = require('./utils/HttpError');
 
@@ -61,6 +62,7 @@ app.use('/api/uploads', uploadRoutes); // POST /images (판매글)
 app.use('/api/uploads', postUploadRoutes); // POST /post-images (토론글), /chat-images (채팅)
 app.use('/api/chat', chatRoutes); // 채팅 REST (실시간 수신은 server.js의 /ws/chat)
 app.use('/api/communityVote', communityVoteRoutes);
+app.use('/api/market', marketRoutes); // 시세 대시보드 (MARKET-01~05)
 
 app.use((req, res, next) => next(new HttpError(404, 'NOT_FOUND', '요청한 API를 찾을 수 없습니다.')));
 app.use(errorHandler);
