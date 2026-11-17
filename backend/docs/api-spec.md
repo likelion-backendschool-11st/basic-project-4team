@@ -28,11 +28,13 @@
   "loginId": "tester1",
   "nickname": "테스터",
   "email": "t@ex.com",
+  "role": "user",
   "createdAt": "2026-11-12T03:09:50.000Z"
 }
 ```
 
 `email`은 `null`일 수 있다. 비밀번호(해시)는 어떤 응답에도 포함되지 않는다.
+`role`은 `user` / `admin` (#34, 아래 "관리자 권한" 참고).
 
 ---
 
@@ -164,7 +166,7 @@
   "data": {
     "profile": {
       "id": 1, "loginId": "test1", "nickname": "테스트유저1", "email": "test1@repick.dev",
-      "profileImageUrl": null, "createdAt": "2025-10-12T03:21:15.000Z",
+      "profileImageUrl": null, "role": "user", "createdAt": "2025-10-12T03:21:15.000Z",
       "nicknameChangedAt": null, "nicknameChangeAvailableAt": null
     },
     "counts": {
@@ -176,6 +178,7 @@
 ```
 
 - `nicknameChangeAvailableAt`: 닉네임을 다시 바꿀 수 있는 시각. `null`이면 지금 바로 가능.
+- `role`: `user` / `admin`. `admin`이면 마이페이지에 "품목 요청 관리" 탭이 보인다 (#34).
 - `soldAmount`: 내 거래완료 판매글의 `sold_price` 합계(원).
 - `wishes`·`comments`는 삭제된 판매글·글에 달린 것을 세지 않는다(목록 API와 같은 기준).
 
@@ -565,12 +568,14 @@ REQ-BOARD-010 (#39). 로그인 없이 조회 가능. 품목 토론방 사이드�
 REQ-POST-005. 판매글 등록 화면(P-014) 4번 "공식 품목 DB 검색"에서 원하는 품목이 없으면 '품목이 없나요? 등록 요청'으로 **관리자에게 요청 글을 쓴다.**
 글쓰기 형식(카테고리 + 제목 + 본문)이고 사진은 받지 않는다. 요청은 `item_requests`에 `pending`으로 쌓인다.
 
-> **관리자 화면·API는 없다.** 관리자는 DB에서 직접 요청을 확인하고, 품목을 `items`에 등록한 뒤 요청 행의 `status`·`item_id`·`processed_at`을 바꾼다. 처리 예시는 맨 아래 [관리자 처리 (DB)](#관리자-처리-db).
+> 회원은 마이페이지 **"품목 요청"** 탭(ITEM-07)에서 처리 상태를 보고, 관리자(`users.role = 'admin'`)는 마이페이지 **"품목 요청 관리"** 탭(ITEM-08·09, #34)에서 승인·반려한다. 승인하면 `items`에 품목이 생겨 바로 품목 검색(ITEM-02)에 나온다.
 
 | ID | 기능 | Method | URI | 인증 |
 |---|---|---|---|---|
 | ITEM-06 | 품목 등록 요청 | POST | `/item-requests` | 🔒 |
 | ITEM-07 | 내 품목 등록 요청 목록 | GET | `/users/me/item-requests` | 🔒 |
+| ITEM-08 | 품목 등록 요청 목록 (관리자) | GET | `/admin/item-requests` | 🔒 관리자 |
+| ITEM-09 | 품목 등록 요청 승인·반려 (관리자) | PATCH | `/admin/item-requests/:id` | 🔒 관리자 |
 
 > `/items/requests`가 아닌 `/item-requests`를 쓴다. `GET /items/:itemId`가 slug를 받으므로 `requests`가 slug로 해석되는 것을 피한다.
 
@@ -677,29 +682,117 @@ REQ-POST-005. 판매글 등록 화면(P-014) 4번 "공식 품목 DB 검색"에�
 
 `erd.md` 2.22. 컬럼은 `id`, `user_id`, `category_id`, `title` VARCHAR(100), `body` VARCHAR(1000), `reference_url` VARCHAR(500), `status`(`pending`·`approved`·`rejected`), `reject_reason`, `item_id`, `processed_by`, `processed_at`, `created_at`, `updated_at`.
 
-## 관리자 처리 (DB)
+## 관리자 권한 (#34, spec-gaps A3)
 
-관리자 화면·API가 없으므로 DB에서 직접 처리한다.
+- `users.role`(`user` · `admin`, 기본 `user`). 관리자 지정은 DB에서: `UPDATE users SET role = 'admin' WHERE login_id = '...'` (시드에서는 `test2`).
+- 로그인할 때 **accessToken payload에 `role`을 넣고**, `requireAdmin` 미들웨어는 `req.user.role`만 본다(DB 조회 없음). 권한을 바꾸면 **다시 로그인해야** 반영된다.
+- 관리자가 아니면 `403 FORBIDDEN`.
+- `User` 객체(로그인·`GET /auth/me`)와 `GET /users/me/summary`의 `profile`에 `role`이 붙는다 → 프론트는 `admin`일 때만 "품목 요청 관리" 탭을 보여준다.
 
-```sql
--- 대기 중인 요청 (오래된 순)
-SELECT r.id, u.nickname, c.name AS category, r.title, r.body, r.reference_url, r.created_at
-FROM item_requests r JOIN users u ON u.id = r.user_id JOIN categories c ON c.id = r.category_id
-WHERE r.status = 'pending' ORDER BY r.created_at;
+## GET /admin/item-requests — 요청 목록 (관리자) 🔒 · ITEM-08
 
--- 승인: items에 품목을 넣은 뒤 요청과 연결
-UPDATE item_requests SET status = 'approved', item_id = <새 품목 id>, processed_by = <관리자 id>, processed_at = UTC_TIMESTAMP() WHERE id = <요청 id>;
+| 쿼리 | 기본값 | 설명 |
+|---|---|---|
+| `status` | (전체) | `pending` / `approved` / `rejected` |
+| `page`, `size` | `1`, `10` | ITEM-07과 같음 (size 1~50) |
 
--- 반려
-UPDATE item_requests SET status = 'rejected', reject_reason = '이미 등록된 품목입니다.', processed_by = <관리자 id>, processed_at = UTC_TIMESTAMP() WHERE id = <요청 id>;
+정렬: `status=pending`이면 **오래된 요청부터**(먼저 온 것부터 처리), 그 외는 최신순.
+
+응답 `200` — 항목은 `ItemRequest` 객체 + `requester`
+
+```json
+{
+  "data": {
+    "items": [
+      { "id": 7, "status": "pending", "...": "ItemRequest 객체", "requester": { "id": 1, "nickname": "테스트유저1" } }
+    ],
+    "page": 1, "size": 10, "totalCount": 1
+  }
+}
 ```
+
+- `requester.nickname`: 탈퇴한 회원이면 `null`.
+
+에러: `400 VALIDATION_ERROR`, `401`, `403 FORBIDDEN`
+
+## PATCH /admin/item-requests/:id — 승인·반려 (관리자) 🔒 · ITEM-09
+
+요청 글은 자유 형식이라, **승인할 때 관리자가 실제 품목 정보를 입력**해 `items`에 만든다. 이미 있는 품목이면 그 품목에 연결만 할 수도 있다.
+
+**① 새 품목을 만들어 승인**
+
+```json
+{
+  "action": "approve",
+  "item": { "name": "피카츄 ex SAR", "setName": "초전브레이커 (SV8)", "cardNo": "132/106", "language": "ko", "rarity": "SAR", "imageUrl": null }
+}
+```
+
+| 필드 | 필수 | 규칙 |
+|---|---|---|
+| `item.name` | O | 앞뒤 공백 제거 후 1~100자 |
+| `item.setName` | X | ≤ 100자. 카드 카테고리만 |
+| `item.cardNo` | X | ≤ 30자, 앞의 `#`은 지움. 카드 카테고리만 |
+| `item.language` | X | `ko` / `ja` / `en` / `zh`. 카드 카테고리만 |
+| `item.rarity` | X | `SAR` / `UR` / `SR` / `AR` / `etc`. 카드 카테고리만 |
+| `item.imageUrl` | X | http(s) URL, ≤ 500자 |
+
+- 카테고리는 **요청의 소분류 그대로**. "카드 카테고리" = 대분류 `code`가 `cards`인 소분류. 그 밖의 카테고리에 카드 필드를 보내면 `400`.
+- `slug`는 `item-request-{요청 id}`로 만든다.
+- 같은 소분류에 이름이 같은 품목, 또는 세트명·카드번호·언어가 모두 같은 카드(`uk_items_card`)가 이미 있으면 `409 ITEM_ALREADY_EXISTS` + `error.details.item` → ②로 연결하면 된다.
+
+**② 이미 있는 품목에 연결해 승인**
+
+```json
+{ "action": "approve", "itemId": 101 }
+```
+
+- 숨기지 않은 품목이어야 한다. 없으면 `404 ITEM_NOT_FOUND`.
+
+**③ 반려**
+
+```json
+{ "action": "reject", "rejectReason": "공식 발매되지 않은 카드입니다." }
+```
+
+- `rejectReason`: 필수, 앞뒤 공백 제거 후 1~500자. 요청자의 "품목 요청" 탭에 보인다.
+
+**함께 승인**: 승인하면 같은 소분류 + 같은 제목(대소문자 무시)으로 **대기 중인 다른 사람의 요청도 같은 품목으로 함께 승인**된다. (ITEM-06이 다른 사람의 같은 요청은 막지 않으므로)
+
+응답 `200`
+
+```json
+{
+  "data": {
+    "itemRequest": { "id": 7, "status": "approved", "...": "ITEM-08 항목과 같은 형식" },
+    "itemCreated": true,
+    "approvedCount": 2
+  }
+}
+```
+
+| 필드 | 설명 |
+|---|---|
+| `itemCreated` | 승인만. ①이면 `true`, ②면 `false` |
+| `approvedCount` | 승인만. 함께 승인된 요청 수 (이 요청 포함) |
+
+에러
+
+| 상태 | code | 상황 |
+|---|---|---|
+| 400 | `VALIDATION_ERROR` | `action`·필드 형식 오류, 비카드 카테고리에 카드 필드, `item`과 `itemId`를 둘 다 보내거나 둘 다 없음 |
+| 401 | `UNAUTHORIZED` / `INVALID_TOKEN` | |
+| 403 | `FORBIDDEN` | 관리자 아님 |
+| 404 | `ITEM_REQUEST_NOT_FOUND` / `ITEM_NOT_FOUND` | 없는 요청 / ②의 품목이 없음 |
+| 409 | `ITEM_REQUEST_ALREADY_PROCESSED` | 이미 승인·반려된 요청 (요청 행을 잠그고 확인 → 두 관리자가 동시에 눌러도 한 번만 처리) |
+| 409 | `ITEM_ALREADY_EXISTS` | ①인데 같은 품목이 이미 있음. `error.details.item`에 `{ id, slug, name }` |
 
 ## 확인이 필요한 사항 (#47)
 
-1. **관리자 처리 API·화면** — 이번 범위에서 뺐다(DB 직접 처리). 만든다면 `GET /admin/item-requests`, `PATCH /admin/item-requests/:id`와 `users.role = 'admin'` 확인 미들웨어(spec-gaps A3)가 필요하다.
-2. **처리 결과 알림** — 승인·반려 시 요청자에게 알릴지. 알린다면 `notifications.type`에 `item_request`를 추가해야 한다.
+1. ~~관리자 처리 API·화면~~ → #34에서 ITEM-08·09와 마이페이지 "품목 요청 관리" 탭으로 구현.
+2. **처리 결과 알림** — 승인·반려 시 요청자에게 알릴지. 알린다면 `notifications.type`에 `item_request`를 추가해야 한다. (지금은 마이페이지 "품목 요청" 탭에서만 확인)
 3. **요청 횟수 제한** — 도배 방지로 1인 하루 N건 제한(`429`)이 필요한지.
-4. **내 요청 목록 화면** — ITEM-07을 마이페이지 탭으로 붙일지.
+4. ~~내 요청 목록 화면~~ → #34에서 마이페이지 "품목 요청" 탭으로 구현.
 
 ---
 

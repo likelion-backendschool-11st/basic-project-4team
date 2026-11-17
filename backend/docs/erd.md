@@ -573,9 +573,9 @@ CHECK: `text`면 `body`만, `image`면 `image_id`만 있어야 한다.
 | 인덱스 | 컬럼 | 이유 |
 |---|---|---|
 | `idx_item_requests_user_created` | `user_id, created_at` | 내 요청 목록(ITEM-07) 최신순. FK 자동 인덱스를 대신함 |
-| `idx_item_requests_status_created` | `status, created_at` | 관리자가 DB에서 대기 요청을 오래된 순으로 확인 |
+| `idx_item_requests_status_created` | `status, created_at` | 관리자 목록(ITEM-08)에서 대기 요청을 오래된 순으로 |
 
-> 관리자 화면·API는 아직 없다. 관리자는 DB에서 직접 `status`·`item_id`·`processed_at`을 바꾼다(api-spec.md "관리자 처리 (DB)").
+> 관리자(`users.role = 'admin'`)가 마이페이지 "품목 요청 관리" 탭에서 승인·반려한다(ITEM-08·09, #34). 승인하면 `items`에 품목을 만들거나(`slug = item-request-{요청 id}`) 기존 품목에 연결하고, 같은 소분류·같은 제목의 대기 요청도 함께 승인한다.
 > 같은 사람의 같은 대기 요청(소분류 + 제목)은 앱에서 409로 막는다. `pending`일 때만 막아야 해서 UNIQUE로는 걸지 않는다.
 
 ## 3. 확인이 필요한 사항(확인완료)

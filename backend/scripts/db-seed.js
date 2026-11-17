@@ -9,8 +9,17 @@ const { env, connect, exitWithHint } = require('./db-common');
 const { rebuildMarket } = require('./db-market');
 
 const SEED_PATH = path.join(__dirname, '..', 'db', 'seed.sql');
+const SEED_IMAGES_DIR = path.join(__dirname, '..', 'db', 'seed-images');
+
+/** db/seed-images → uploads/seed. seed.sql이 /uploads/seed/... 로 참조하는 품목 사진 (uploads/는 git 제외). */
+function copySeedImages() {
+  const target = path.join(env.uploadDir, 'seed');
+  fs.cpSync(SEED_IMAGES_DIR, target, { recursive: true, filter: (src) => !src.endsWith('.md') });
+  return target;
+}
 
 async function main() {
+  copySeedImages();
   const connection = await connect({ multipleStatements: true });
   try {
     await connection.query(fs.readFileSync(SEED_PATH, 'utf8'));
@@ -23,7 +32,7 @@ async function main() {
       counts.push(`${table} ${count}`);
     }
     console.log(`✅ DB '${env.db.database}' 시드 완료 — ${counts.join(', ')}, item_price_daily ${marketRows}`);
-    console.log('   계정: test1~3 외 8명(신규 가입자 확인용 newbie 포함), 비밀번호는 모두 test1234');
+    console.log('   계정: test1~3 외 8명(신규 가입자 확인용 newbie 포함), 비밀번호는 모두 test1234 — test2는 관리자');
   } finally {
     await connection.end();
   }

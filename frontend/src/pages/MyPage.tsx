@@ -1,5 +1,7 @@
 import React from 'react';
 import { Navigate } from 'react-router-dom';
+import { AdminItemRequestsPanel } from '../components/item/AdminItemRequestsPanel';
+import { MyItemRequestsPanel } from '../components/item/MyItemRequestsPanel';
 import { MyCommentsPanel } from '../components/mypage/MyCommentsPanel';
 import { MyPageTabs } from '../components/mypage/MyPageTabs';
 import { MyPostsPanel } from '../components/mypage/MyPostsPanel';
@@ -63,13 +65,15 @@ export const MyPage: React.FC<MyPageProps> = ({ className = '' }) => {
               />
             </aside>
             <section className="min-w-0">
-              <MyPageTabs active={page.tab} counts={summary.counts} onSelect={page.selectTab} />
+              <MyPageTabs active={page.tab} counts={summary.counts} onSelect={page.selectTab} tabs={page.tabs} />
               <div className="pt-space-md" role="tabpanel">
                 {page.tab === 'sales' && <MySalesPanel />}
                 {page.tab === 'purchases' && <MyPurchasesPanel />}
                 {page.tab === 'wishes' && <MyWishesPanel onChanged={page.reloadSummary} />}
                 {page.tab === 'posts' && <MyPostsPanel />}
                 {page.tab === 'comments' && <MyCommentsPanel />}
+                {page.tab === 'itemRequests' && <MyItemRequestsPanel />}
+                {page.tab === 'itemReview' && <AdminItemRequestsPanel />}
                 {page.tab === 'settings' && (
                   <MySettingsPanel onProfileUpdated={page.onProfileUpdated} profile={summary.profile} />
                 )}

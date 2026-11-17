@@ -32,7 +32,7 @@
 | 15 | 판매자 정보 | `seller {id, nickname, soldCount}`  | `seller {id, nickname, soldCount}` |  |
 | 16 | 판매글 삭제 | 확인 모달 후 삭제 (MYPOST-006), 예외 없음 | 확인 모달 후 삭제 (MYPOST-006), 예외 없음 | |
 | 17 | 아이디 찾기 | API 없음, | API 없음 | #45에서 구현 — 아이디·비밀번호 모두 이메일 인증코드 확인 방식 |
-| 18 | 품목 등록 요청 | POST-005 | POST-005 | 화면 설계 필요 |
+| 18 | 품목 등록 요청 | POST-005 | POST-005 | #47: 판매글 등록 요청 팝업(ITEM-06). #34: 마이페이지 "품목 요청" 탭(ITEM-07)·관리자 "품목 요청 관리" 탭(ITEM-08·09) |
 | 19 | 시세 산출 방식 | ITEM-04에 30일 평균(+중앙값) 확정 | ITEM-04에 30일 평균(+중앙값) 확정 | API 결정을 요구사항에 반영 |
 | 20 | 이미지 업로드 | 형식·용량 미정 (COMMON-007) | 형식·용량 미정 (COMMON-007 | PEG·PNG·WebP 형식을 허용하고, 용량은 게시판 글이나 상품 이미지 기준 5MB~10MB|
 | 21 | 욕설 필터·개인정보 노출 방지 | COMMON-006, 008 | COMMON-006, 008| 욕설(006, #64): 토론글 제목·본문·투표 선택지와 댓글을 저장할 때 같은 글자 수의 `*`로 가린다(거절하지 않음). 단어 목록은 `src/utils/profanity.js`. 개인정보(008)는 미정 |
@@ -43,7 +43,7 @@
 |---|---|---|---|
 | A1 | 토큰 전달 방식 | 1장은 `Authorization: Bearer accessToken` | `Authorization: Bearer accessToken` |
 | A2 | 선택 인증 (`optionalAuth`) | 헤더 없음 → 비로그인. 헤더 있는데 만료 → 401 TOKEN_EXPIRED, 위조·형식 오류 → 401 INVALID_TOKEN. 비로그인으로 넘기지 않음 → 프론트가 refresh 후 같은 요청 재시도 (isMine·isWished가 안 틀어짐) |
-| A3 | 관리자 권한 | users.role 컬럼 추가 (USER/ADMIN, 기본 USER). accessToken payload에 role을 넣고 requireAdmin 미들웨어는 req.user.role만 검사(DB 조회 X). 권한 변경은 다음 refresh 때 DB에서 다시 읽어 반영 |
+| A3 | 관리자 권한 | users.role 컬럼 추가 (USER/ADMIN, 기본 USER). accessToken payload에 role을 넣고 requireAdmin 미들웨어는 req.user.role만 검사(DB 조회 X). 권한 변경은 다음 refresh 때 DB에서 다시 읽어 반영 **#34에서 구현**: 소문자 `user`/`admin`(DB CHECK), 로그인 시 payload에 role, `requireAdmin`은 `req.user.role`만 검사. refresh가 없어 권한 변경은 다시 로그인해야 반영 |
 | A4 | 작성자 검증 | 0장 공통 규칙으로 올림: 회원은 토큰의 sub(userId)로만 식별하고, body·query의 userId는 믿지 않음. 남의 리소스 수정·삭제는 모든 API에서 403 FORBIDDEN |
 | A5 | 탈퇴 회원 | auth.js는 토큰 검증만 하고 매 요청 DB 조회 안 함. ① 탈퇴 시 refresh 토큰 전부 폐기 ② POST /auth/refresh에서 users.deleted_at 확인 ③ 남은 access 수명(최대 30분)은 허용 |
 | A6 | Refresh 토큰과 소프트 삭제 | CASCADE에 기대지 않음. 탈퇴 트랜잭션 안에서 deleted_at = NOW()와 함께 DELETE FROM refresh_tokens WHERE user_id = ?를 명시적으로 실행. CASCADE는 하드 삭제 대비용으로만 남김 |

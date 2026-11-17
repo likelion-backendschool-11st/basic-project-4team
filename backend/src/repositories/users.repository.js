@@ -7,6 +7,7 @@ function toUser(row) {
     loginId: row.login_id,
     nickname: row.nickname,
     email: row.email,
+    role: row.role,
     createdAt: row.created_at,
   };
 }

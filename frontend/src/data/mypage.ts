@@ -1,9 +1,30 @@
 import type { MyListingStatus, PostBoard } from '../api/types';
 
 /** 마이페이지 탭. URL ?tab= 값과 같다. */
-export type MyPageTab = 'sales' | 'purchases' | 'wishes' | 'posts' | 'comments' | 'settings';
+export type MyPageTab =
+  | 'sales'
+  | 'purchases'
+  | 'wishes'
+  | 'posts'
+  | 'comments'
+  | 'itemRequests'
+  | 'itemReview'
+  | 'settings';
 
-export const MY_PAGE_TABS: readonly MyPageTab[] = ['sales', 'purchases', 'wishes', 'posts', 'comments', 'settings'];
+/** 모든 회원에게 보이는 탭. */
+export const MY_PAGE_TABS: readonly MyPageTab[] = ['sales', 'purchases', 'wishes', 'posts', 'comments', 'itemRequests', 'settings'];
+
+/** 관리자(role = admin)에게 보이는 탭 — "품목 요청 관리"가 계정 설정 앞에 더해진다 (#34). */
+export const ADMIN_MY_PAGE_TABS: readonly MyPageTab[] = [
+  'sales',
+  'purchases',
+  'wishes',
+  'posts',
+  'comments',
+  'itemRequests',
+  'itemReview',
+  'settings',
+];
 
 export const DEFAULT_MY_PAGE_TAB: MyPageTab = 'sales';
 
@@ -20,6 +41,8 @@ export const myPageCopy = {
     wishes: { label: '찜한 상품', icon: 'favorite' },
     posts: { label: '내 토론글', icon: 'forum' },
     comments: { label: '내 댓글', icon: 'chat_bubble' },
+    itemRequests: { label: '품목 요청', icon: 'playlist_add' },
+    itemReview: { label: '품목 요청 관리', icon: 'admin_panel_settings' },
     settings: { label: '계정 설정', icon: 'manage_accounts' },
   } as Readonly<Record<MyPageTab, { readonly label: string; readonly icon: string }>>,
   tabsAria: '마이페이지 메뉴',

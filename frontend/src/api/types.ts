@@ -1,10 +1,14 @@
 /** backend/docs/api-spec.md 와 똑같이 맞춘 응답 타입. */
 
+/** 회원 권한 (#34). admin이면 마이페이지에 "품목 요청 관리" 탭이 보인다. */
+export type UserRole = 'user' | 'admin';
+
 export interface User {
   readonly id: number;
   readonly loginId: string;
   readonly nickname: string;
   readonly email: string | null;
+  readonly role: UserRole;
   readonly createdAt: string;
 }
 
@@ -473,6 +477,7 @@ export interface MyProfile {
   readonly nickname: string;
   readonly email: string | null;
   readonly profileImageUrl: string | null;
+  readonly role: UserRole;
   readonly createdAt: string;
   readonly nicknameChangedAt: string | null;
   /** 닉네임을 다시 바꿀 수 있는 시각. null이면 지금 바로 가능. */
@@ -678,6 +683,44 @@ export interface ItemRequestPage {
   readonly page: number;
   readonly size: number;
   readonly totalCount: number;
+}
+
+/* 품목 등록 요청 관리 (ITEM-08·09, #34) — 관리자만 */
+
+/** ITEM-08 관리자 목록 한 건. 탈퇴한 회원이면 requester.nickname이 null. */
+export interface AdminItemRequest extends ItemRequest {
+  readonly requester: { readonly id: number; readonly nickname: string | null };
+}
+
+export interface AdminItemRequestPage {
+  readonly items: readonly AdminItemRequest[];
+  readonly page: number;
+  readonly size: number;
+  readonly totalCount: number;
+}
+
+/** 승인할 때 새로 만들 품목. 카드 필드는 카드 카테고리만. */
+export interface NewItemInput {
+  readonly name: string;
+  readonly setName: string | null;
+  readonly cardNo: string | null;
+  readonly language: string | null;
+  readonly rarity: string | null;
+  readonly imageUrl: string | null;
+}
+
+/** ITEM-09 본문: 새 품목으로 승인 / 기존 품목에 연결해 승인 / 반려. */
+export type ProcessItemRequestBody =
+  | { readonly action: 'approve'; readonly item: NewItemInput }
+  | { readonly action: 'approve'; readonly itemId: number }
+  | { readonly action: 'reject'; readonly rejectReason: string };
+
+export interface ProcessItemRequestResult {
+  readonly itemRequest: AdminItemRequest;
+  /** 승인만. 새 품목을 만들었으면 true, 기존 품목에 연결했으면 false. */
+  readonly itemCreated?: boolean;
+  /** 승인만. 같은 제목으로 함께 승인된 요청 수 (이 요청 포함). */
+  readonly approvedCount?: number;
 }
 
 /* 시세 대시보드 (MARKET-01~05, #48) — backend/docs/api-spec.md "시세 대시보드" */

@@ -1,4 +1,5 @@
 import type { ListingDetail } from '../../api/types';
+import { toAssetUrl } from '../../api/client';
 import {
   listingDetailCopy as copy,
   type DescriptionParagraph,
@@ -38,15 +39,18 @@ export const toParagraphs = (description: string): readonly DescriptionParagraph
     .filter(Boolean)
     .map((paragraph) => paragraph.split('\n').map((line) => [{ text: line }]));
 
-/** 상품 사진(sortOrder 순). 사진이 하나도 없으면 품목 대표 이미지를 쓴다. */
+/**
+ * 상품 사진(sortOrder 순). 사진이 하나도 없으면 품목 대표 이미지를 대표 사진으로 쓴다.
+ * 실물 인증 사진은 상품 사진이 아니라 따로 뒤에 붙으므로(toAuthSlide) 있어도 품목 이미지를 쓴다 — 검색 카드 썸네일과 같은 규칙.
+ */
 export const toPhotoSlides = (listing: ListingDetail): GalleryImage[] => {
   const photos: GalleryImage[] = listing.images.map((img, i) => ({
-    src: img.url,
+    src: toAssetUrl(img.url),
     alt: `${listing.title} ${copy.photoLabel(i + 1)}`,
     label: i === 0 ? copy.photoMain : copy.photoLabel(i + 1),
   }));
-  if (photos.length === 0 && !listing.authImage && listing.item.imageUrl) {
-    photos.push({ src: listing.item.imageUrl, alt: listing.item.name, label: copy.photoMain });
+  if (photos.length === 0 && listing.item.imageUrl) {
+    photos.push({ src: toAssetUrl(listing.item.imageUrl), alt: listing.item.name, label: copy.photoMain });
   }
   return photos;
 };
@@ -54,5 +58,5 @@ export const toPhotoSlides = (listing: ListingDetail): GalleryImage[] => {
 /** 실물 인증 사진 슬라이드. 없으면 null. */
 export const toAuthSlide = (listing: ListingDetail): GalleryImage | null =>
   listing.authImage
-    ? { src: listing.authImage.url, alt: `${listing.title} ${copy.authPhoto}`, label: copy.authPhoto, verified: true }
+    ? { src: toAssetUrl(listing.authImage.url), alt: `${listing.title} ${copy.authPhoto}`, label: copy.authPhoto, verified: true }
     : null;

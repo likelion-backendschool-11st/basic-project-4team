@@ -60,6 +60,7 @@ app.use('/api/users/me', newSubscriberMeRoutes); // GET /listing-limit
 app.use('/api/users/me', itemRequestRoutes.meRouter); // GET /item-requests (ITEM-07)
 app.use('/api/users', userListingRoutes); // GET /:userId/listings (LISTING-10) — /api/users/me 라우터보다 뒤
 app.use('/api/item-requests', itemRequestRoutes.router); // POST / 품목 등록 요청 (ITEM-06)
+app.use('/api/admin', itemRequestRoutes.adminRouter); // 관리자: GET·PATCH /item-requests (ITEM-08·09, #34)
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/community', commentRoutes);
 app.use('/api/reports', reportRoutes);

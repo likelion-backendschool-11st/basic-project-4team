@@ -1,4 +1,5 @@
 import type { MarketChart, MarketFilters, MarketInsights, MarketTopGainer } from '../../api/types';
+import { toAssetUrl } from '../../api/client';
 import {
   ALL_GRADES,
   type ChartPoint,
@@ -113,7 +114,7 @@ export const toTopGainers = (items: readonly MarketTopGainer[]): readonly TopGai
     rank: item.rank,
     name: `${item.name} · ${gradeLabel({ key: item.gradeKey, gradingService: item.gradingService, grade: item.grade })}`,
     imageAlt: item.name,
-    imageUrl: item.imageUrl,
+    imageUrl: item.imageUrl ? toAssetUrl(item.imageUrl) : null,
     price: item.price,
     change: item.change1d ?? 0,
     volume: item.tradeCount30d,
