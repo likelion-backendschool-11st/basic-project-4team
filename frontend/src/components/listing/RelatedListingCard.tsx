@@ -36,6 +36,13 @@ export const RelatedListingCard: React.FC<RelatedListingCardProps> = ({ item, cu
         to={to}
       >
         <div className="relative w-full aspect-square bg-canvas overflow-hidden">
+          {item.imageSrc ? (
+            <img alt={item.imageAlt} className="w-full h-full object-cover" loading="lazy" src={item.imageSrc} />
+          ) : (
+            <span className="w-full h-full flex items-center justify-center text-faint">
+              <Icon className="text-[32px]" name="image_not_supported" />
+            </span>
+          )}
           <ListingThumb alt={item.imageAlt} src={item.imageSrc} />
         </div>
         <div className="p-space-sm flex flex-col gap-1">
@@ -60,6 +67,13 @@ export const RelatedListingCard: React.FC<RelatedListingCardProps> = ({ item, cu
       to={to}
     >
       <div className="aspect-square bg-canvas-soft rounded-t overflow-hidden relative">
+        {item.imageSrc ? (
+            <img alt={item.imageAlt} className="w-full h-full object-cover" loading="lazy" src={item.imageSrc} />
+          ) : (
+            <span className="w-full h-full flex items-center justify-center text-faint">
+              <Icon className="text-[32px]" name="image_not_supported" />
+            </span>
+          )}
         <ListingThumb alt={item.imageAlt} src={item.imageSrc} />
       </div>
       <div className="p-space-sm flex flex-col justify-between flex-1">

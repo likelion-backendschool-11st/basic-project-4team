@@ -40,6 +40,7 @@ export const TrendingItemsSidebar: React.FC<TrendingItemsSidebarProps> = ({ curr
                     </span>
                   </div>
                   <span className="font-caption text-caption text-muted truncate">{it.detail}</span>
+                  {it.average && <span className="font-micro text-micro text-muted truncate">{it.average}</span>}
                 </div>
               </div>
               <span className="font-caption text-caption text-primary font-bold shrink-0" title={it.countTitle}>{it.count}</span>
@@ -55,6 +56,7 @@ export const TrendingItemsSidebar: React.FC<TrendingItemsSidebarProps> = ({ curr
                   <div className="flex flex-col min-w-0">
                     <span className="font-ui-label text-ui-label text-on-surface truncate group-hover:text-primary transition-colors">{it.name}</span>
                     <span className="font-caption text-caption text-muted truncate">{it.detail}</span>
+                    {it.average && <span className="font-micro text-micro text-muted truncate">{it.average}</span>}
                   </div>
                 </div>
                 <span className="font-caption text-caption text-muted group-hover:text-on-surface shrink-0" title={it.countTitle}>{it.count}</span>

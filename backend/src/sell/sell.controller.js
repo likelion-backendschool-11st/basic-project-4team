@@ -87,6 +87,7 @@ async function list(req, res) {
       q: q || null,
       category: query.category || null,
       itemId: parseQueryInt(query.itemId, 'itemId', { min: 1 }),
+      sellerId: parseQueryInt(query.sellerId, 'sellerId', { min: 1 }),
       conditions: parseQueryList(query.condition, LIST_CONDITIONS, 'condition'),
       grades: parseGrades(query.grades),
       minPrice,

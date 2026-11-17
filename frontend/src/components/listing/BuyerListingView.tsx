@@ -15,6 +15,7 @@ import { useChat } from '../../hooks/chat/useChat';
 import { useLoginGate } from '../../hooks/itemcommunity/useLoginGate';
 import { useBuyerListingView } from '../../hooks/listing/useBuyerListingView';
 import { useItemDiscussionCount } from '../../hooks/listing/useItemDiscussionCount';
+import { useSameItemListings, useSellerOtherListings } from '../../hooks/listing/useSameItemListings';
 import { useOwnerListingActions } from '../../hooks/listing/useOwnerListingActions';
 import { useRelatedListings } from '../../hooks/listing/useRelatedListings';
 import { useSellerOtherListings } from '../../hooks/listing/useSellerOtherListings';
@@ -48,6 +49,9 @@ export const BuyerListingView: React.FC<BuyerListingViewProps> = ({ listing }) =
   // 품목 토론 글 수는 board API(GET /posts?itemId=)가 제공한다 (LISTING-02 비고).
   const discussionCount = useItemDiscussionCount(view.itemSlug);
   const { actions } = buyerListing;
+  // 같은 품목의 다른 매물·판매자의 다른 상품은 LISTING-01(itemId·sellerId 필터)로 DB에서 불러온다.
+  const related = useSameItemListings(listing.item.id, listing.id);
+  const sellerOthers = useSellerOtherListings(listing.seller.id, listing.id, buyerListing.seller.otherSize);
   const sellerOthers = useSellerOtherListings(view.sellerId, listing.id);
   const related = useRelatedListings(view.itemId, listing.id, 'buyer');
 
@@ -155,6 +159,23 @@ export const BuyerListingView: React.FC<BuyerListingViewProps> = ({ listing }) =
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-gutter-desktop pt-space-md border-t border-hairline mb-space-xl">
           <BuyerDescriptionSection content={view.description} paragraphs={view.paragraphs} />
           <SellerProfileCard
+            seller={{
+              ...view.seller,
+              otherTitle: buyerListing.seller.otherTitle(sellerOthers.totalCount),
+              otherEmpty: buyerListing.seller.otherEmpty,
+              otherItems: sellerOthers.items,
+            }}
+          />
+        </div>
+
+        {related.length > 0 ? (
+          <RelatedListingsCarousel
+            description={buyerListing.related.description(listing.item.name)}
+            items={related}
+            subtitle={buyerListing.related.subtitle}
+            title={buyerListing.related.title}
+          />
+        ) : null}
             otherEmptyText={sellerOthers.loading ? undefined : relatedListingsCopy.sellerOtherEmpty}
             otherItems={sellerOthers.items}
             otherTitle={relatedListingsCopy.sellerOtherTitle(sellerOthers.totalCount)}
@@ -175,7 +196,7 @@ export const BuyerListingView: React.FC<BuyerListingViewProps> = ({ listing }) =
 
       {listing.isOwner && (
         <DeleteConfirmModal
-          labels={sellerListing.deleteModal}
+          labels={{ ...sellerListing.deleteModal, warning: sellerListing.deleteModal.warning(wishlist.count, listing.viewCount) }}
           onCancel={owner.closeDelete}
           onConfirm={owner.confirmDelete}
           open={owner.deleteOpen}

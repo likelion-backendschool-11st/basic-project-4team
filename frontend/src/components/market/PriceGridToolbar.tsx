@@ -1,7 +1,6 @@
 import React from 'react';
-import type { LabeledCount, PriceSortKey, ViewMode } from '../../data/market';
+import type { PriceSortKey, ViewMode } from '../../data/market';
 import { Icon } from '../common/Icon';
-import { GradePill } from './GradePill';
 
 export interface SortChipOption {
   readonly key: PriceSortKey;
@@ -18,10 +17,6 @@ interface PriceGridToolbarProps {
   readonly searchPlaceholder: string;
   readonly query: string;
   readonly onQueryChange: (value: string) => void;
-  readonly subOptionLabel: string;
-  readonly subOptions: readonly LabeledCount[];
-  readonly activeSubOptionId: string;
-  readonly onSubOptionChange: (id: string) => void;
   readonly sortOptions: readonly SortChipOption[];
   readonly sortKey: PriceSortKey;
   readonly onSortChange: (key: PriceSortKey) => void;
@@ -30,15 +25,11 @@ interface PriceGridToolbarProps {
   readonly onViewModeChange: (mode: ViewMode) => void;
 }
 
-/** Full-width search, sub-option pills, sort chips and grid/list toggle. */
+/** Full-width search, sort chips and grid/list toggle. */
 export const PriceGridToolbar: React.FC<PriceGridToolbarProps> = ({
   searchPlaceholder,
   query,
   onQueryChange,
-  subOptionLabel,
-  subOptions,
-  activeSubOptionId,
-  onSubOptionChange,
   sortOptions,
   sortKey,
   onSortChange,
@@ -60,21 +51,7 @@ export const PriceGridToolbar: React.FC<PriceGridToolbarProps> = ({
       </div>
     </div>
 
-    <div className="flex flex-col md:flex-row md:items-center justify-between gap-space-sm pt-space-xs">
-      <div className="flex items-center gap-space-xs overflow-x-auto min-w-0">
-        <span className="text-caption font-bold text-muted mr-space-xxs shrink-0">{subOptionLabel}</span>
-        {subOptions.map((option) => (
-          <GradePill
-            active={option.id === activeSubOptionId}
-            count={option.count}
-            key={option.id}
-            label={option.label}
-            onClick={() => onSubOptionChange(option.id)}
-            size="sm"
-          />
-        ))}
-      </div>
-
+    <div className="flex flex-col md:flex-row md:items-center justify-end gap-space-sm pt-space-xs">
       <div className="flex items-center gap-space-xs shrink-0 self-end md:self-auto max-w-full">
         <div className="flex items-center gap-1 overflow-x-auto min-w-0">
           {sortOptions.map((option) => (

@@ -19,9 +19,14 @@ const BASE_GEOMETRY = {
   top: 20,
   baseline: 210,
   startX: 20,
-  step: 25,
-  barWidth: 10,
 } as const;
+const MAX_BAR_WIDTH = 10;
+
+/** 포인트 수에 맞춰 x 간격·막대 폭을 정한다 (거래일 수가 날마다 다르다). */
+const spacingFor = (count: number) => {
+  const step = count > 1 ? (BASE_GEOMETRY.width - BASE_GEOMETRY.startX * 2) / (count - 1) : 0;
+  return { step, barWidth: count > 1 ? Math.min(MAX_BAR_WIDTH, step * 0.6) : MAX_BAR_WIDTH };
+};
 
 /** Inline-SVG dual-axis chart: volume bars + smoothed price line (or price bars in 막대 mode). */
 export const PriceVolumeChart: React.FC<PriceVolumeChartProps> = ({
@@ -36,8 +41,8 @@ export const PriceVolumeChart: React.FC<PriceVolumeChartProps> = ({
 }) => {
   const gradientId = `pv-gradient-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`;
   const options = React.useMemo<ChartGeometryOptions>(
-    () => ({ ...BASE_GEOMETRY, priceDomain, volumeMax }),
-    [priceDomain, volumeMax],
+    () => ({ ...BASE_GEOMETRY, ...spacingFor(points.length), priceDomain, volumeMax }),
+    [points.length, priceDomain, volumeMax],
   );
   const chart = usePriceVolumeChart(points, options);
 
@@ -67,7 +72,7 @@ export const PriceVolumeChart: React.FC<PriceVolumeChartProps> = ({
               height={bar.height}
               key={bar.key}
               rx={2}
-              width={BASE_GEOMETRY.barWidth}
+              width={options.barWidth}
               x={bar.x}
               y={bar.y}
             />
@@ -95,7 +100,7 @@ export const PriceVolumeChart: React.FC<PriceVolumeChartProps> = ({
                 height={bar.height}
                 key={bar.key}
                 rx={1}
-                width={BASE_GEOMETRY.barWidth / 2}
+                width={options.barWidth / 2}
                 x={bar.x}
                 y={bar.y}
               />

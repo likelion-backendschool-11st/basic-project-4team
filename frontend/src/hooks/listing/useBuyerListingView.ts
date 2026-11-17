@@ -142,16 +142,27 @@ export const useBuyerListingView = (listing: ListingDetail) =>
       },
       attributes: toAttributes(listing),
       specs: toSpecs(listing),
-      description: { ...buyerListing.description, updatedAt: copy.updatedAt(formatDate(listing.updatedAt)) },
+      description: {
+        title: buyerListing.description.title,
+        expandLabel: buyerListing.description.expandLabel,
+        collapseLabel: buyerListing.description.collapseLabel,
+        escrowNotice: buyerListing.description.escrowNotice,
+        updatedAt: copy.updatedAt(formatDate(listing.updatedAt)),
+        possession: listing.authImage
+          ? { title: buyerListing.description.possessionTitle, body: buyerListing.description.possessionBody }
+          : null,
+      },
       paragraphs: toParagraphs(listing.description),
+      /** 판매자 닉네임·거래완료 수 (LISTING-02). 다른 상품은 화면에서 sellerId로 따로 불러온다. */
       seller: {
-        ...buyerListing.seller,
+        id: seller.id,
         initial: seller.nickname.charAt(0),
         name: seller.nickname,
         grade: copy.sellerGrade,
         badge: copy.sellerBadge,
-        profileTo: `/users/${seller.id}`,
+        tradesLabel: buyerListing.seller.tradesLabel,
         trades: formatPrice(seller.soldCount),
+        tradesUnit: buyerListing.seller.tradesUnit,
         rating: copy.ratingEmpty,
         ratingCount: copy.ratingCountEmpty,
       },

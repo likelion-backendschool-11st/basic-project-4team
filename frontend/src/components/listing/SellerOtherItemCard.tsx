@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Icon } from '../common/Icon';
 import { ROUTES } from '../../data/layout';
+import { Icon } from '../common/Icon';
 import type { SellerOtherItem } from '../../data/listing';
 
 interface SellerOtherItemCardProps {
@@ -23,6 +24,9 @@ export const SellerOtherItemCard: React.FC<SellerOtherItemCardProps> = ({ item }
           src={item.imageSrc}
         />
       ) : (
+        <span className="w-full h-full flex items-center justify-center text-faint">
+          <Icon className="text-[24px]" name="image_not_supported" />
+        </span>
         <div aria-label={item.imageAlt} className="w-full h-full flex items-center justify-center text-muted" role="img">
           <Icon className="text-[24px]" name="image_not_supported" />
         </div>

@@ -477,3 +477,31 @@ CREATE TABLE IF NOT EXISTS chat_messages (
     (type = 'text' AND body IS NOT NULL AND image_id IS NULL) OR (type = 'image' AND body IS NULL AND image_id IS NOT NULL)
   )
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '채팅 메시지 (수정·삭제 없음)';
+
+-- ───────────────────────── 일별 시세 집계 (#48, REQ-COMMON-004) ─────────────────────────
+-- 거래완료 판매글(listings.status = 'sold')의 체결가를 품목·등급·날짜(KST)별로 모은 표. 시세 대시보드(MARKET-01~05)가 읽는다.
+-- 원본은 listings이고 이 표는 언제든 다시 만들 수 있다: 거래완료 처리(LISTING-07) 때 그 날짜 행을 같은 트랜잭션에서 다시 계산하고,
+-- db:init·db:seed는 전체를 다시 만든다 (backend/src/market/market.repository.js).
+-- grade_key: graded면 '{그레이딩사 소문자}-{등급}'(psa-10, bgs-9.5), 아니면 condition 값(unopened, opened_raw).
+CREATE TABLE IF NOT EXISTS item_price_daily (
+  id           BIGINT          NOT NULL AUTO_INCREMENT,
+  item_id      BIGINT          NOT NULL,
+  category_id  BIGINT          NOT NULL COMMENT 'items.category_id 복사본 (카테고리별 집계용)',
+  grade_key    VARCHAR(20)     NOT NULL COMMENT 'unopened | opened_raw | psa-10 | bgs-9.5 ...',
+  trade_date   DATE            NOT NULL COMMENT '체결일 (KST)',
+  trade_count  INT UNSIGNED    NOT NULL COMMENT '체결 건수',
+  total_price  BIGINT UNSIGNED NOT NULL COMMENT '체결가 합계 (평균 = total_price / trade_count)',
+  min_price    INT UNSIGNED    NOT NULL,
+  max_price    INT UNSIGNED    NOT NULL,
+  median_price INT UNSIGNED    NOT NULL COMMENT '그날 체결가 중앙값 (짝수 개면 가운데 두 값의 평균, 원 단위 반올림)',
+  last_price   INT UNSIGNED    NOT NULL COMMENT '그날 마지막 체결가',
+  last_sold_at DATETIME        NOT NULL COMMENT '그날 마지막 체결 시각 (UTC)',
+  created_at   DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at   DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_item_price_daily (item_id, grade_key, trade_date),
+  KEY idx_item_price_daily_category (category_id, grade_key, trade_date),
+  CONSTRAINT fk_item_price_daily_item FOREIGN KEY (item_id) REFERENCES items (id) ON DELETE RESTRICT,
+  CONSTRAINT fk_item_price_daily_category FOREIGN KEY (category_id) REFERENCES categories (id) ON DELETE RESTRICT,
+  CONSTRAINT chk_item_price_daily_count CHECK (trade_count > 0)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '일별 시세 집계 (거래완료 체결가, #48)';

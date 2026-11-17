@@ -3,6 +3,7 @@ const fs = require('fs/promises');
 const path = require('path');
 const sharp = require('sharp');
 const sellRepository = require('./sell.repository');
+const marketRepository = require('../market/market.repository');
 const itemCommunityService = require('../itemcommunity/itemcommunity.service');
 const env = require('../config/env');
 const HttpError = require('../utils/HttpError');
@@ -364,7 +365,7 @@ async function changeListingStatus(listingId, userId, status) {
 
 /**
  * LISTING-07 거래완료 처리. 체결가·체결 시각·구매자를 저장하고 sold로 바꾼다.
- * 시세(30일 평균 체결가)는 거래완료 판매글로 바로 계산되므로 저장 즉시 반영된다 (REQ-COMMON-004).
+ * 같은 트랜잭션에서 일별 시세 집계(item_price_daily)의 그날 칸을 다시 계산해 시세 대시보드에 바로 반영한다 (#48, REQ-COMMON-004).
  */
 async function completeListing(listingId, userId, { soldPrice, buyerId }) {
   if (buyerId === userId) throw badRequest('본인을 구매자로 지정할 수 없습니다.');
@@ -374,6 +375,7 @@ async function completeListing(listingId, userId, { soldPrice, buyerId }) {
       throw new HttpError(404, 'USER_NOT_FOUND', '구매자 회원을 찾을 수 없습니다.');
     }
     await sellRepository.markSold(connection, listingId, { soldPrice, buyerId });
+    await marketRepository.refreshForListing(connection, listingId);
     const sold = await sellRepository.findSoldInfo(connection, listingId);
     return { id: listingId, status: sold.status, soldPrice: sold.soldPrice, soldAt: sold.soldAt };
   });

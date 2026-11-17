@@ -7,6 +7,10 @@ export type ListingSort = 'latest' | 'priceAsc' | 'priceDesc' | 'popular';
 export interface ListingSearchParams {
   readonly q?: string;
   readonly category?: string;
+  /** 같은 품목의 판매글만 (품목 id). */
+  readonly itemId?: number;
+  /** 같은 판매자의 판매글만 (회원 id). */
+  readonly sellerId?: number;
   readonly condition?: readonly ItemCondition[];
   /** `{그레이딩사}-{등급}` (예: PSA-10). */
   readonly grades?: readonly string[];

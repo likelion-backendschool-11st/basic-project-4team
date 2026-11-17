@@ -1,4 +1,3 @@
-import { ROUTES } from './layout';
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -39,7 +38,8 @@ export interface RelatedListing {
   readonly id: string;
   readonly title: string;
   readonly price: string;
-  readonly imageSrc: string;
+  /** 대표 사진·품목 이미지가 모두 없으면 null. */
+  readonly imageSrc: string | null;
   readonly imageAlt: string;
   readonly location: string;
   readonly timeAgo: string;
@@ -54,13 +54,9 @@ export interface SellerOtherItem {
   readonly price: string;
   readonly condition: string;
   readonly conditionTone: 'primary' | 'muted';
-  readonly imageSrc: string;
+  /** 대표 사진·품목 이미지가 모두 없으면 null. */
+  readonly imageSrc: string | null;
   readonly imageAlt: string;
-}
-
-export interface InspectionPoint {
-  readonly label: string;
-  readonly value: string;
 }
 
 export type ListingStatus = '판매중' | '예약중' | '거래완료';
@@ -77,15 +73,8 @@ export interface StatusOption {
 /* Shared listing core                                                 */
 /* ------------------------------------------------------------------ */
 
-export const MOCK_LISTING_ID = 'P-010-882194';
-
 export const listingCore = {
-  id: MOCK_LISTING_ID,
-  itemId: 'charizard-ex-sar-sv2a-201',
-  title: '[PSA 10] 리자몽 ex SAR (SV2a 201/165)',
-  price: '300,000',
   currency: '원',
-  wishCount: 38,
 };
 
 /** URL 복사 버튼 (REQ-DETAIL-003). */
@@ -247,56 +236,12 @@ export const sellerDetailCopy = {
 /* P-010 Buyer view                                                    */
 /* ------------------------------------------------------------------ */
 
-const IMG = {
-  front:
-    'https://lh3.googleusercontent.com/aida-public/AB6AXuBz6f5RB_Wu1rjJSocCNZRzZGPaNxwKouAjsEDZMLYhz5h2DuFAT89nl-IITFebBSH8CSuvWRJDROqC0hzCfe4PxMaXnPpoJpo3mmoofRuHyimt2mgKeQjJ812s5pb3PD6hXCFFG5uN0DJUBoOOTxmTFtN36ejzs-IibTxckKlKBycWv0vL4c5Gkmtj1ohZXiJQMpAbycWF-mXX5cpOzE5N7cMPN-xCnIuqIbUlUDs',
-  back: 'https://lh3.googleusercontent.com/aida-public/AB6AXuB_y3X02C2Lb3Bat1Vk4VhGMWPfE8Q34PO3iu54um1gLnpX1u6jQNdv0he3AnDCJSXDAF_7cK8PvZmTiG4zMgt_6YK3HjaLr-8pyWcK5VC-rVynWmDgc8oPJbYSD2JqDvAkDhKfEmJ6DJxjAuozgx1BJPhbv1JRgZ7g-L-0Ek6HvN-5ISF_dYKsHMin87USw2DqNDn0iYcJo5Q-huwKm_7cWgmt2CQgIHrW4t0TSCY',
-  corner:
-    'https://lh3.googleusercontent.com/aida-public/AB6AXuCQeI2PNeoNd89MnjgZUhdzZueVf2ksinibQSU0B26UyXb6VkHWP6Oqc7PdsjnjZ2UegZpDTWRjS3EeQ7N43tmpNsp2vzh7FIc8U_qSJH7ey9o7UX3aTsm2e6O7s2DrSRjKojavXZxwgMb_Oz8IA88Fx8J_Of_4aePzEQL8szsyNmZBuOaeWO1dhDh-2MSTtcZSqy0iTSRHuexRKBH-ujsoFvU8CaOJNwLy63UFBqI',
-  holo: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBLyvGJdN3n_Qlhae5aMXkQKmNS7njyl9i0FyhU1P--1FXtZNKJfSi-jE6eqPtBJP678nRtnL5mysy9Jc8HxxbOOP8CQYj1TjHRKjBXt5Zq2yVW5ETy8BRwOEv946z8g8XIrSEtWcj__rGb71bqeX_ZkXOHGiZghFgV36-StZOEL3H_kqVBxYjRtWOxdSvjhk2DIWSqHwsbiC7MWFXKEE-rnCZW5VG1ECTecPrTH98',
-  label:
-    'https://lh3.googleusercontent.com/aida-public/AB6AXuBUkz3a_q2GLIzAbqIZo1sXBCNMQ6EZtJi9_0BGIHYR5tOUabKxlSJc8CnyBA1EdDfQl-FtqPNtbt6gsBA0cnQQX7rFZcA0lBkhsMysZt3NA-HtZ_M3Qegg6a8CIlVJw08qidBjntkmeS6BXV20kafuZTZ1lAUT7bg22YLTmarWmii1lFVx7pi_V7zSz7il2YLAUU2pUFq5-nl-N6KPDKzLczz4HdmT1lmw7VP_Zbo',
-};
-
 export const buyerListing = {
-  breadcrumbs: [
-    { label: '홈', to: ROUTES.home },
-    { label: '트레이딩 카드', to: `${ROUTES.search}?category=trading-card` },
-    { label: '포켓몬 카드', to: `${ROUTES.search}?category=pokemon` },
-    { label: '포켓몬 151 (SV2a)' },
-  ] as readonly BreadcrumbItem[],
   escrowBadge: 'RE:PICK 안심 에스크로 적용 대상',
   listingNoLabel: '상품 등록번호:',
-  gallery: [
-    { src: IMG.front, alt: '[PSA 10] 리자몽 ex SAR 카드 전면', label: '대표' },
-    { src: IMG.back, alt: '[PSA 10] 리자몽 ex SAR 카드 후면', label: '후면' },
-    { src: IMG.corner, alt: '실물 인증 포스트잇 및 모서리 확대', label: '상세 코너' },
-    { src: IMG.holo, alt: '홀로그램 표면 텍스처 무결성', label: '실물인증', verified: true },
-    { src: IMG.label, alt: 'PSA 공식 바코드 및 라벨 인증', label: 'PSA 라벨' },
-  ] as readonly GalleryImage[],
-  eyebrow: '포켓몬 151 번호 201',
-  setLabel: '세트: 한국어 정식발매 SV2a',
-  price: {
-    label: '판매 희망가',
-    avgLabel: '최근 30일 평균 체결가 320,000원',
-    deltaBadge: '▼ 6.3% 저렴',
-    deltaNote: '시세 최저가 수준',
-  },
-  stats: { registered: '등록: 9일 전', views: '조회 1,420', wishLabel: '찜' },
-  attributes: [
-    { label: '거래 방식', kind: 'chips', value: '', chips: ['택배거래', '직거래'] },
-    { label: '직거래 가능지역', kind: 'location', value: '서울 관악구 남현동 (사당역)' },
-    { label: '제품 상태', kind: 'status', value: '미개봉 수집품 / 슬랩 완벽 보관' },
-    { label: '인증 여부', kind: 'verified', value: 'PSA 공식 정품 일련번호 등록' },
-  ] as readonly ListingAttribute[],
+  price: { label: '판매 희망가' },
+  stats: { wishLabel: '찜' },
   specTitle: '카테고리별 필수 스펙 요약',
-  specs: [
-    { label: '세트명', value: '포켓몬 151' },
-    { label: '카드 번호', value: '201/165' },
-    { label: '발행 언어', value: '한국어 정품' },
-    { label: '희귀도', value: 'SAR (스페셜아트)', tone: 'primary' },
-    { label: '공식 등급', value: 'PSA 10', tone: 'grade' },
-  ] as readonly SpecItem[],
   actions: {
     discussionLabel: '토론방',
     discussionTitle: '품목 토론방 바로가기',
@@ -306,27 +251,25 @@ export const buyerListing = {
   },
   description: {
     title: '상품 정보',
-    badge: '검수 보증 가능',
-    updatedAt: '최종 수정일: 2025.02.15',
-    possessionTitle: '실물 보유 및 위변조 인증 완료',
-    possessionBody:
-      '판매자가 포스트잇 닉네임과 당일 날짜를 슬랩과 함께 촬영하여 등록하였으며, RE:PICK 검수팀 1차 이미지 데이터 무결성 검증을 통과했습니다.',
+    /** 실물 인증 사진(authImage)이 있을 때만 보여준다. */
+    possessionTitle: '실물 인증 사진 등록',
+    possessionBody: '판매자가 실물 인증 사진을 함께 등록했습니다. 사진 속 닉네임·날짜와 실물 상태를 직접 확인해 보세요.',
     expandLabel: '상품 설명 더보기',
     collapseLabel: '상품 설명 접기',
     escrowNotice: 'RE:PICK 안전결제 시 구매 확정 전까지 결제 대금이 안전하게 보호됩니다.',
-    escrowLinkLabel: '안심 기준 >',
-    escrowLinkTo: '/guide',
   },
   seller: {
-    initial: '포',
-    name: '포케마스터99',
-    grade: '안전판매자 1급',
-    badge: '100% 에스크로 준수 회원',
-    profileLabel: '프로필',
-    profileTo: '/users/pokemaster99',
     tradesLabel: '누적 거래 횟수',
-    trades: '42',
     tradesUnit: ' 회 완료',
+    otherTitle: (count: number) => `판매자의 다른 상품 (${count})`,
+    otherEmpty: '판매 중인 다른 상품이 없습니다.',
+    /** "판매자의 다른 상품"에 보여줄 최대 개수. */
+    otherSize: 3,
+  },
+  related: {
+    title: '같은 품목의 다른 매물',
+    subtitle: '(판매중 · 최신 등록순)',
+    description: (itemName: string) => `동일 품목 [${itemName}]의 판매중 매물입니다.`,
     ratingLabel: '구매자 만족도 (리뷰)',
     reviewsLabel: '리뷰 보기',
     rating: '4.9',
@@ -342,90 +285,21 @@ export interface DescriptionSegment {
 export type DescriptionLine = readonly DescriptionSegment[];
 export type DescriptionParagraph = readonly DescriptionLine[];
 
-export const buyerDescription: readonly DescriptionParagraph[] = [
-  [
-    [
-      { text: '안녕하세요. 포켓몬 카드 컬렉터입니다. 직접 한국판 포켓몬 151 박스를 개봉하여 얻은 후 바로 미국 PSA 본사로 그레이딩을 대행 접수해 수령한 ' },
-      { text: '리자몽 ex SAR (201/165) PSA 10', strong: true },
-      { text: ' 원오너 소장품입니다.' },
-    ],
-  ],
-  [
-    [
-      { text: '• ' },
-      { text: '보관 상태:', strong: true },
-      { text: ' PSA 슬랩 전용 오피셜 슬리브 + 제습 캐비닛(습도 45% 유지)에 암실 보관했습니다. 케이스 외부 스크래치 일절 없으며 모서리 및 홀로그램 코팅 상태 극상입니다.' },
-    ],
-    [
-      { text: '• ' },
-      { text: '거래 방식:', strong: true },
-      { text: ' 사당역, 이수역, 남현동 부근에서 직접 상태 육안 확인 후 직거래 가능하며, 택배 거래 시 뽁뽁이 3중 완충 포장 + 우체국 안심택배(보험 적용)로 당일 발송해 드립니다.' },
-    ],
-    [
-      { text: '• ' },
-      { text: '에스크로 안심 검수:', strong: true },
-      { text: ' RE:PICK 전문 검수 센터를 통한 중간 에스크로 배송도 전액 동의합니다. 검수비 절반 지원해 드립니다.' },
-    ],
-  ],
-  [
-    [
-      { text: '네고는 정중히 사양하며, PSA 일련번호는 보안을 위해 일부 모자이크 처리했으나 구매자분께는 채팅 시 전체 번호 및 PSA 공홈 조회 링크 실시간 전송 가능합니다. 쿨거래 시 151 팩 슬리브 미개봉 서비스로 챙겨드립니다.' },
-    ],
-  ],
-];
-
 /* ------------------------------------------------------------------ */
 /* P-013 Seller (my listing) view                                      */
 /* ------------------------------------------------------------------ */
 
-const SELLER_IMG = {
-  front:
-    'https://lh3.googleusercontent.com/aida-public/AB6AXuBEGcd3IITTzwYdDbBG4jnGa8vy1s9IwJwLzL2UmLuFpvC9RepBLq_lkzpAsVTwUgs2cXcxzZ65yUQmPIW_SteKKz5NGckxILXILSiHYMf8strYjR6AYeMDbYW4d_bOs7TQhwTwJzt5CCY6YUyWZ4I-6h7ofG5W12XmJmhV40SxQ014MCSbhGwzcBVyX7tfUCOpNPJ-PZNjxJD8rETF5kFeZhqPjUpODxGincPN8ps',
-  back: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAqhHaG6AjMWzjpXOAYrDfdLDQhG5VaxF42w5bkqCHsFQTdEgxQefsKCGY8a0qt2LPvhfZcvrMpPDCaxdWU1vJfOwMzl7F6NnivybZgdr9mI1QtWN3jSI2NesNfY1iOGrx6ygmSXD-5sPwJ0E1N6jl-JcP-MO_B9ioiTIy1uWigoviQryfwZTliJqw3REsY4HJsugJ-pgLt9JDyXjD-gTblBYm1mcrZbeKDOafP378',
-  macro:
-    'https://lh3.googleusercontent.com/aida-public/AB6AXuC7hM62YuQdwGBSOLZTcOduC6WIubRg8sa3cWaDDTsYIXERyEkoWLJqGWW20jTAvaM88XFiEq0cp7-pYOe6n0Vb_iAFk9UCor3DQintbbnqJg5LYjvbcsT2XiOW--iDYc0rqSMhT2m3ZWGCF_a1XpUek-DMeQTTcuaum1dx04q7Qct1nnei78xL3OUUfG3KUaKr-6njrO9BLbgl6kJJaTE4M1DKysps44_JYszolbQ',
-  thumbFront:
-    'https://lh3.googleusercontent.com/aida-public/AB6AXuDeH2cZVt5L9ym_V7YMjDnK3DdVdiS4TrNb0OY7FLSGJRs4H9-TI6gYmqBjvGwC5QYOrallrjN6EL5WmMKXS2zxCuSIL3k02ql0kXg3YN7knJwrxiUjOmnrmXzVdNwS1aEzJfFqbhOFXlgLSe4gcHLycpjvR0T94BkhaQGvJkF9mZPUEAesbHfVlim0OMX-eQy2MVqS4zL4_Kr6Etgbxdahnh4-kDCpvHQ8YojqYCY',
-  thumbBack:
-    'https://lh3.googleusercontent.com/aida-public/AB6AXuApJ27B8ovZrt3VYYBVdppklPENMxrTijMfTszvLEjLFRJdwLBQRLphBJLHz0TjhlUkQRfSwzXuwBBxYeosMEXULHX5Y1CKINuV7PQzVS2Vvv3RUtOLUG3hxXNQVLyJmptIW54fPUonR3-nbQ91FAHe0RupvkgfWpvh_lx0oUjTGaYgnvczZ61mYWvVlt7oqqstYan0LkBp9FaDqIds-1SEOCg-wRkkcQXRynOByOU',
-  thumbMacro:
-    'https://lh3.googleusercontent.com/aida-public/AB6AXuBuLAxQIo5XMujeVZDsnuMVVXkgz4mcersUTu5n9vaCeFmlzhib669KUtjCCI2SjZSPWPo5tCWICciegkZ_f4rg3EgleANZOfzAyQGYiseRZoFQM4EJwJ8B_9_EYfzW5SQDiTiyS0TiK0CLUfHgKyG9rYnNqDK9O0rKXoSI9LvjDVdE2Gmolzk3JeTwPmToWpx8lz27sI1BkX6sR6BPqeZ8VNVmbfntZHPbE2V8bx8',
-};
-
 export const sellerListing = {
-  /** Slides shown in the main viewer (3) — the 4th thumbnail jumps back to slide 0. */
-  gallery: [
-    { src: SELLER_IMG.front, thumbSrc: SELLER_IMG.thumbFront, alt: 'PSA 10 리자몽 ex SAR 슬랩 전면', label: '대표' },
-    { src: SELLER_IMG.back, thumbSrc: SELLER_IMG.thumbBack, alt: 'PSA 슬랩 후면 바코드', label: '후면' },
-    { src: SELLER_IMG.macro, thumbSrc: SELLER_IMG.thumbMacro, alt: '카드 표면 홀로그램 확대', label: '상세 코너' },
-  ] as readonly GalleryImage[],
-  extraThumbs: [
-    { src: SELLER_IMG.front, alt: '실물 인증 QR 태그', label: '실물인증', verified: true, targetIndex: 0 },
-  ] as readonly GalleryImage[],
-  breadcrumbs: [
-    { label: '카드', to: `${ROUTES.search}?category=card` },
-    { label: '포켓몬 카드', to: `${ROUTES.search}?category=pokemon` },
-    { label: '포켓몬 151 (SV2a)' },
-  ] as readonly BreadcrumbItem[],
+  /** 시세 안내 문구. 금액·차이율은 LISTING-02 응답으로 채운다. */
   price: {
     label: '내 등록 판매 희망가',
-    avgPrefix: '최근 실시간 체결 평균가:',
-    avgValue: '320,000원',
-    deltaNote: '시장 평균보다 약 6.2% 저렴하게 등록되어 빠른 판매가 예상됩니다.',
+    avgPrefix: '최근 30일 체결 평균가:',
   },
-  stats: { registered: '등록시간: 9일 전 (2025.02.16)', viewsLabel: '조회수', views: '1,420', wishLabel: '관심(찜)' },
-  attributes: [
-    { label: '거래 방식', kind: 'text', value: '택배 배송 / 직거래 (서울 남현동)' },
-    { label: '제품 상태', kind: 'badge', value: 'PSA 10 (Gem Mint)' },
-    { label: '카드 언어판본', kind: 'text', value: '한국어판 (SV2a 151)' },
-    { label: '레어도/일련번호', kind: 'text', value: 'SAR (스페셜 아트 레어) / 201/165' },
-    { label: 'PSA 인증 번호', kind: 'mono', value: '#84209184 (QR 조회 일치)' },
-    { label: '에스크로 안전결제', kind: 'text', value: '전액 보호 보증 지원' },
-  ] as readonly ListingAttribute[],
+  stats: { viewsLabel: '조회수', wishLabel: '관심(찜)' },
   management: {
     title: '판매자 전용 관리 도구',
     note: '구매자 화면의 [채팅하기] 버튼 대신 관리 도구가 활성화되었습니다.',
-    discussionLabel: '품목 토론방 보기 (💬 21)',
+    discussionLabel: '품목 토론방 보기',
     editLabel: '1. 상품수정',
     statusPrefix: '2. 상태: ',
     deleteLabel: '3. 상품삭제',
@@ -437,10 +311,15 @@ export const sellerListing = {
   ] as readonly StatusOption[],
   description: {
     title: '상품 정보 및 상세 설명',
-    note: '작성자 본인 검증 승인 완료',
     expandLabel: '상품 정보 더보기',
     collapseLabel: '상품 정보 접기',
   },
+  related: {
+    title: '같은 품목의 다른 판매중 매물',
+    description: '같은 품목을 판매 중인 다른 판매자의 등록 가격을 비교해 보세요.',
+    /** 불러올 최대 개수 (현재 판매글은 빼고 보여준다). */
+    size: 12,
+    deliveryOnly: '택배 거래',
   inspection: {
     title: '전문 검수 센터 기준 실물 상태 체결 보증표',
     badge: '100% 정품 인증 통과',
@@ -454,8 +333,8 @@ export const sellerListing = {
   deleteModal: {
     title: '판매글 삭제 확인',
     question: '정말 해당 판매글을 영구 삭제하시겠습니까?',
-    warning:
-      '삭제 시 현재까지 누적된 관심(찜 38명)과 조회수 데이터가 모두 삭제되며 복구할 수 없습니다. 이미 구매 희망자와 채팅 중인 경우 거래 내역을 반드시 확인하세요.',
+    warning: (wishCount: number, viewCount: number) =>
+      `삭제 시 현재까지 누적된 관심(찜 ${wishCount.toLocaleString('ko-KR')}명)과 조회수(${viewCount.toLocaleString('ko-KR')}회) 데이터가 모두 삭제되며 복구할 수 없습니다. 이미 구매 희망자와 채팅 중인 경우 거래 내역을 반드시 확인하세요.`,
     cancelLabel: '취소',
     confirmLabel: '삭제하기',
   },

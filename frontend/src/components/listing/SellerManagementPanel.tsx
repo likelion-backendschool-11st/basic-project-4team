@@ -16,6 +16,8 @@ interface SellerManagementPanelProps {
   readonly listingId: string;
   readonly itemId: string;
   readonly labels: SellerManagementLabels;
+  /** 품목 토론방 글 수 (GET /posts?itemId=). 불러오기 전·실패 시 null → 숫자를 숨긴다. */
+  readonly discussionCount: number | null;
   /** The status dropdown slot (keeps this panel stateless). */
   readonly statusControl: React.ReactNode;
   readonly onDelete: () => void;
@@ -26,6 +28,7 @@ export const SellerManagementPanel: React.FC<SellerManagementPanelProps> = ({
   listingId,
   itemId,
   labels,
+  discussionCount,
   statusControl,
   onDelete,
 }) => (
@@ -37,7 +40,12 @@ export const SellerManagementPanel: React.FC<SellerManagementPanelProps> = ({
         <span className="font-eyebrow text-eyebrow text-forest">{labels.title}</span>
       </div>
       <span className="font-micro text-micro text-muted">{labels.note}</span>
-      <DiscussionShortcut itemId={itemId} label={labels.discussionLabel} variant="link" />
+      <DiscussionShortcut
+        count={discussionCount ?? undefined}
+        itemId={itemId}
+        label={labels.discussionLabel}
+        variant="link"
+      />
     </div>
     <div className="grid grid-cols-1 md:grid-cols-3 gap-space-sm items-center">
       {/* data-component="EditListingButton" */}

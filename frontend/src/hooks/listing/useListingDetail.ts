@@ -16,6 +16,11 @@ export const useListingDetail = (listingId: string): ListingDetailState => {
   useEffect(() => {
     // 응답이 늦게 와도 이전 id의 결과로 화면을 덮어쓰지 않게 한다.
     let cancelled = false;
+    // 판매글 id는 양의 정수. 아니면 요청하지 않고 바로 "없음".
+    if (!/^[1-9]\d*$/.test(listingId)) {
+      setState({ status: 'notFound' });
+      return undefined;
+    }
     setState({ status: 'loading' });
     getListing(listingId)
       .then((listing) => {

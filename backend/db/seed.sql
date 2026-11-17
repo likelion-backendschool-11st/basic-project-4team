@@ -43,6 +43,7 @@ TRUNCATE TABLE post_polls;
 TRUNCATE TABLE post_price_tags;
 TRUNCATE TABLE post_images;
 TRUNCATE TABLE posts;
+TRUNCATE TABLE item_price_daily;
 TRUNCATE TABLE listing_views;
 TRUNCATE TABLE wishes;
 TRUNCATE TABLE listing_images;

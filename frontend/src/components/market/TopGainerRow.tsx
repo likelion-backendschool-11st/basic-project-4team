@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import type { TopGainer } from '../../data/market';
 import { formatNumber, formatPercent, trendOf } from '../../hooks/market/marketFormat';
+import { Icon } from '../common/Icon';
 import { Sparkline } from './Sparkline';
 
 interface TopGainerRowProps {
@@ -21,7 +22,13 @@ export const TopGainerRow: React.FC<TopGainerRowProps> = ({ item, to, currency, 
     <div className="flex items-center gap-space-sm min-w-0">
       <span className="font-heading-4 font-bold text-on-surface w-4 text-center shrink-0">{item.rank}</span>
       <div className="w-10 h-14 bg-surface-container rounded overflow-hidden shrink-0 border border-hairline">
-        <img alt={item.imageAlt} className="w-full h-full object-cover" loading="lazy" src={item.imageUrl} />
+        {item.imageUrl ? (
+          <img alt={item.imageAlt} className="w-full h-full object-cover" loading="lazy" src={item.imageUrl} />
+        ) : (
+          <span className="w-full h-full flex items-center justify-center text-faint">
+            <Icon className="text-[18px]" name="style" />
+          </span>
+        )}
       </div>
       <div className="min-w-0">
         <span className="font-ui-sm text-ui-sm text-on-surface font-bold truncate block">{item.name}</span>
