@@ -16,6 +16,7 @@ const notificationRoutes = require('./notification/notification.routes');
 const uploadRoutes = require('./sell/upload.routes');
 const itemRoutes = require('./sell/item.routes');
 const categoryRoutes = require('./sell/category.routes');
+const userListingRoutes = require('./sell/user.routes');
 const postUploadRoutes = require('./upload/upload.routes');
 const newSubscriberItemRoutes = require('./newsubscriber/newsubscriber.item.routes');
 const newSubscriberMeRoutes = require('./newsubscriber/newsubscriber.me.routes');
@@ -54,6 +55,7 @@ app.use('/api/items', itemCommunityRoutes); // GET /trending, GET /:itemId (ITEM
 app.use('/api/users/me', myWishRoutes); // GET /wishes
 app.use('/api/users/me', mypageRoutes); // 마이페이지: summary, listings, purchases, posts, comments, nickname, password
 app.use('/api/users/me', newSubscriberMeRoutes); // GET /listing-limit
+app.use('/api/users', userListingRoutes); // GET /:userId/listings (LISTING-10) — /api/users/me 라우터보다 뒤
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/community', commentRoutes);
 app.use('/api/reports', reportRoutes);
