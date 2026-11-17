@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { getMarketPrices } from '../../api/market';
+import { toAssetUrl } from '../../api/client';
 import type { MarketItemPrice } from '../../api/types';
 import { priceCardTags, type PriceCard, type PriceSortKey, priceGridSection, type ViewMode } from '../../data/market';
 import { sparklinePath } from './marketFormat';
@@ -9,7 +10,7 @@ const toPriceCard = (item: MarketItemPrice): PriceCard => ({
   slug: item.slug,
   name: item.name,
   tags: priceCardTags({ key: item.gradeKey, gradingService: item.gradingService, grade: item.grade }, item.language),
-  imageUrl: item.imageUrl,
+  imageUrl: item.imageUrl ? toAssetUrl(item.imageUrl) : null,
   price: item.price,
   change1d: item.change1d,
   change7d: item.change7d,

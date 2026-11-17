@@ -5,6 +5,7 @@ import { ItemRequestPrompt } from './ItemRequestPrompt';
 import { SectionCard } from './SectionCard';
 import { catalogCopy, itemRequestCopy } from '../../data/listingForm';
 import type { ItemSummary } from '../../api/types';
+import { toAssetUrl } from '../../api/client';
 import type { CatalogSearchStatus } from '../../hooks/listing-form/useCatalogSearch';
 
 interface CatalogSearchSectionProps {
@@ -44,7 +45,7 @@ const CatalogResultRow: React.FC<CatalogResultRowProps> = ({ item, selected, onS
       type="button"
     >
       {item.imageUrl ? (
-        <img alt="" className="w-10 h-10 rounded object-cover shrink-0 bg-canvas-soft" src={item.imageUrl} />
+        <img alt="" className="w-10 h-10 rounded object-cover shrink-0 bg-canvas-soft" src={toAssetUrl(item.imageUrl)} />
       ) : (
         <span className="w-10 h-10 rounded bg-canvas-soft shrink-0 flex items-center justify-center">
           <Icon className="text-muted text-[20px]" name="image" />
