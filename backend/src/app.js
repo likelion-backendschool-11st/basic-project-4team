@@ -30,7 +30,8 @@ const HttpError = require('./utils/HttpError');
 const app = express();
 
 // credentials: true — 프론트(다른 포트)에서 인증 쿠키를 주고받기 위해 필요
-app.use(cors({ origin: env.corsOrigin, credentials: true }));
+if (env.trustProxy) app.set('trust proxy', 1);
+app.use(cors({ origin: env.corsOrigins, credentials: true }));
 app.use(express.json());
 app.use(cookieParser());
 

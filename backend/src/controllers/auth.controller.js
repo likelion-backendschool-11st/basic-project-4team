@@ -13,10 +13,11 @@ const EMAIL_MAX = 255;
 const VERIFICATION_CODE_PATTERN = /^\d{6}$/;
 
 // JS에서 접근 못 하는 httpOnly 쿠키에 토큰을 담아 XSS로 탈취되지 않게 한다.
+// 배포에서는 프론트(Vercel)와 API 도메인이 달라 SameSite=None이 필요하고, None은 Secure(https)일 때만 허용된다.
 const cookieOptions = {
   httpOnly: true,
-  secure: env.isProduction,
-  sameSite: 'lax',
+  secure: env.isProduction || env.cookieSameSite === 'none',
+  sameSite: env.cookieSameSite,
   path: '/',
 };
 

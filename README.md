@@ -115,4 +115,5 @@ pull 받은 뒤에 `package.json`이나 `db/schema.sql`이 바뀌었으면 `npm 
 
 - API 명세: [`backend/docs/api-spec.md`](backend/docs/api-spec.md)
 - 코딩 컨벤션: [`backend/docs/convention.md`](backend/docs/convention.md)
+- 배포 (Vercel + 백엔드 서버 + 클라우드 MySQL): [`docs/deploy.md`](docs/deploy.md)
 - 프로젝트 개요: [`backend/docs/CLAUDE.md`](backend/docs/CLAUDE.md)

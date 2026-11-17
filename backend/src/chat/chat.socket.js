@@ -63,7 +63,7 @@ function unregister(userId, ws) {
 
 function onConnection(ws, req) {
   const origin = req.headers.origin;
-  if (origin && origin !== env.corsOrigin) {
+  if (origin && !env.corsOrigins.includes(origin)) {
     ws.close(CLOSE.forbiddenOrigin, 'forbidden origin');
     return;
   }
