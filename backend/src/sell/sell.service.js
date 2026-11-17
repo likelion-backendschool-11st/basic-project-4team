@@ -5,13 +5,12 @@ const sharp = require('sharp');
 const sellRepository = require('./sell.repository');
 const marketRepository = require('../market/market.repository');
 const itemCommunityService = require('../itemcommunity/itemcommunity.service');
-const env = require('../config/env');
+const fileStorage = require('../file/file.storage');
 const HttpError = require('../utils/HttpError');
 const notificationService = require('../notification/notification.service');
 const newSubscriberService = require('../newsubscriber/newsubscriber.service');
 
 const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
-const LISTING_IMAGE_DIR = 'listings';
 const IMAGE_MAX_SIDE = 1600;
 const IMAGE_WEBP_QUALITY = 80;
 const ALLOWED_IMAGE_FORMATS = ['jpeg', 'png', 'webp'];
@@ -167,12 +166,12 @@ async function resizeImage(buffer) {
 async function uploadImage({ uploaderId, type, buffer }) {
   const resized = await resizeImage(buffer);
   const fileName = `${crypto.randomUUID()}.webp`;
-  const dir = path.join(env.uploadDir, LISTING_IMAGE_DIR);
+  const dir = fileStorage.dirPath(fileStorage.UPLOAD_DIRS.listings);
   const filePath = path.join(dir, fileName);
   await fs.mkdir(dir, { recursive: true });
   await fs.writeFile(filePath, resized);
 
-  const url = `${env.publicBaseUrl}/uploads/${LISTING_IMAGE_DIR}/${fileName}`;
+  const url = fileStorage.absoluteUrl(fileStorage.UPLOAD_DIRS.listings, fileName);
   try {
     const imageId = await sellRepository.insertImage({ uploaderId, type, url });
     return { imageId, url, type };
