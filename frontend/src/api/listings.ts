@@ -6,6 +6,8 @@ import type {
   CreateListingResponse,
   ListingDetail,
   ListingImageType,
+  ListingListResponse,
+  ListingStatus,
   ListingStatusResponse,
   UpdateListingRequest,
   UploadedImage,
@@ -51,3 +53,35 @@ export const uploadListingImage = (file: File, type: ListingImageType): Promise<
   form.append('image', file);
   return apiRequest<UploadedImage>('/uploads/images', { method: 'POST', body: form });
 };
+
+/** ITEM-05·LISTING-10 공통 쿼리. */
+export interface RelatedListingsParams {
+  /** 지금 보고 있는 판매글 제외. */
+  readonly excludeListingId?: number;
+  readonly status?: ListingStatus;
+  readonly page?: number;
+  readonly size?: number;
+}
+
+/** ITEM-05 정렬. 기본은 낮은 가격순. */
+export type ItemListingSort = 'priceAsc' | 'priceDesc' | 'latest';
+
+const toRelatedQuery = (params: RelatedListingsParams & { readonly sort?: ItemListingSort }): string => {
+  const query = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined) query.set(key, String(value));
+  });
+  const text = query.toString();
+  return text ? `?${text}` : '';
+};
+
+/** 같은 품목의 판매글 목록 (ITEM-05). 판매글 상세 "같은 품목의 다른 매물"에 쓴다. */
+export const getItemListings = (
+  itemId: number,
+  params: RelatedListingsParams & { readonly sort?: ItemListingSort } = {},
+): Promise<ListingListResponse> =>
+  apiRequest<ListingListResponse>(`/items/${encodeURIComponent(itemId)}/listings${toRelatedQuery(params)}`);
+
+/** 판매자의 다른 판매글 (LISTING-10). totalCount가 "판매자의 다른 상품 (N)"의 N. */
+export const getSellerListings = (userId: number, params: RelatedListingsParams = {}): Promise<ListingListResponse> =>
+  apiRequest<ListingListResponse>(`/users/${encodeURIComponent(userId)}/listings${toRelatedQuery(params)}`);

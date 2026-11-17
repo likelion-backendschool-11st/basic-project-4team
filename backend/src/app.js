@@ -16,11 +16,13 @@ const notificationRoutes = require('./notification/notification.routes');
 const uploadRoutes = require('./sell/upload.routes');
 const itemRoutes = require('./sell/item.routes');
 const categoryRoutes = require('./sell/category.routes');
+const userListingRoutes = require('./sell/user.routes');
 const postUploadRoutes = require('./upload/upload.routes');
 const newSubscriberItemRoutes = require('./newsubscriber/newsubscriber.item.routes');
 const newSubscriberMeRoutes = require('./newsubscriber/newsubscriber.me.routes');
 const chatRoutes = require('./chat/chat.routes');
 const itemRequestRoutes = require('./itemrequest/itemrequest.routes');
+const marketRoutes = require('./market/market.routes');
 const errorHandler = require('./middlewares/errorHandler');
 const HttpError = require('./utils/HttpError');
 
@@ -56,6 +58,7 @@ app.use('/api/users/me', myWishRoutes); // GET /wishes
 app.use('/api/users/me', mypageRoutes); // 마이페이지: summary, listings, purchases, posts, comments, nickname, password
 app.use('/api/users/me', newSubscriberMeRoutes); // GET /listing-limit
 app.use('/api/users/me', itemRequestRoutes.meRouter); // GET /item-requests (ITEM-07)
+app.use('/api/users', userListingRoutes); // GET /:userId/listings (LISTING-10) — /api/users/me 라우터보다 뒤
 app.use('/api/item-requests', itemRequestRoutes.router); // POST / 품목 등록 요청 (ITEM-06)
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/community', commentRoutes);
@@ -64,6 +67,7 @@ app.use('/api/uploads', uploadRoutes); // POST /images (판매글)
 app.use('/api/uploads', postUploadRoutes); // POST /post-images (토론글), /chat-images (채팅)
 app.use('/api/chat', chatRoutes); // 채팅 REST (실시간 수신은 server.js의 /ws/chat)
 app.use('/api/communityVote', communityVoteRoutes);
+app.use('/api/market', marketRoutes); // 시세 대시보드 (MARKET-01~05)
 
 app.use((req, res, next) => next(new HttpError(404, 'NOT_FOUND', '요청한 API를 찾을 수 없습니다.')));
 app.use(errorHandler);

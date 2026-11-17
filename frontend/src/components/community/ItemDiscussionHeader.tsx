@@ -41,16 +41,29 @@ export const ItemDiscussionHeader: React.FC<ItemDiscussionHeaderProps> = ({ item
             {item.certNo && <span className="font-micro text-micro text-muted">{item.certNo}</span>}
           </div>
           <h1 className="font-heading-3 text-heading-3 text-on-surface tracking-tight">{item.name}</h1>
-          <div className="flex flex-wrap items-baseline gap-space-xs mt-space-xxs">
-            <span className="font-stat-value text-stat-value text-on-surface">{item.price}</span>
-            {item.changePct && (
-              <span className={`font-ui-label text-ui-label flex items-center ${trendTone[item.trend]}`}>
-                {trendIcon[item.trend] && <Icon className="text-[16px]" name={trendIcon[item.trend] ?? ''} />}
-                {item.changePct}
-              </span>
-            )}
-            <span className="font-micro text-micro text-muted">{item.changeAmount}</span>
+          <div className="flex flex-wrap items-end gap-x-space-lg gap-y-space-xs mt-space-xxs">
+            <div className="min-w-0">
+              <span className="block font-micro text-micro text-muted">{itemHeaderCopy.latestLabel}</span>
+              <div className="flex flex-wrap items-baseline gap-space-xs">
+                <span className="font-stat-value text-stat-value text-on-surface">{item.price}</span>
+                {item.changePct && (
+                  <span className={`font-ui-label text-ui-label flex items-center ${trendTone[item.trend]}`}>
+                    {trendIcon[item.trend] && <Icon className="text-[16px]" name={trendIcon[item.trend] ?? ''} />}
+                    {item.changePct}
+                  </span>
+                )}
+                <span className="font-micro text-micro text-muted">{item.changeAmount}</span>
+              </div>
+            </div>
+            <div className="min-w-0 sm:pl-space-lg sm:border-l sm:border-hairline">
+              <span className="block font-micro text-micro text-muted">{itemHeaderCopy.averageLabel}</span>
+              <div className="flex flex-wrap items-baseline gap-space-xs">
+                <span className="font-stat-value text-stat-value text-on-surface">{item.average30d}</span>
+                <span className="font-micro text-micro text-muted">{item.tradeCount30d}</span>
+              </div>
+            </div>
           </div>
+          <span className="block font-micro text-micro text-faint mt-space-xxs">{itemHeaderCopy.referenceNote}</span>
         </div>
       </div>
       {/* Dual Tab Switcher */}

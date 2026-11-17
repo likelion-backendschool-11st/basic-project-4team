@@ -23,7 +23,7 @@ export const PriceCardGrid: React.FC<PriceCardGridProps> = ({ cards, viewMode, l
       }`}
     >
       {cards.map((card) => (
-        <PriceCardItem card={card} key={card.id} labels={labels} layout={viewMode} to={linkFor(card.id)} />
+        <PriceCardItem card={card} key={card.id} labels={labels} layout={viewMode} to={linkFor(card.slug)} />
       ))}
     </div>
   );

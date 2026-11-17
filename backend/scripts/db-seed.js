@@ -6,6 +6,7 @@
 const fs = require('fs');
 const path = require('path');
 const { env, connect, exitWithHint } = require('./db-common');
+const { rebuildMarket } = require('./db-market');
 
 const SEED_PATH = path.join(__dirname, '..', 'db', 'seed.sql');
 
@@ -13,13 +14,15 @@ async function main() {
   const connection = await connect({ multipleStatements: true });
   try {
     await connection.query(fs.readFileSync(SEED_PATH, 'utf8'));
+    // 시드의 거래완료 판매글로 일별 시세 집계를 만든다 (시세 대시보드)
+    const marketRows = await rebuildMarket(connection);
     const tables = ['users', 'items', 'listings', 'posts', 'comments', 'item_votes'];
     const counts = [];
     for (const table of tables) {
       const [[{ count }]] = await connection.query(`SELECT COUNT(*) AS count FROM ${table}`);
       counts.push(`${table} ${count}`);
     }
-    console.log(`✅ DB '${env.db.database}' 시드 완료 — ${counts.join(', ')}`);
+    console.log(`✅ DB '${env.db.database}' 시드 완료 — ${counts.join(', ')}, item_price_daily ${marketRows}`);
     console.log('   계정: test1~3 외 8명(신규 가입자 확인용 newbie 포함), 비밀번호는 모두 test1234');
   } finally {
     await connection.end();

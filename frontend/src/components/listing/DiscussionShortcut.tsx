@@ -42,6 +42,9 @@ export const DiscussionShortcut: React.FC<DiscussionShortcutProps> = ({ itemId, 
       >
         <Icon className="text-[16px]" name="forum" />
         <span>{label}</span>
+        {count !== undefined && (
+          <span className="bg-mint-200 text-forest font-micro text-micro px-1.5 py-0.5 rounded-full font-bold">{count}</span>
+        )}
         <Icon className="text-[14px]" name="arrow_forward" />
       </Link>
     );

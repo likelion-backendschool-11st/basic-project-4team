@@ -28,9 +28,9 @@ async function getMarketSummary(itemId, filter) {
   const latest = await itemCommunityRepository.findLastTrade(itemId, filter);
   if (!latest) return null;
 
-  const [previous, tradeCount30d] = await Promise.all([
+  const [previous, recent] = await Promise.all([
     itemCommunityRepository.findLastTrade(itemId, filter, startOfKstDay(latest.soldAt)),
-    itemCommunityRepository.countRecentTrades(itemId, filter),
+    itemCommunityRepository.findRecentTradeStats(itemId, filter),
   ]);
   const changeAmount = previous ? latest.price - previous.price : 0;
 
@@ -38,7 +38,9 @@ async function getMarketSummary(itemId, filter) {
     latestPrice: latest.price,
     changeAmount,
     changeRate: previous ? toChangeRate(changeAmount, previous.price) : 0,
-    tradeCount30d,
+    // 30일 평균 시세 — 판매글 저가 경고(ITEM-04)와 같은 기준. 최근 거래가 30일보다 오래됐으면 null.
+    averagePrice30d: recent.averagePrice,
+    tradeCount30d: recent.tradeCount,
   };
 }
 

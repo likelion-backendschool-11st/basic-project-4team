@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import type { PriceCard } from '../../data/market';
 import { formatNumber, formatPercent, type Trend, trendOf } from '../../hooks/market/marketFormat';
+import { Icon } from '../common/Icon';
 import { Sparkline } from './Sparkline';
 
 export interface PriceCardLabels {
@@ -56,12 +57,18 @@ export const PriceCardItem: React.FC<PriceCardItemProps> = ({ card, to, labels, 
       <div className={layout === 'list' ? 'md:flex-1 md:flex md:items-center md:gap-space-md' : undefined}>
         <div className={`flex items-start gap-space-sm mb-space-sm ${layout === 'list' ? 'md:mb-0 md:flex-1' : ''}`}>
           <div className="w-16 aspect-[3/4] bg-surface-container rounded overflow-hidden shrink-0 border border-hairline">
-            <img
-              alt={card.name}
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-              loading="lazy"
-              src={card.imageUrl}
-            />
+            {card.imageUrl ? (
+              <img
+                alt={card.name}
+                className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                loading="lazy"
+                src={card.imageUrl}
+              />
+            ) : (
+              <span className="w-full h-full flex items-center justify-center text-faint">
+                <Icon name="style" />
+              </span>
+            )}
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-1 mb-1">

@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const { escapeId } = require('mysql2');
 const { env, connect, exitWithHint } = require('./db-common');
+const { rebuildMarket } = require('./db-market');
 
 const SCHEMA_PATH = path.join(__dirname, '..', 'db', 'schema.sql');
 
@@ -41,6 +42,9 @@ async function main() {
     await connection.query(fs.readFileSync(SCHEMA_PATH, 'utf8'));
     const added = await addMissingColumns(connection, env.db.database);
     if (added.length > 0) console.log(`🔧 빠진 컬럼 추가: ${added.join(', ')}`);
+    // 집계표가 새로 생겼거나 어긋났을 수 있으니 거래완료 판매글로 다시 만든다 (데이터는 지우지 않음)
+    const marketRows = await rebuildMarket(connection);
+    console.log(`📈 일별 시세 집계 ${marketRows}행`);
 
     const [tables] = await connection.query('SHOW TABLES');
     const names = tables.map((row) => Object.values(row)[0]);

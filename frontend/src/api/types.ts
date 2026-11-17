@@ -134,6 +134,8 @@ export interface MarketSummary {
   readonly changeAmount: number;
   /** 전일 대비 변동률(%, 소수 1자리). */
   readonly changeRate: number;
+  /** 최근 30일 평균 체결가(원). 30일 안에 거래가 없으면 null. */
+  readonly averagePrice30d: number | null;
   readonly tradeCount30d: number;
 }
 
@@ -676,4 +678,89 @@ export interface ItemRequestPage {
   readonly page: number;
   readonly size: number;
   readonly totalCount: number;
+}
+
+/* 시세 대시보드 (MARKET-01~05, #48) — backend/docs/api-spec.md "시세 대시보드" */
+
+export type MarketPriceSort = 'volume' | 'priceDesc' | 'priceAsc' | 'rising' | 'falling';
+
+/** 시세 기간: 오늘(KST) 포함 최근 days일. 날짜는 'YYYY-MM-DD' (KST). */
+export interface MarketPeriod {
+  readonly days: number;
+  readonly from: string;
+  readonly to: string;
+}
+
+/** 등급 키 — unopened · opened_raw · psa-10 · bgs-9.5 … */
+export interface MarketGradeOption {
+  readonly key: string;
+  readonly condition: ItemCondition;
+  readonly gradingService: GradingService | null;
+  readonly grade: Grade | null;
+  readonly tradeCount: number;
+}
+
+export interface MarketFilters {
+  readonly categories: readonly { readonly code: string; readonly name: string; readonly tradeCount: number }[];
+  /** 최근 30일 거래가 하나도 없으면 null. */
+  readonly category: { readonly code: string; readonly name: string } | null;
+  readonly grades: readonly MarketGradeOption[];
+  readonly totalTradeCount: number;
+  readonly period: MarketPeriod;
+}
+
+export interface MarketInsights {
+  readonly itemCount: number;
+  readonly rising: { readonly count: number; readonly averageChangeRate: number | null };
+  readonly falling: { readonly count: number; readonly averageChangeRate: number | null };
+  readonly volume: {
+    readonly tradeCount7d: number;
+    readonly previousTradeCount7d: number;
+    readonly changeRate: number | null;
+  };
+}
+
+export interface MarketChart {
+  readonly period: MarketPeriod;
+  readonly summary: {
+    readonly averagePrice: number | null;
+    readonly change1d: number | null;
+    readonly change7d: number | null;
+    readonly change30d: number | null;
+    readonly tradeCount: number;
+  };
+  readonly points: readonly { readonly date: string; readonly averagePrice: number; readonly tradeCount: number }[];
+}
+
+/** 품목·등급 하나의 시세. 변동률은 기준이 될 거래가 없으면 null. */
+export interface MarketItemPrice {
+  readonly itemId: number;
+  readonly slug: string;
+  readonly name: string;
+  readonly setName: string | null;
+  readonly language: string | null;
+  readonly imageUrl: string | null;
+  readonly gradeKey: string;
+  readonly condition: ItemCondition;
+  readonly gradingService: GradingService | null;
+  readonly grade: Grade | null;
+  readonly price: number;
+  readonly change1d: number | null;
+  readonly change7d: number | null;
+  readonly change30d: number | null;
+  readonly tradeCount30d: number;
+  readonly lastTradeDate: string;
+  /** 최근 30일 거래일별 시세 (날짜 오름차순). */
+  readonly sparkline: readonly number[];
+}
+
+export interface MarketTopGainer extends MarketItemPrice {
+  readonly rank: number;
+}
+
+export interface MarketPricePage {
+  readonly items: readonly MarketItemPrice[];
+  readonly totalCount: number;
+  readonly page: number;
+  readonly size: number;
 }

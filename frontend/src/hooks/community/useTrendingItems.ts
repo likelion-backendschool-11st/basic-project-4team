@@ -14,6 +14,7 @@ const toTrendingItem = (it: TrendingItemResponse, i: number): TrendingItem => ({
     it.marketSummary?.latestPrice ?? null,
     it.marketSummary?.changeRate ?? 0,
   ),
+  average: trendingSidebar.average(it.marketSummary?.averagePrice30d ?? null),
   count: trendingSidebar.count(it.mentionCount),
   countTitle: trendingSidebar.countTitle(it.postCount, it.commentCount),
 });

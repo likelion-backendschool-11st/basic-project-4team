@@ -22,6 +22,9 @@ const toDiscussionItem = (detail: ItemDetail, routeId: string): DiscussionItem =
     latestPrice: summary?.latestPrice ?? null,
     changePct: summary ? itemSummaryCopy.changePct(summary.changeRate) : '',
     changeAmount: summary ? itemSummaryCopy.changeAmount(change) : '',
+    average30d:
+      summary?.averagePrice30d != null ? itemSummaryCopy.price(summary.averagePrice30d) : itemSummaryCopy.noAverage,
+    tradeCount30d: itemSummaryCopy.tradeCount(summary?.tradeCount30d ?? 0),
     trend: change > 0 ? 'up' : change < 0 ? 'down' : 'flat',
     categoryCode: detail.category.code,
     listingCount: detail.sellingCount,
