@@ -381,6 +381,54 @@ export const catalogCopy = {
   externalLinkLabel: '공식 품목 DB 열기',
 } as const;
 
+/** 품목 등록 요청(ITEM-06) 입력 길이 — 서버 검증과 같다. */
+export const ITEM_REQUEST_TITLE_MAX = 100;
+export const ITEM_REQUEST_BODY_MAX = 1000;
+export const ITEM_REQUEST_URL_MAX = 500;
+
+/** 4번 검색 결과 아래 "품목이 없나요? 등록 요청" + 관리자에게 보내는 요청 글쓰기 팝업 (REQ-POST-005). */
+export const itemRequestCopy = {
+  promptText: '찾는 품목이 없나요?',
+  promptLabel: '품목 등록 요청',
+  title: '품목 등록 요청',
+  description: '원하는 품목을 관리자에게 알려주세요. 검토 후 공식 품목 DB에 등록됩니다.',
+  mainLabel: '대분류 (필수)',
+  subLabel: '소분류 (필수)',
+  titleLabel: '제목 (필수)',
+  titlePlaceholder: '원하는 품목명을 입력해주세요. 예) 피카츄 ex SAR',
+  bodyLabel: '본문 (필수)',
+  bodyPlaceholder:
+    '품목을 알아볼 수 있게 자세히 적어주세요.\n- 카드: 세트명, 카드 번호, 언어, 희귀도\n- 운동화: 모델명, 스타일 코드, 발매 연도\n- 명품: 브랜드, 모델명/레퍼런스',
+  urlLabel: '참고 링크 (선택)',
+  urlPlaceholder: 'https://',
+  cancelLabel: '취소',
+  submitLabel: '요청 보내기',
+  submittingLabel: '보내는 중...',
+  errors: {
+    category: '소분류 카테고리를 선택해주세요.',
+    title: '제목을 입력해주세요.',
+    body: '본문을 입력해주세요.',
+    url: '참고 링크는 http:// 또는 https://로 시작해야 합니다.',
+    duplicate: '같은 품목 요청이 이미 검토 중이에요. 등록되면 다시 검색해주세요.',
+    network: '서버에 연결할 수 없습니다. 잠시 후 다시 시도해주세요.',
+    failed: '요청을 보내지 못했습니다. 잠시 후 다시 시도해주세요.',
+  },
+  success: {
+    title: '요청이 접수되었습니다',
+    body: '관리자가 검토 후 공식 품목 DB에 등록합니다. 등록되면 다시 검색해주세요.',
+    confirmLabel: '확인',
+  },
+  /** 이미 있는 품목이라 요청 대신 검색으로 돌려보낼 때 4번 아래에 보여주는 안내. */
+  existingNotice: (name: string) => `‘${name}’은(는) 이미 등록된 품목이에요. 검색 결과에서 선택해주세요.`,
+  loginRequired: {
+    icon: 'lock',
+    title: '로그인이 필요합니다',
+    message: '로그인한 회원만 관리자에게 품목 등록을 요청할 수 있습니다.',
+    confirmLabel: '로그인하기',
+    cancelLabel: '닫기',
+  },
+} as const;
+
 export const attributesCopy = {
   create: {
     title: '카테고리별 필수 속성 입력',

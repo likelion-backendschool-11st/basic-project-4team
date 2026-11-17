@@ -6,13 +6,16 @@ import { CategorySelectSection } from '../components/listing-form/CategorySelect
 import { CreateGuideSidebar } from '../components/listing-form/CreateGuideSidebar';
 import { CreateSubmitFooter } from '../components/listing-form/CreateSubmitFooter';
 import { DescriptionSection } from '../components/listing-form/DescriptionSection';
+import { ItemRequestModal } from '../components/listing-form/ItemRequestModal';
+import { LoginRequiredModal } from '../components/itemcommunity/LoginRequiredModal';
 import { PhotoUploader } from '../components/listing-form/PhotoUploader';
 import { PricingSection } from '../components/listing-form/PricingSection';
 import { RegistrationHeader } from '../components/listing-form/RegistrationHeader';
 import { SubmitToast } from '../components/listing-form/SubmitToast';
 import { TradeOptionsSection } from '../components/listing-form/TradeOptionsSection';
-import { emptyListingValues, submitCopy } from '../data/listingForm';
+import { emptyListingValues, itemRequestCopy, submitCopy } from '../data/listingForm';
 import { useCatalogMapping } from '../hooks/listing-form/useCatalogMapping';
+import { useItemRequest } from '../hooks/listing-form/useItemRequest';
 import { submitCreateForm } from '../hooks/listing-form/submitListing';
 import { useListingForm } from '../hooks/listing-form/useListingForm';
 import { usePricePolicy } from '../hooks/listing-form/usePricePolicy';
@@ -27,6 +30,7 @@ export const ListingCreatePage: React.FC<ListingCreatePageProps> = ({ className 
   const { values, errors, setField } = form;
   const mapping = useCatalogMapping(form);
   const pricePolicy = usePricePolicy(values.itemId, values.attributes);
+  const itemRequest = useItemRequest({ tree: mapping.categoryTree, onExistingItem: mapping.searchExisting });
 
   return (
     <div className={`flex flex-col w-full ${className}`}>
@@ -62,9 +66,13 @@ export const ListingCreatePage: React.FC<ListingCreatePageProps> = ({ className 
                 error={errors.catalog}
                 match={values.catalogMatch}
                 onQueryChange={(v) => setField('catalogQuery', v)}
+                onRequestItem={() =>
+                  itemRequest.open({ main: values.mainCategory, sub: values.subCategory, title: values.catalogQuery })
+                }
                 onSearch={mapping.onSearch}
                 onSelect={mapping.onSelectItem}
                 query={values.catalogQuery}
+                requestNotice={itemRequest.existingNotice}
                 results={mapping.catalog.results}
                 selectedItemId={values.itemId}
                 status={mapping.catalog.status}
@@ -111,6 +119,14 @@ export const ListingCreatePage: React.FC<ListingCreatePageProps> = ({ className 
         </div>
       </div>
       <SubmitToast body={submitCopy.toast.createBody} title={submitCopy.toast.createTitle} visible={form.saved} />
+      {/* 판매글 <form> 밖에 둔다 — 팝업 안의 요청 글쓰기 form이 판매글 form에 중첩되지 않게. */}
+      <ItemRequestModal state={itemRequest} />
+      <LoginRequiredModal
+        {...itemRequestCopy.loginRequired}
+        onClose={itemRequest.loginGate.close}
+        onConfirm={itemRequest.loginGate.goLogin}
+        open={itemRequest.loginGate.open}
+      />
     </div>
   );
 };

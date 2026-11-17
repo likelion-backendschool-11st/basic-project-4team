@@ -16,6 +16,7 @@ export interface ApiErrorBody {
   readonly error: {
     readonly code: string;
     readonly message: string;
+    readonly details?: unknown;
   };
 }
 
@@ -650,3 +651,29 @@ export type ChatServerEvent =
   | { readonly type: 'message'; readonly roomId: number; readonly message: ChatMessage }
   | { readonly type: 'read'; readonly roomId: number; readonly readerId: number; readonly lastReadMessageId: number }
   | { readonly type: 'unread'; readonly unreadCount: number };
+
+/* 품목 등록 요청 (ITEM-06, ITEM-07) — backend/docs/api-spec.md "품목 등록 요청 (#47)" */
+
+export type ItemRequestStatus = 'pending' | 'approved' | 'rejected';
+
+/** 관리자에게 보낸 품목 등록 요청 글. */
+export interface ItemRequest {
+  readonly id: number;
+  readonly status: ItemRequestStatus;
+  readonly category: ItemCategory;
+  readonly title: string;
+  readonly body: string;
+  readonly referenceUrl: string | null;
+  readonly rejectReason: string | null;
+  /** 승인되면 등록(연결)된 품목. */
+  readonly item: { readonly id: number; readonly slug: string; readonly name: string } | null;
+  readonly createdAt: string;
+  readonly processedAt: string | null;
+}
+
+export interface ItemRequestPage {
+  readonly items: readonly ItemRequest[];
+  readonly page: number;
+  readonly size: number;
+  readonly totalCount: number;
+}

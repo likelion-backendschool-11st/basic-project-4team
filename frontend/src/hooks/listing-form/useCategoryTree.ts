@@ -12,6 +12,8 @@ export interface CategoryTreeApi {
   readonly subOptionsOf: (main: string) => readonly SelectOption[];
   /** 소분류 code → 대분류 code. 모르면 null. */
   readonly parentOf: (sub: string) => string | null;
+  /** 소분류 code → 카테고리 id (품목 등록 요청에 보냄). 모르면 null. */
+  readonly subIdOf: (sub: string) => number | null;
 }
 
 const toOption = ({ code, name }: { readonly code: string; readonly name: string }): SelectOption => ({
@@ -42,12 +44,19 @@ export const useCategoryTree = (): CategoryTreeApi => {
 
   return useMemo<CategoryTreeApi>(() => {
     const parentByChild = new Map<string, string>();
-    tree.forEach((node) => node.children.forEach((child) => parentByChild.set(child.code, node.code)));
+    const idByChild = new Map<string, number>();
+    tree.forEach((node) =>
+      node.children.forEach((child) => {
+        parentByChild.set(child.code, node.code);
+        idByChild.set(child.code, child.id);
+      }),
+    );
     return {
       status,
       mainOptions: tree.map(toOption),
       subOptionsOf: (main) => tree.find((node) => node.code === main)?.children.map(toOption) ?? [],
       parentOf: (sub) => parentByChild.get(sub) ?? null,
+      subIdOf: (sub) => idByChild.get(sub) ?? null,
     };
   }, [tree, status]);
 };

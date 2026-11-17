@@ -477,3 +477,28 @@ CREATE TABLE IF NOT EXISTS chat_messages (
     (type = 'text' AND body IS NOT NULL AND image_id IS NULL) OR (type = 'image' AND body IS NULL AND image_id IS NOT NULL)
   )
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '채팅 메시지 (수정·삭제 없음)';
+
+-- ───────────────────────── 품목 등록 요청 (#47, erd.md 2.21) ─────────────────────────
+CREATE TABLE IF NOT EXISTS item_requests (
+  id            BIGINT        NOT NULL AUTO_INCREMENT,
+  user_id       BIGINT        NOT NULL COMMENT '요청한 사람',
+  category_id   BIGINT        NOT NULL COMMENT '소분류 (앱 검사)',
+  title         VARCHAR(100)  NOT NULL COMMENT '원하는 품목명',
+  body          VARCHAR(1000) NOT NULL COMMENT '품목 설명',
+  reference_url VARCHAR(500)  NULL     COMMENT '참고 링크',
+  status        VARCHAR(10)   NOT NULL DEFAULT 'pending' COMMENT 'pending | approved | rejected',
+  reject_reason VARCHAR(500)  NULL,
+  item_id       BIGINT        NULL     COMMENT '승인 시 등록(연결)된 품목',
+  processed_by  BIGINT        NULL     COMMENT '처리한 관리자',
+  processed_at  DATETIME      NULL,
+  created_at    DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at    DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_item_requests_user_created (user_id, created_at),
+  KEY idx_item_requests_status_created (status, created_at),
+  CONSTRAINT fk_item_requests_user      FOREIGN KEY (user_id)      REFERENCES users (id)      ON DELETE CASCADE,
+  CONSTRAINT fk_item_requests_category  FOREIGN KEY (category_id)  REFERENCES categories (id) ON DELETE RESTRICT,
+  CONSTRAINT fk_item_requests_item      FOREIGN KEY (item_id)      REFERENCES items (id)      ON DELETE RESTRICT,
+  CONSTRAINT fk_item_requests_processor FOREIGN KEY (processed_by) REFERENCES users (id)      ON DELETE SET NULL,
+  CONSTRAINT chk_item_requests_status CHECK (status IN ('pending', 'approved', 'rejected'))
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '품목 등록 요청 (관리자는 DB에서 직접 처리)';
