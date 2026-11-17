@@ -1,9 +1,11 @@
 import React from 'react';
 import type { MyActivityCounts } from '../../api/types';
-import { MY_PAGE_TABS, myPageCopy, type MyPageTab } from '../../data/mypage';
+import { myPageCopy, type MyPageTab } from '../../data/mypage';
 import { Icon } from '../common/Icon';
 
 interface MyPageTabsProps {
+  /** 보여줄 탭 (관리자면 품목 요청 관리 포함). */
+  readonly tabs: readonly MyPageTab[];
   readonly active: MyPageTab;
   readonly counts: MyActivityCounts;
   readonly onSelect: (tab: MyPageTab) => void;
@@ -28,9 +30,9 @@ const tabCount = (tab: MyPageTab, counts: MyActivityCounts): number | null => {
 };
 
 /** 마이페이지 탭 바. 좁은 화면에서는 가로 스크롤. */
-export const MyPageTabs: React.FC<MyPageTabsProps> = ({ active, counts, onSelect }) => (
+export const MyPageTabs: React.FC<MyPageTabsProps> = ({ tabs, active, counts, onSelect }) => (
   <div aria-label={myPageCopy.tabsAria} className="flex overflow-x-auto border-b border-hairline -mx-1 px-1" role="tablist">
-    {MY_PAGE_TABS.map((tab) => {
+    {tabs.map((tab) => {
       const selected = tab === active;
       const count = tabCount(tab, counts);
       const { label, icon } = myPageCopy.tabs[tab];
