@@ -1112,6 +1112,7 @@ GET /api/v1/listings?q=리자몽&category=pokemon&condition=graded&grades=PSA-10
 | `q` | string | N | - | 제목, 품목명, 세트명, 카드번호에서 부분 일치 |
 | `category` | string | N | - | 카테고리 `code`. 대분류 코드면 하위 카테고리까지 포함 |
 | `itemId` | number | N | - | 특정 품목의 판매글만 |
+| `sellerId` | number | N | - | 특정 판매자의 판매글만 (판매글 상세 "판매자의 다른 상품") |
 | `condition` | string | N | - | `ItemCondition`. 여러 개면 쉼표로 구분 (`unopened,graded`) |
 | `grades` | string | N | - | `{그레이딩사}-{등급}`을 쉼표로 구분 (`PSA-10,PSA-9`). 지정하면 `condition = graded`인 글만 |
 | `minPrice` | number | N | - | 최소 가격 (이상) |

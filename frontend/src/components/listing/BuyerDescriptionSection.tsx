@@ -5,15 +5,12 @@ import { ListingInfoCallout } from './ListingInfoCallout';
 
 interface BuyerDescriptionContent {
   readonly title: string;
-  readonly badge: string;
   readonly updatedAt: string;
-  readonly possessionTitle: string;
-  readonly possessionBody: string;
+  /** 실물 인증 사진이 있을 때만. 없으면 null → 안내를 숨긴다. */
+  readonly possession: { readonly title: string; readonly body: string } | null;
   readonly expandLabel: string;
   readonly collapseLabel: string;
   readonly escrowNotice: string;
-  readonly escrowLinkLabel: string;
-  readonly escrowLinkTo: string;
 }
 
 interface BuyerDescriptionSectionProps {
@@ -26,26 +23,19 @@ export const BuyerDescriptionSection: React.FC<BuyerDescriptionSectionProps> = (
   /* data-component="ProductDescription" */
   <section className="lg:col-span-7 flex flex-col">
     <div className="flex flex-wrap items-center justify-between gap-space-xs pb-space-xs border-b border-hairline">
-      <div className="flex items-center gap-2">
-        <h2 className="font-heading-3 text-heading-3 text-ink">{content.title}</h2>
-        <span className="bg-mint-100 text-forest font-eyebrow text-eyebrow px-2 py-0.5 rounded">{content.badge}</span>
-      </div>
+      <h2 className="font-heading-3 text-heading-3 text-ink">{content.title}</h2>
       <span className="text-muted font-caption text-caption">{content.updatedAt}</span>
     </div>
-    <ListingInfoCallout body={content.possessionBody} icon="approval" title={content.possessionTitle} variant="possession" />
+    {content.possession ? (
+      <ListingInfoCallout body={content.possession.body} icon="approval" title={content.possession.title} variant="possession" />
+    ) : null}
     <ExpandableDescription
       collapseLabel={content.collapseLabel}
       expandLabel={content.expandLabel}
       paragraphs={paragraphs}
       variant="buyer"
     />
-    <ListingInfoCallout
-      body={content.escrowNotice}
-      icon="security"
-      linkLabel={content.escrowLinkLabel}
-      linkTo={content.escrowLinkTo}
-      variant="escrow"
-    />
+    <ListingInfoCallout body={content.escrowNotice} icon="security" variant="escrow" />
   </section>
 );
 

@@ -172,7 +172,7 @@ async function findCategoryIdsByCode(code) {
   return rows.length === 0 ? null : rows.map((row) => row.id);
 }
 
-function buildListWhere({ q, categoryIds, itemId, conditions, grades, minPrice, maxPrice, tradeMethods, itemStates = [], sizes = [], excludeSold }) {
+function buildListWhere({ q, categoryIds, itemId, sellerId, conditions, grades, minPrice, maxPrice, tradeMethods, itemStates = [], sizes = [], excludeSold }) {
   const where = ['l.deleted_at IS NULL'];
   const params = [];
   if (q) {
@@ -187,6 +187,10 @@ function buildListWhere({ q, categoryIds, itemId, conditions, grades, minPrice, 
   if (itemId) {
     where.push('l.item_id = ?');
     params.push(itemId);
+  }
+  if (sellerId) {
+    where.push('l.seller_id = ?');
+    params.push(sellerId);
   }
   // 상태(condition)와 등급(grades)은 검색 화면의 "등급" 체크박스 한 묶음이라 둘 다 오면 OR로 묶는다.
   // 예) grades=PSA-10 & condition=unopened → PSA 10 슬랩 또는 미개봉

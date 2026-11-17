@@ -1,8 +1,7 @@
 import { useParams } from 'react-router-dom';
-import { MOCK_LISTING_ID } from '../../data/listing';
 
-/** Reads `:id` from the route, falling back to the mock listing id. */
+/** 라우트의 `:id`. 없으면 빈 문자열 → 상세 화면은 "판매글 없음"으로 처리한다. */
 export const useListingId = (): string => {
   const { id } = useParams<{ id: string }>();
-  return id ?? MOCK_LISTING_ID;
+  return id ?? '';
 };
