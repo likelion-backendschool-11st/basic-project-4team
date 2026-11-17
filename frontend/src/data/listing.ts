@@ -38,8 +38,8 @@ export interface RelatedListing {
   readonly id: string;
   readonly title: string;
   readonly price: string;
-  /** 대표 사진·품목 이미지가 모두 없으면 null. */
-  readonly imageSrc: string | null;
+  /** 대표 사진·품목 이미지가 모두 없으면 '' → 기본 아이콘. */
+  readonly imageSrc: string;
   readonly imageAlt: string;
   readonly location: string;
   readonly timeAgo: string;
@@ -54,8 +54,8 @@ export interface SellerOtherItem {
   readonly price: string;
   readonly condition: string;
   readonly conditionTone: 'primary' | 'muted';
-  /** 대표 사진·품목 이미지가 모두 없으면 null. */
-  readonly imageSrc: string | null;
+  /** 대표 사진·품목 이미지가 모두 없으면 '' → 기본 아이콘. */
+  readonly imageSrc: string;
   readonly imageAlt: string;
 }
 
@@ -172,8 +172,6 @@ export const listingDetailCopy = {
   setLabel: (setName: string) => `세트: ${setName}`,
   sellerGrade: '판매자',
   sellerBadge: 'RE:PICK 회원',
-  ratingEmpty: '-',
-  ratingCountEmpty: '(리뷰 준비중)',
   timeAgo: {
     justNow: '방금 전',
     minutes: (n: number) => `${n}분 전`,
@@ -261,19 +259,6 @@ export const buyerListing = {
   seller: {
     tradesLabel: '누적 거래 횟수',
     tradesUnit: ' 회 완료',
-    otherTitle: (count: number) => `판매자의 다른 상품 (${count})`,
-    otherEmpty: '판매 중인 다른 상품이 없습니다.',
-    /** "판매자의 다른 상품"에 보여줄 최대 개수. */
-    otherSize: 3,
-  },
-  related: {
-    title: '같은 품목의 다른 매물',
-    subtitle: '(판매중 · 최신 등록순)',
-    description: (itemName: string) => `동일 품목 [${itemName}]의 판매중 매물입니다.`,
-    ratingLabel: '구매자 만족도 (리뷰)',
-    reviewsLabel: '리뷰 보기',
-    rating: '4.9',
-    ratingCount: '(39개 평가)',
   },
 };
 
@@ -314,22 +299,6 @@ export const sellerListing = {
     expandLabel: '상품 정보 더보기',
     collapseLabel: '상품 정보 접기',
   },
-  related: {
-    title: '같은 품목의 다른 판매중 매물',
-    description: '같은 품목을 판매 중인 다른 판매자의 등록 가격을 비교해 보세요.',
-    /** 불러올 최대 개수 (현재 판매글은 빼고 보여준다). */
-    size: 12,
-    deliveryOnly: '택배 거래',
-  inspection: {
-    title: '전문 검수 센터 기준 실물 상태 체결 보증표',
-    badge: '100% 정품 인증 통과',
-    points: [
-      { label: '모서리 마모 (Edges)', value: '결점 없음 (0 Pt)' },
-      { label: '표면 인쇄선 (Print Line)', value: '발견되지 않음' },
-      { label: '좌우 밸런스 (Centering)', value: '55/45 표준 부합' },
-      { label: '슬랩 케이스 스크래치', value: '미세 흠집 무결' },
-    ] as readonly InspectionPoint[],
-  },
   deleteModal: {
     title: '판매글 삭제 확인',
     question: '정말 해당 판매글을 영구 삭제하시겠습니까?',
@@ -358,17 +327,3 @@ export const sellerListing = {
     submitLabel: '거래완료 처리 및 시세 반영',
   },
 };
-
-export const sellerDescription: readonly DescriptionParagraph[] = [
-  [[{ text: "포켓몬 카드 정규 팩 '포켓몬 151' 한국어 발매 당일 직접 개봉하여 즉시 슬리브 및 PSA 공식 슬랩 검수를 거친 리자몽 ex SAR 카드입니다." }]],
-  [
-    [
-      { text: '보시다시피 PSA 공식 10등급(Gem Mint) 최고 등급을 획득하였으며, 모서리(Centering, Edges, Corners, Surface) 모두 흠결 없이 완벽한 상태를 유지하고 있습니다. 케이스에는 수령 즉시 UV 자외선 차단 전용 프로텍트 필름을 씌워 암소에서 방습 보관 중입니다.' },
-    ],
-  ],
-  [
-    [{ text: '• 거래 방식: 직거래의 경우 서울 관악구 남현동 (사당역 인근) 협의 가능합니다. 택배 거래 시 우체국 안심보험 택배로 완충재(뽁뽁이 5겹 + 전용 하드박스) 포장하여 당일 발송해 드립니다.' }],
-    [{ text: '• 에스크로 안심 결제 언제든 환영합니다.' }],
-    [{ text: '• 네고(가격 조정)는 시장 체결 시세를 고려하여 정중히 사양합니다.' }],
-  ],
-];

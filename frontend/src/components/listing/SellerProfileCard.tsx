@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import type { SellerOtherItem } from '../../data/listing';
 import { SellerOtherItemCard } from './SellerOtherItemCard';
 
@@ -10,13 +11,6 @@ interface SellerProfile {
   readonly tradesLabel: string;
   readonly trades: string;
   readonly tradesUnit: string;
-  readonly otherTitle: string;
-  readonly otherEmpty: string;
-  readonly otherItems: readonly SellerOtherItem[];
-  readonly ratingLabel: string;
-  readonly reviewsLabel: string;
-  readonly rating: string;
-  readonly ratingCount: string;
 }
 
 interface SellerProfileCardProps {
@@ -30,9 +24,10 @@ interface SellerProfileCardProps {
   readonly otherAll?: { readonly label: string; readonly to: string };
 }
 
-/** 판매자 닉네임·누적 거래 횟수와 판매자의 다른 상품 (모두 DB 값). */
-export const SellerProfileCard: React.FC<SellerProfileCardProps> = ({ seller }) => (
-/** Seller header, trade stats/review score and other items grid. */
+/**
+ * 판매자 닉네임·누적 거래 횟수와 판매자의 다른 상품 (모두 DB 값).
+ * 평점·리뷰와 프로필 링크는 리뷰 테이블·프로필 화면이 생기면 다시 붙인다.
+ */
 export const SellerProfileCard: React.FC<SellerProfileCardProps> = ({
   seller,
   otherTitle,
@@ -67,15 +62,6 @@ export const SellerProfileCard: React.FC<SellerProfileCardProps> = ({
         </span>
       </div>
       <div className="mt-space-sm">
-        <span className="block font-ui-label text-ui-label text-ink mb-space-xs">{seller.otherTitle}</span>
-        {seller.otherItems.length === 0 ? (
-          <p className="font-caption text-caption text-muted py-space-sm">{seller.otherEmpty}</p>
-        ) : (
-          <div className="grid grid-cols-3 gap-space-xs">
-            {seller.otherItems.map((item) => (
-              <SellerOtherItemCard item={item} key={item.id} />
-            ))}
-          </div>
         <div className="flex items-center justify-between mb-space-xs">
           <span className="font-ui-label text-ui-label text-ink">{otherTitle}</span>
           {otherAll && (
@@ -87,15 +73,11 @@ export const SellerProfileCard: React.FC<SellerProfileCardProps> = ({
         {otherItems.length > 0 ? (
           <div className="grid grid-cols-3 gap-space-xs">
             {otherItems.map((item) => (
-              <SellerOtherItemCard key={item.id} item={item} />
+              <SellerOtherItemCard item={item} key={item.id} />
             ))}
           </div>
         ) : (
-          otherEmptyText && (
-            <p className="font-caption text-caption text-muted bg-canvas-soft rounded py-space-sm text-center">
-              {otherEmptyText}
-            </p>
-          )
+          otherEmptyText && <p className="font-caption text-caption text-muted py-space-sm">{otherEmptyText}</p>
         )}
       </div>
     </div>

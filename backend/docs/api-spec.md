@@ -560,91 +560,6 @@ REQ-BOARD-010 (#39). 로그인 없이 조회 가능. 품목 토론방 사이드�
 
 ---
 
-# 시세 대시보드 (#48, MARKET-01~05)
-
-로그인 없이 조회 가능. **시세 = 거래완료(LISTING-07) 판매글의 최종 거래가(`sold_price`)** 로만 산출한다 (REQ-COMMON-004, 화면에 '참고용' 표기).
-
-## 산출 방식
-
-- 거래완료 처리 시 같은 트랜잭션에서 **일별 시세 집계표 `item_price_daily`** 의 해당 칸(품목·등급·체결일)을 다시 계산한다 → 저장 즉시 반영. `npm run db:market`으로 전체 재생성 가능(`db:init`·`db:seed`도 자동 실행).
-- 시세는 **품목 × 등급(`gradeKey`)** 단위로 나눈다. `gradeKey` = graded면 `{그레이딩사 소문자}-{등급}`(`psa-10`, `bgs-9.5`), 아니면 `condition`(`unopened`, `opened_raw`).
-- 날짜는 **KST** 기준 `YYYY-MM-DD`. 기간은 오늘 포함 최근 30일.
-- 품목 시세(`price`) = 마지막 거래일의 체결가 **중앙값**(짝수 개면 가운데 두 값 평균, 원 단위 반올림).
-- `change1d` = 직전 거래일 시세 대비(토론방 시세 요약 "전일 대비"와 같은 규칙). `change7d`·`change30d` = (오늘 − N일) 이전 마지막 거래일 시세 대비, 그 뒤 거래가 없으면 0. 변동률은 % 소수 1자리, 기준 거래가 없으면 `null`.
-- 카테고리 차트는 일별 **평균** 체결가(체결가 합 ÷ 건수). 품목 가격대가 섞이므로 추이 참고용.
-- 최근 30일 거래가 없는 품목·등급은 목록에서 빠진다.
-
-## 공통 쿼리
-
-| 쿼리 | 기본값 | 설명 |
-|---|---|---|
-| `category` | 최근 30일 거래가 있는 첫 소분류 | 소분류 카테고리 코드(`pokemon`, `dunk` …). 없거나 대분류면 `404 CATEGORY_NOT_FOUND` |
-| `grade` | `all` | `all` 또는 `gradeKey` (`unopened`, `opened_raw`, `{psa\|bgs\|cgc\|brg}-{10\|9.5\|9\|8.5\|8\|7}`) |
-
-## GET /market/filters — 카테고리 탭·등급 필터 (MARKET-01)
-
-`category`만 받는다. 최근 30일 거래가 하나도 없으면 `category: null`, `grades: []`.
-
-```json
-{
-  "data": {
-    "categories": [{ "code": "pokemon", "name": "포켓몬 카드", "tradeCount": 102 }],
-    "category": { "code": "pokemon", "name": "포켓몬 카드" },
-    "grades": [{ "key": "psa-10", "condition": "graded", "gradingService": "PSA", "grade": "10", "tradeCount": 52 }],
-    "totalTradeCount": 102,
-    "period": { "days": 30, "from": "2026-10-19", "to": "2026-11-17" }
-  }
-}
-```
-
-`categories`는 최근 30일 거래가 있는 소분류만(카테고리 정렬순), `grades`는 거래 건수 많은 순.
-
-## GET /market/insights — 시장 인사이트 (MARKET-02)
-
-```json
-{
-  "data": {
-    "itemCount": 15,
-    "rising": { "count": 12, "averageChangeRate": 4.2 },
-    "falling": { "count": 3, "averageChangeRate": -4.4 },
-    "volume": { "tradeCount7d": 60, "previousTradeCount7d": 32, "changeRate": 87.5 }
-  }
-}
-```
-
-- `rising`·`falling`: `change1d`가 0보다 큰·작은 품목 수와 그 평균 변동률(없으면 `null`).
-- `volume`: 최근 7일 거래 건수, 그 앞 7일 건수, 증감률(앞 7일이 0이면 `null`).
-
-## GET /market/chart — 30일 시세·거래량 (MARKET-03)
-
-```json
-{
-  "data": {
-    "period": { "days": 30, "from": "2026-10-19", "to": "2026-11-17" },
-    "summary": { "averagePrice": 542167, "change1d": 3.9, "change7d": -1.7, "change30d": 130.1, "tradeCount": 102 },
-    "points": [{ "date": "2026-10-20", "averagePrice": 279000, "tradeCount": 1 }]
-  }
-}
-```
-
-`points`는 거래가 있는 날만(날짜 오름차순). `summary.averagePrice` = 30일 체결가 합 ÷ 건수, 변동률은 일별 평균 체결가 기준.
-
-## GET /market/top-gainers — 전일 상승 Top N (MARKET-04)
-
-| 쿼리 | 기본값 | 설명 |
-|---|---|---|
-| `limit` | `5` | 1~20 |
-
-`change1d > 0`인 품목·등급을 상승률 높은 순(같으면 30일 거래 많은 순)으로. 항목은 아래 MarketItemPrice + `rank`.
-
-## GET /market/prices — 품목별 시세 목록 (MARKET-05)
-
-| 쿼리 | 기본값 | 설명 |
-|---|---|---|
-| `q` | | 품목명·세트명·카드번호 부분 일치(단어별 AND), 50자 이하 |
-| `sort` | `volume` | `volume`(30일 거래순) · `priceDesc` · `priceAsc` · `rising`(`change1d` 높은순) · `falling`. 변동률 정렬에서 `null`은 맨 뒤. 같으면 최근 거래 → 이름순 |
-| `page` | `1` | 1~1000 |
-| `size` | `9` | 1~30 |
 # 품목 등록 요청 (#47)
 
 REQ-POST-005. 판매글 등록 화면(P-014)에서 품목을 검색했는데 결과가 없으면 '품목이 없나요? 등록 요청'으로 관리자에게 새 품목을 요청한다.
@@ -760,24 +675,6 @@ REQ-POST-005. 판매글 등록 화면(P-014)에서 품목을 검색했는데 결
 ```json
 {
   "data": {
-    "items": [
-      {
-        "itemId": 1, "slug": "charizard-ex-sar", "name": "리자몽 ex SAR", "setName": "포켓몬 151 (SV2a)",
-        "language": "ko", "imageUrl": "https://...",
-        "gradeKey": "psa-10", "condition": "graded", "gradingService": "PSA", "grade": "10",
-        "price": 320000, "change1d": 3.9, "change7d": 3.2, "change30d": 18.1,
-        "tradeCount30d": 11, "lastTradeDate": "2026-11-16",
-        "sparkline": [271000, 285000, 320000]
-      }
-    ],
-    "totalCount": 16, "page": 1, "size": 9
-  }
-}
-```
-
-`sparkline`은 최근 30일 거래일별 시세(날짜 오름차순).
-
-에러(공통): `400 VALIDATION_ERROR`(`category`·`grade`·`sort`·`page`·`size`·`limit`·`q` 형식), `404 CATEGORY_NOT_FOUND`
     "items": [ { "id": 7, "status": "pending", "...": "ItemRequest 객체" } ],
     "page": 1,
     "size": 10,
@@ -817,3 +714,113 @@ REQ-POST-005. 판매글 등록 화면(P-014)에서 품목을 검색했는데 결
 2. **처리 결과 알림** — 승인·반려 시 요청자에게 알릴지. 알린다면 `notifications.type`에 `item_request`를 추가해야 한다(현재 CHECK는 `comment`·`reply`·`price_change`).
 3. **요청 횟수 제한** — 도배 방지로 1인 하루 N건 제한(`429`)이 필요한지.
 4. **판매글 등록 흐름** — 요청 후 승인 전까지는 판매글을 등록할 수 없다(LISTING-03은 품목 필수). 요청 후 "검토 후 알려드릴게요" 안내만 하고 등록 화면은 그대로 둘지 확인.
+
+---
+
+# 시세 대시보드 (#48, MARKET-01~05)
+
+로그인 없이 조회 가능. **시세 = 거래완료(LISTING-07) 판매글의 최종 거래가(`sold_price`)** 로만 산출한다 (REQ-COMMON-004, 화면에 '참고용' 표기).
+
+## 산출 방식
+
+- 거래완료 처리 시 같은 트랜잭션에서 **일별 시세 집계표 `item_price_daily`** 의 해당 칸(품목·등급·체결일)을 다시 계산한다 → 저장 즉시 반영. `npm run db:market`으로 전체 재생성 가능(`db:init`·`db:seed`도 자동 실행).
+- 시세는 **품목 × 등급(`gradeKey`)** 단위로 나눈다. `gradeKey` = graded면 `{그레이딩사 소문자}-{등급}`(`psa-10`, `bgs-9.5`), 아니면 `condition`(`unopened`, `opened_raw`).
+- 날짜는 **KST** 기준 `YYYY-MM-DD`. 기간은 오늘 포함 최근 30일.
+- 품목 시세(`price`) = 마지막 거래일의 체결가 **중앙값**(짝수 개면 가운데 두 값 평균, 원 단위 반올림).
+- `change1d` = 직전 거래일 시세 대비(토론방 시세 요약 "전일 대비"와 같은 규칙). `change7d`·`change30d` = (오늘 − N일) 이전 마지막 거래일 시세 대비, 그 뒤 거래가 없으면 0. 변동률은 % 소수 1자리, 기준 거래가 없으면 `null`.
+- 카테고리 차트는 일별 **평균** 체결가(체결가 합 ÷ 건수). 품목 가격대가 섞이므로 추이 참고용.
+- 최근 30일 거래가 없는 품목·등급은 목록에서 빠진다.
+
+## 공통 쿼리
+
+| 쿼리 | 기본값 | 설명 |
+|---|---|---|
+| `category` | 최근 30일 거래가 있는 첫 소분류 | 소분류 카테고리 코드(`pokemon`, `dunk` …). 없거나 대분류면 `404 CATEGORY_NOT_FOUND` |
+| `grade` | `all` | `all` 또는 `gradeKey` (`unopened`, `opened_raw`, `{psa\|bgs\|cgc\|brg}-{10\|9.5\|9\|8.5\|8\|7}`) |
+
+## GET /market/filters — 카테고리 탭·등급 필터 (MARKET-01)
+
+`category`만 받는다. 최근 30일 거래가 하나도 없으면 `category: null`, `grades: []`.
+
+```json
+{
+  "data": {
+    "categories": [{ "code": "pokemon", "name": "포켓몬 카드", "tradeCount": 102 }],
+    "category": { "code": "pokemon", "name": "포켓몬 카드" },
+    "grades": [{ "key": "psa-10", "condition": "graded", "gradingService": "PSA", "grade": "10", "tradeCount": 52 }],
+    "totalTradeCount": 102,
+    "period": { "days": 30, "from": "2026-10-19", "to": "2026-11-17" }
+  }
+}
+```
+
+`categories`는 최근 30일 거래가 있는 소분류만(카테고리 정렬순), `grades`는 거래 건수 많은 순.
+
+## GET /market/insights — 시장 인사이트 (MARKET-02)
+
+```json
+{
+  "data": {
+    "itemCount": 15,
+    "rising": { "count": 12, "averageChangeRate": 4.2 },
+    "falling": { "count": 3, "averageChangeRate": -4.4 },
+    "volume": { "tradeCount7d": 60, "previousTradeCount7d": 32, "changeRate": 87.5 }
+  }
+}
+```
+
+- `rising`·`falling`: `change1d`가 0보다 큰·작은 품목 수와 그 평균 변동률(없으면 `null`).
+- `volume`: 최근 7일 거래 건수, 그 앞 7일 건수, 증감률(앞 7일이 0이면 `null`).
+
+## GET /market/chart — 30일 시세·거래량 (MARKET-03)
+
+```json
+{
+  "data": {
+    "period": { "days": 30, "from": "2026-10-19", "to": "2026-11-17" },
+    "summary": { "averagePrice": 542167, "change1d": 3.9, "change7d": -1.7, "change30d": 130.1, "tradeCount": 102 },
+    "points": [{ "date": "2026-10-20", "averagePrice": 279000, "tradeCount": 1 }]
+  }
+}
+```
+
+`points`는 거래가 있는 날만(날짜 오름차순). `summary.averagePrice` = 30일 체결가 합 ÷ 건수, 변동률은 일별 평균 체결가 기준.
+
+## GET /market/top-gainers — 전일 상승 Top N (MARKET-04)
+
+| 쿼리 | 기본값 | 설명 |
+|---|---|---|
+| `limit` | `5` | 1~20 |
+
+`change1d > 0`인 품목·등급을 상승률 높은 순(같으면 30일 거래 많은 순)으로. 항목은 아래 MarketItemPrice + `rank`.
+
+## GET /market/prices — 품목별 시세 목록 (MARKET-05)
+
+| 쿼리 | 기본값 | 설명 |
+|---|---|---|
+| `q` | | 품목명·세트명·카드번호 부분 일치(단어별 AND), 50자 이하 |
+| `sort` | `volume` | `volume`(30일 거래순) · `priceDesc` · `priceAsc` · `rising`(`change1d` 높은순) · `falling`. 변동률 정렬에서 `null`은 맨 뒤. 같으면 최근 거래 → 이름순 |
+| `page` | `1` | 1~1000 |
+| `size` | `9` | 1~30 |
+
+```json
+{
+  "data": {
+    "items": [
+      {
+        "itemId": 1, "slug": "charizard-ex-sar", "name": "리자몽 ex SAR", "setName": "포켓몬 151 (SV2a)",
+        "language": "ko", "imageUrl": "https://...",
+        "gradeKey": "psa-10", "condition": "graded", "gradingService": "PSA", "grade": "10",
+        "price": 320000, "change1d": 3.9, "change7d": 3.2, "change30d": 18.1,
+        "tradeCount30d": 11, "lastTradeDate": "2026-11-16",
+        "sparkline": [271000, 285000, 320000]
+      }
+    ],
+    "totalCount": 16, "page": 1, "size": 9
+  }
+}
+```
+
+`sparkline`은 최근 30일 거래일별 시세(날짜 오름차순).
+
+에러(공통): `400 VALIDATION_ERROR`(`category`·`grade`·`sort`·`page`·`size`·`limit`·`q` 형식), `404 CATEGORY_NOT_FOUND`

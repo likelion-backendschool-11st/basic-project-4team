@@ -163,8 +163,6 @@ export const useBuyerListingView = (listing: ListingDetail) =>
         tradesLabel: buyerListing.seller.tradesLabel,
         trades: formatPrice(seller.soldCount),
         tradesUnit: buyerListing.seller.tradesUnit,
-        rating: copy.ratingEmpty,
-        ratingCount: copy.ratingCountEmpty,
       },
       // 판매자의 다른 상품(LISTING-10)·같은 품목의 다른 매물(ITEM-05) 요청에 쓴다.
       sellerId: seller.id,
