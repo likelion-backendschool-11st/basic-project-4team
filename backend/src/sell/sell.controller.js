@@ -101,6 +101,75 @@ async function list(req, res) {
   res.json({ data: result });
 }
 
+const RELATED_STATUSES = ['selling', 'reserved', 'sold'];
+const RELATED_SORTS = ['priceAsc', 'priceDesc', 'latest'];
+
+/** 경로의 양의 정수 id. 아니면 존재할 수 없는 대상이므로 404. */
+function parsePathId(value, code, message) {
+  if (!/^[1-9]\d*$/.test(value)) throw new HttpError(404, code, message);
+  return Number(value);
+}
+
+/** ITEM-05·LISTING-10 공통 쿼리: excludeListingId, status(기본 selling), page, size. */
+function parseRelatedQuery(query) {
+  const status = query.status === undefined || query.status === '' ? 'selling' : query.status;
+  if (!RELATED_STATUSES.includes(status)) {
+    throw listBadRequest(`status 값이 올바르지 않습니다. (${RELATED_STATUSES.join(', ')})`);
+  }
+  const size = parseQueryInt(query.size, 'size', { min: 1 }) ?? DEFAULT_LIST_SIZE;
+  if (size > MAX_LIST_SIZE) throw listBadRequest(`size는 ${MAX_LIST_SIZE} 이하여야 합니다.`);
+  return {
+    excludeListingId: parseQueryInt(query.excludeListingId, 'excludeListingId', { min: 1 }),
+    status,
+    page: parseQueryInt(query.page, 'page', { min: 1 }) ?? 1,
+    size,
+  };
+}
+
+/** 하나만 고르는 쿼리 값. 비어 있으면 null, 허용 목록에 없으면 400. */
+function parseQueryOne(value, allowed, label) {
+  if (value === undefined || value === '') return null;
+  if (typeof value !== 'string' || !allowed.includes(value)) {
+    throw listBadRequest(`${label} 값이 올바르지 않습니다. (${allowed.join(', ')})`);
+  }
+  return value;
+}
+
+/** 시세 필터 파라미터(ITEM-03·04·05 공통). gradingService·grade는 condition=graded일 때만 받는다. */
+function parseMarketFilter(query) {
+  const condition = parseQueryOne(query.condition, LIST_CONDITIONS, 'condition');
+  const gradingService = parseQueryOne(query.gradingService, LIST_GRADING_SERVICES, 'gradingService');
+  const grade = parseQueryOne(query.grade, LIST_GRADES, 'grade');
+  if ((gradingService || grade) && condition !== 'graded') {
+    throw listBadRequest('gradingService·grade는 condition=graded일 때만 쓸 수 있습니다.');
+  }
+  return { condition, gradingService, grade };
+}
+
+/** GET /api/items/:itemId/listings — 같은 품목의 판매글 목록 (ITEM-05). 기본 낮은 가격순. */
+async function itemListings(req, res) {
+  const itemId = parsePathId(req.params.itemId, 'ITEM_NOT_FOUND', '품목을 찾을 수 없습니다.');
+  const sort = req.query.sort === undefined || req.query.sort === '' ? 'priceAsc' : req.query.sort;
+  if (!RELATED_SORTS.includes(sort)) throw listBadRequest(`sort 값이 올바르지 않습니다. (${RELATED_SORTS.join(', ')})`);
+  const result = await sellService.listItemListings(itemId, {
+    ...parseRelatedQuery(req.query),
+    market: parseMarketFilter(req.query),
+    sort,
+    viewerId: req.user?.id,
+  });
+  res.json({ data: result });
+}
+
+/** GET /api/users/:userId/listings — 판매자의 다른 판매글 (LISTING-10). 최신순. */
+async function sellerListings(req, res) {
+  const userId = parsePathId(req.params.userId, 'USER_NOT_FOUND', '회원을 찾을 수 없습니다.');
+  const result = await sellService.listSellerListings(userId, {
+    ...parseRelatedQuery(req.query),
+    viewerId: req.user?.id,
+  });
+  res.json({ data: result });
+}
+
 /** GET /api/listings/:listingId — 판매글 상세 (LISTING-02). */
 async function detail(req, res) {
   const listing = await sellService.getListingDetail(parseListingId(req), {
@@ -410,4 +479,4 @@ async function searchItems(req, res) {
   res.json({ data: result });
 }
 
-module.exports = { list, detail, uploadImage, create, update, remove, changeStatus, complete, categories, searchItems };
+module.exports = { list, itemListings, sellerListings, detail, uploadImage, create, update, remove, changeStatus, complete, categories, searchItems };

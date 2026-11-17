@@ -1,12 +1,23 @@
 import React, { useCallback } from 'react';
 import type { ListingDetail } from '../../api/types';
 import { ROUTES } from '../../data/layout';
-import { buyerListing, listingCore, listingDetailCopy, ownerActionCopy, sellerListing, toastMessages, wishCopy } from '../../data/listing';
+import {
+  buyerListing,
+  listingCore,
+  listingDetailCopy,
+  ownerActionCopy,
+  relatedListingsCopy,
+  sellerListing,
+  toastMessages,
+  wishCopy,
+} from '../../data/listing';
 import { useChat } from '../../hooks/chat/useChat';
 import { useLoginGate } from '../../hooks/itemcommunity/useLoginGate';
 import { useBuyerListingView } from '../../hooks/listing/useBuyerListingView';
 import { useItemDiscussionCount } from '../../hooks/listing/useItemDiscussionCount';
 import { useOwnerListingActions } from '../../hooks/listing/useOwnerListingActions';
+import { useRelatedListings } from '../../hooks/listing/useRelatedListings';
+import { useSellerOtherListings } from '../../hooks/listing/useSellerOtherListings';
 import { useToast } from '../../hooks/listing/useToast';
 import { useWishlist } from '../../hooks/listing/useWishlist';
 import { Icon } from '../common/Icon';
@@ -24,6 +35,7 @@ import { ListingTitle } from './ListingTitle';
 import { ListingToast } from './ListingToast';
 import { ListingTopBar } from './ListingTopBar';
 import { OwnerActionBar } from './OwnerActionBar';
+import { RelatedListingsCarousel } from './RelatedListingsCarousel';
 import { SellerProfileCard } from './SellerProfileCard';
 
 interface BuyerListingViewProps {
@@ -36,6 +48,8 @@ export const BuyerListingView: React.FC<BuyerListingViewProps> = ({ listing }) =
   // 품목 토론 글 수는 board API(GET /posts?itemId=)가 제공한다 (LISTING-02 비고).
   const discussionCount = useItemDiscussionCount(view.itemSlug);
   const { actions } = buyerListing;
+  const sellerOthers = useSellerOtherListings(view.sellerId, listing.id);
+  const related = useRelatedListings(view.itemId, listing.id, 'buyer');
 
   const { toast, showToast } = useToast();
   const onCopied = useCallback(
@@ -140,10 +154,23 @@ export const BuyerListingView: React.FC<BuyerListingViewProps> = ({ listing }) =
         {/* MIDDLE: description (7) + seller profile (5) */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-gutter-desktop pt-space-md border-t border-hairline mb-space-xl">
           <BuyerDescriptionSection content={view.description} paragraphs={view.paragraphs} />
-          <SellerProfileCard seller={view.seller} />
+          <SellerProfileCard
+            otherEmptyText={sellerOthers.loading ? undefined : relatedListingsCopy.sellerOtherEmpty}
+            otherItems={sellerOthers.items}
+            otherTitle={relatedListingsCopy.sellerOtherTitle(sellerOthers.totalCount)}
+            seller={view.seller}
+          />
         </div>
 
-        {/* 같은 품목의 다른 매물 캐러셀은 ITEM-05 API가 생기면 연결한다. */}
+        {/* 같은 품목의 다른 매물이 없으면 영역째 숨긴다. */}
+        {related.items.length > 0 && (
+          <RelatedListingsCarousel
+            description={relatedListingsCopy.buyer.description(view.itemName, related.totalCount)}
+            items={related.items}
+            subtitle={relatedListingsCopy.buyer.subtitle}
+            title={relatedListingsCopy.buyer.title}
+          />
+        )}
       </div>
 
       {listing.isOwner && (

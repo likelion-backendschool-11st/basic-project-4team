@@ -15,9 +15,10 @@ import { SellerDescriptionSection } from './SellerDescriptionSection';
 import { SellerManagementPanel } from './SellerManagementPanel';
 import { StatusDropdown } from './StatusDropdown';
 import type { ListingDetail } from '../../api/types';
-import { listingCore, sellerDetailCopy, sellerListing, toastMessages } from '../../data/listing';
+import { listingCore, relatedListingsCopy, sellerDetailCopy, sellerListing, toastMessages } from '../../data/listing';
 import { useDeleteListing } from '../../hooks/listing-form/useDeleteListing';
 import { useListingStatus } from '../../hooks/listing/useListingStatus';
+import { useRelatedListings } from '../../hooks/listing/useRelatedListings';
 import { useSellerListingView } from '../../hooks/listing/useSellerListingView';
 import { useToast } from '../../hooks/listing/useToast';
 
@@ -33,6 +34,7 @@ interface SellerListingViewProps {
 export const SellerListingView: React.FC<SellerListingViewProps> = ({ listing }) => {
   const view = useSellerListingView(listing);
   const data = sellerListing;
+  const related = useRelatedListings(listing.item.id, listing.id, 'seller');
 
   const { toast, showToast } = useToast(3000);
   const onCopied = useCallback(
@@ -103,13 +105,15 @@ export const SellerListingView: React.FC<SellerListingViewProps> = ({ listing })
 
       <SellerDescriptionSection content={data.description} inspection={data.inspection} paragraphs={view.paragraphs} />
 
-      {/* 같은 품목의 다른 매물(ITEM-05)은 아직 API가 없어 목 데이터를 보여준다. */}
-      <RelatedListingsCarousel
-        description={data.related.description}
-        items={data.related.items}
-        title={data.related.title}
-        variant="seller"
-      />
+      {/* 같은 품목의 다른 매물(ITEM-05). 경쟁 매물이 없으면 영역째 숨긴다. */}
+      {related.items.length > 0 && (
+        <RelatedListingsCarousel
+          description={relatedListingsCopy.seller.description(listing.item.name, related.totalCount)}
+          items={related.items}
+          title={relatedListingsCopy.seller.title}
+          variant="seller"
+        />
+      )}
 
       <DeleteConfirmModal
         labels={data.deleteModal}

@@ -185,7 +185,6 @@ export const listingDetailCopy = {
   sellerBadge: 'RE:PICK 회원',
   ratingEmpty: '-',
   ratingCountEmpty: '(리뷰 준비중)',
-  otherTitle: '판매자의 다른 상품',
   timeAgo: {
     justNow: '방금 전',
     minutes: (n: number) => `${n}분 전`,
@@ -194,6 +193,26 @@ export const listingDetailCopy = {
     months: (n: number) => `${n}개월 전`,
     years: (n: number) => `${n}년 전`,
   },
+};
+
+/** 판매자의 다른 상품(LISTING-10)·같은 품목의 다른 매물(ITEM-05) 문구 (#30). */
+export const relatedListingsCopy = {
+  sellerOtherTitle: (count: number) => `판매자의 다른 상품 (${count})`,
+  sellerOtherEmpty: '판매 중인 다른 상품이 없습니다.',
+  buyer: {
+    title: '같은 품목의 다른 매물',
+    subtitle: '(판매중 · 낮은 가격순)',
+    description: (itemName: string, count: number) => `[${itemName}] 판매중인 다른 매물 ${count}건`,
+  },
+  seller: {
+    title: '같은 품목의 다른 매물 실시간 시세',
+    description: (itemName: string, count: number) =>
+      `[${itemName}] 경쟁 판매자 ${count}건의 등록 가격을 비교해 판매 전략을 세워 보세요.`,
+  },
+  deliveryOnly: '택배거래',
+  conditions: { unopened: '미개봉', opened_raw: '개봉', graded: '그레이딩' },
+  graded: (service: string, grade: string) => `${service} ${grade}`,
+  priceWithCurrency: (price: string) => `${price}원`,
 };
 
 /** P-010 상세에서 작성자 본인에게만 보이는 관리 버튼 문구 (isOwner = true). */
@@ -312,120 +331,6 @@ export const buyerListing = {
     reviewsLabel: '리뷰 보기',
     rating: '4.9',
     ratingCount: '(39개 평가)',
-    otherTitle: '판매자의 다른 상품 (3)',
-    otherAllLabel: '전체보기 >',
-    otherAllTo: '/users/pokemaster99/listings',
-    otherItems: [
-      {
-        id: 'P-010-771201',
-        title: '뮤 ex SAR 205',
-        price: '145,000원',
-        condition: '미개봉/새상품',
-        conditionTone: 'primary',
-        imageAlt: '뮤 ex SAR PSA 슬랩',
-        imageSrc:
-          'https://lh3.googleusercontent.com/aida-public/AB6AXuCxXs0udx7Ht6gQgdm9G5vxfzbf5fUFuJJza03CW9zbboUHAgUx1MwOJVOlhKXi5v1oxi37u3rIX9SYsSXnC1_6fOAMszaHgn7QBVDRulcmSlDYFl32Rh536XWENFxtCsHyoCA17JkqdGY1vjKRa6AEcD-co56fFtoLZ3UD-nl1qnBGXb47h8MJWWTydXNAEs6xLiZLNhWPb9T2VsyHx5h8XWCiJFLWtlj0mQMnRjI',
-      },
-      {
-        id: 'P-010-771202',
-        title: '에리카의 초대 SR',
-        price: '180,000원',
-        condition: '새상품',
-        conditionTone: 'primary',
-        imageAlt: '에리카의 초대 SR 카드',
-        imageSrc:
-          'https://lh3.googleusercontent.com/aida-public/AB6AXuCFSQMqjpan3OzQY-NFGrIPD61DxiYe3IBSzKx7E4LHyVwGZBq4Yq9fr-jbn7sj9Pbu6oKWWuqeTP2R-76x4nMySXglx29SxmF7Esh4gplF-PE-E1t0Wf1m6vwUKHShklnWrgxuNQ_iJc0cZAB2K-gkBQ1zIuis6Ug4IFWbp-UkETd19TzZ3vDxLasWyn5CPXUozazwJyw9TBIO4F5NNwT2RJMQ8s60aZEdFo7XgwI',
-      },
-      {
-        id: 'P-010-771203',
-        title: '거북왕 ex SAR',
-        price: '110,000원',
-        condition: '거의새것',
-        conditionTone: 'muted',
-        imageAlt: '거북왕 ex SAR PSA 케이스',
-        imageSrc:
-          'https://lh3.googleusercontent.com/aida-public/AB6AXuCg8eqbbZTJxhIOeqevr5lKkw-yuDp7swZeVgnw1N2IuhP_Xeja7gbKNrfAn09gWVp2jFTCwwyGhkzzlF01lcfTRVjpJ8-bURlWrpXvO4pnLibmnOTEeni0BkmSkuQ_12jYWBXmkAGxkml7yuXLEbm2j9Llfk5LiZnHRoCiaF5VjYGnc4OFa5qp7YCidA1QrE1LtssL7Y8Veww7o9hZBx-biZIYkatIcjcqipHxsfM',
-      },
-    ] as readonly SellerOtherItem[],
-  },
-  related: {
-    title: '같은 품목의 다른 매물',
-    subtitle: '(실시간 시세 및 낮은 가격순 정렬)',
-    description: '동일 품목 [리자몽 ex SAR SV2a 201/165] 거래 활성 리스팅 목록입니다.',
-    items: [
-      {
-        id: 'P-010-880101',
-        title: '[PSA 9] 리자몽 ex SAR',
-        price: '255,000원',
-        location: '경기 성남시 분당구',
-        timeAgo: '3일 전',
-        condition: '새상품 상태',
-        conditionTone: 'primary',
-        imageAlt: 'PSA 9 리자몽 ex SAR',
-        imageSrc:
-          'https://lh3.googleusercontent.com/aida-public/AB6AXuApc4oSfsCl2GVZRCNYBV3GRODaI9pHUTV8dO68NPJD5ZER88f1_Sl-TbzXCQIHTAVF6rYRjXTvb7w2SNwhEwQrmjuiFlf1FP_GklNaebPmIKU1XcwF-hwUKlwWz25QOYoQyoczPxHMiEwAfQJEe36r9mrSO9_91wJaW587p-7oEnmZV_iCJ1Z4rvd2SALRKIzlz0CbP-I5o7vnECK6-lwj0p4GWR2K5MBItkcsYy0',
-      },
-      {
-        id: 'P-010-880102',
-        title: '[PSA 10] 리자몽 ex SAR',
-        price: '310,000원',
-        location: '서울 강남구 역삼동',
-        timeAgo: '5일 전',
-        condition: '미개봉/새상품',
-        conditionTone: 'primary',
-        imageAlt: 'PSA 10 리자몽 ex SAR',
-        imageSrc:
-          'https://lh3.googleusercontent.com/aida-public/AB6AXuBbEeuKTA2GCiyLm53ybcb4k8FOKNcFDUWlpE3-FkNweCG61P6YOjJ267l0kxUQjPwAN5mlJQRMZVjVX4nannN6Je_8PxS4tqgdu8bsuNznwHwf970uNi9yJwTtMzEKertfQIzMw9u29WS0VgQaa7IoNAsUp4su317LdtNX17hDSZSZ2Pr8tafAh6cnPUwBabqeB_daTQ2R6vvYhksHxFjSrwksRwNixylWTWzbgkI',
-      },
-      {
-        id: 'P-010-880103',
-        title: '[BGS 9.5] 리자몽 ex SAR 골드',
-        price: '295,000원',
-        location: '인천 연수구 송도동',
-        timeAgo: '7일 전',
-        condition: '새상품 상태',
-        conditionTone: 'primary',
-        imageAlt: 'BGS 9.5 리자몽 ex SAR',
-        imageSrc:
-          'https://lh3.googleusercontent.com/aida-public/AB6AXuBV4A8nyMEluyCwBNaQhcmto4QAp2yPf_HKxMWAiQXY9WyFM5TjasdTycZKu4pgSXn8iUl_4DPIGtKTHJwMYK_xNcBoSmsNJpXfXmrNSh9FCsi5Tkx-AQi5G2Rwbar_d2BDqjJ0joGgR7Wvq0n7QaRxsQqlJwu4aUfAtGgJbiwPfh2biMbJi9NzX-_tPBWfdu0FXfvrNU-7PL0nlnaPHXi0ul9KD3KsflhLZuFNL1o',
-      },
-      {
-        id: 'P-010-880104',
-        title: '리자몽 ex SAR 노등급 싱글',
-        price: '140,000원',
-        location: '대구 수성구 범어동',
-        timeAgo: '9일 전',
-        condition: '상태: S급',
-        conditionTone: 'muted',
-        imageAlt: '노등급 리자몽 ex SAR',
-        imageSrc:
-          'https://lh3.googleusercontent.com/aida-public/AB6AXuD-g15mgDKzNQbPWAtV3OUZcjOJvzr8PtHMaij-pRCPDBNXSJKvPkzAn5v48C1gimQUCAxy3rQJOSzNOB_EWXSZBaV9b8GUD5OgHcOJmWH8xHKKpNSzS-8eK4QgBOZl2a4DR5h_3Ay8bqa2sCMpYzbfRVWSsr9YRikepA63ykdE_8dcAsJjwzL9CAthkBqV8nL8OHTZEDRk18InRyO5raA91e1AkjGLcrwpnPVT8Dw',
-      },
-      {
-        id: 'P-010-880105',
-        title: '[일판 PSA 10] 리자몽 ex SAR',
-        price: '365,000원',
-        location: '부산 해운대구 우동',
-        timeAgo: '12일 전',
-        condition: '새상품 상태',
-        conditionTone: 'primary',
-        imageAlt: '일본판 PSA 10 리자몽 SAR',
-        imageSrc:
-          'https://lh3.googleusercontent.com/aida-public/AB6AXuCJmItatlLoSF8bZqzFyUMP3rBlxceE4sWUwd-zKqvY3wKq6O0KDco-PFEPmc9nY_GuGwJLF2U9H-hkAJ1cCVLwHo-fzsJej4u_umexufeAc3HPk39W2tdrRCr6h7wt-ToUSozkH0-5LUCrxSf8POr4R9UwEJHsl7Yqr5GF0__GJuVX-PEJqvHZwpuUL3fSVpEvQUNwcnGV6gFoenebI7ldcPByvVIQ4rbrRRojpo8',
-      },
-      {
-        id: 'P-010-880106',
-        title: '[PSA 10] 리자몽 ex 직거래',
-        price: '298,000원',
-        location: '서울 서초구 방배동',
-        timeAgo: '14일 전',
-        condition: '직거래 우선',
-        conditionTone: 'primary',
-        imageAlt: '마그네틱 탑로더 리자몽 ex',
-        imageSrc:
-          'https://lh3.googleusercontent.com/aida-public/AB6AXuAfCyP-vzLTSU05nbIZqgbI1SxG-DtDcg6EInOo2LfKZ0irAQsoxVf6OHP17chgCknRIAQotOy05B23Knkhl9YxMwSTxwPeh4LNa2CqlmdHVJpzwfuvPLDG4S0ka0cROWRq3G0_tDKej-iwh6UP47wjQCuIeJEHIlFf8E1gFiJK2BHjKZg9VEqQHHQ7Xj8V834hg8oW9bKueWalbvaO8GNZ5cC64_9_9YLR-aInuWA',
-      },
-    ] as readonly RelatedListing[],
   },
 };
 
@@ -545,78 +450,6 @@ export const sellerListing = {
       { label: '좌우 밸런스 (Centering)', value: '55/45 표준 부합' },
       { label: '슬랩 케이스 스크래치', value: '미세 흠집 무결' },
     ] as readonly InspectionPoint[],
-  },
-  related: {
-    title: '같은 품목의 다른 매물 실시간 시세',
-    description: '경쟁 판매자의 등록 가격 및 거래 현황을 비교 분석하여 최적의 판매 전략을 수립하세요.',
-    items: [
-      {
-        id: 'P-013-990101',
-        category: '포켓몬 151 한국어판',
-        title: '[PSA 10] 리자몽 ex SAR 풀세트',
-        price: '315,000',
-        location: '경기 성남시',
-        timeAgo: '2일 전',
-        imageAlt: 'PSA 10 리자몽 SAR 하드 슬랩',
-        imageSrc:
-          'https://lh3.googleusercontent.com/aida-public/AB6AXuDcg31K0ixd5WV1DthKFjN20KWSNaPfbXGILoWOZM6BvlEgzhIofxVfMwPIYEa01AVCjhnpIJLy9HZtNiXJ4IWZHpGJSWfORDTSs6b1kqlAPvvaCnyXtyCKTBIGeBT7TLbjv6IO5f34f_yRdrCXaBPJPeXLDFS4F-xuzmScC_fsEXQiLkGbnudc2NUA9PRJcJzA7VO0qi-JSH748xaUQpP5DaI_A3gYotjidYbUMTw',
-      },
-      {
-        id: 'P-013-990102',
-        category: '포켓몬 151 일본판',
-        title: '[PSA 9] 리자몽 ex SAR 일판',
-        price: '240,000',
-        location: '서울 강남구',
-        timeAgo: '4일 전',
-        imageAlt: 'PSA 9 리자몽 일본판',
-        imageSrc:
-          'https://lh3.googleusercontent.com/aida-public/AB6AXuCzr9IdJFVgYekktxSLf4DVAKAxlcoLl1Ogvd9072E5tsDtWXL0AlUEV96VBLbypsgA7is3_MvvKrSW7ta8Uz7vUq_m1cjpFcRCx49nRLHBEqzaxzbHFwDXKux4sFht77k2m4gVdu4r3HL8Jci8ErCe8LimZJX7fvpVnwRu-seIUdpwaRvHQbZQR-2lw-Pl1lMYmvvJvn4zPmtivQnKIfWVY8XJDGC2fLLRPb3cRWw',
-      },
-      {
-        id: 'P-013-990103',
-        category: '포켓몬 151 한국어판',
-        title: '리자몽 ex SAR 미등급 탑로더 포함',
-        price: '185,000',
-        location: '인천 송도',
-        timeAgo: '5일 전',
-        imageAlt: '미등급 리자몽 ex 탑로더',
-        imageSrc:
-          'https://lh3.googleusercontent.com/aida-public/AB6AXuCR34WN67UpON4ME67Bq3KE7nFpSz9OK6UUzxSj1nuzde5CHcm_p2t1peKQhy107gJ0ubHhTcAvA7LT2bfeyBP9yHv0goxwTA0n0kMjsbOLNRiEKUwBpaunCVoy0OLM5dlUA-RvGX46IS_-pu4NOVd5py2S-PpZwZW3sCISAJA6as5A5l95rwXUsAtSJN78Ig1mbvi-V4ofYJ4SBIq_dEq2dknCuiM9tEbnltXxtow',
-      },
-      {
-        id: 'P-013-990104',
-        category: '포켓몬 151 한국어판',
-        title: '[BGS 9.5] 리자몽 ex SAR',
-        price: '290,000',
-        location: '부산 해운대구',
-        timeAgo: '6일 전',
-        imageAlt: 'BGS 9.5 포켓몬 카드',
-        imageSrc:
-          'https://lh3.googleusercontent.com/aida-public/AB6AXuBlDKerWKtL_6RP76bJL0e-XV_KIWyqqV8werFAArAwzyQ1v1aDvJf9BhOs8BX9sqWaiCzUmeYTjs5gcN4QaBRD_1P2UBqtIx9eeKVnQ1xpxnZ9a0HhM8ZcptFjT7W38KYG-qT1njN-IIlvxutS05nnS5lQVQTcvOeMfs_cZexjAJpRtOJr_5bQaJAaWZP_3cFUea-aP0DdtckHZUsCK307RkAyjJClJH3jBKgwpE8',
-      },
-      {
-        id: 'P-013-990105',
-        category: '포켓몬 151 한국어판',
-        title: '[PSA 10] 리자몽 ex SAR 직거래우대',
-        price: '325,000',
-        location: '대구 수성구',
-        timeAgo: '1주일 전',
-        imageAlt: 'PSA 10 리자몽 아크릴 케이스',
-        imageSrc:
-          'https://lh3.googleusercontent.com/aida-public/AB6AXuCOtSZVftadXZIWnBZ2c0Z1cZlUbqyHCfv7zbSWsSPgVnmLGewCBnnXrOfpUidkAEUIEP01oIewrAEu9B8myYKYtfa7UMnc9RjVXlal1cBEXFhUHVO7l3BmwBaWi_v02PTVfEJtWSmrtlAgWu0fN-wgbN_nBgQyQNIWqQEA6kz5KcSNdSSago6N3AntGq3MSPjQ2F6SZXThqDLHTujxVrYCt7NrmW4earlvdw6RVXs',
-      },
-      {
-        id: 'P-013-990106',
-        category: '포켓몬 151 일본판',
-        title: '[CGC 10 Pristine] 리자몽 ex',
-        price: '340,000',
-        location: '대전 유성구',
-        timeAgo: '8일 전',
-        imageAlt: 'CGC 10 Pristine 슬랩',
-        imageSrc:
-          'https://lh3.googleusercontent.com/aida-public/AB6AXuCydm31WuNfj_xJdS5EFcrpdySHuSqvPDhg-3RfpP2r61nVSYS0an2b6fpEtQFU_ApuxtdU43oSJ2aepdO7j1kOeW_UWqVmazl-vCLAv2jWSIuOqnLHPwvVcMTw6Yn7X9OoIZtA1ccQySvP85VRovYia9Nsyyd4Qt_Dp3EPdN_6lqTEsh1U37ki2yhmXbPlc1B1iCJI2JWL1SL0MjNqDzGgMindf6VU12wkjPxJLE4',
-      },
-    ] as readonly RelatedListing[],
   },
   deleteModal: {
     title: '판매글 삭제 확인',

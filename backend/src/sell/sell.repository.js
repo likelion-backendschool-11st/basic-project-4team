@@ -172,7 +172,28 @@ async function findCategoryIdsByCode(code) {
   return rows.length === 0 ? null : rows.map((row) => row.id);
 }
 
-function buildListWhere({ q, categoryIds, itemId, conditions, grades, minPrice, maxPrice, tradeMethods, itemStates = [], sizes = [], excludeSold }) {
+/**
+ * 목록 WHERE 절. LISTING-01(검색)은 검색 조건을, ITEM-05·LISTING-10은 itemId·sellerId·excludeListingId·statuses를 쓴다.
+ * 넘기지 않은 조건은 제한하지 않는다.
+ */
+function buildListWhere({
+  q = null,
+  categoryIds = null,
+  itemId = null,
+  sellerId = null,
+  excludeListingId = null,
+  statuses = [],
+  gradingService = null,
+  grade = null,
+  conditions = [],
+  grades = [],
+  minPrice = null,
+  maxPrice = null,
+  tradeMethods = [],
+  itemStates = [],
+  sizes = [],
+  excludeSold = false,
+}) {
   const where = ['l.deleted_at IS NULL'];
   const params = [];
   if (q) {
@@ -187,6 +208,27 @@ function buildListWhere({ q, categoryIds, itemId, conditions, grades, minPrice, 
   if (itemId) {
     where.push('l.item_id = ?');
     params.push(itemId);
+  }
+  if (sellerId) {
+    where.push('l.seller_id = ?');
+    params.push(sellerId);
+  }
+  if (excludeListingId) {
+    where.push('l.id <> ?');
+    params.push(excludeListingId);
+  }
+  if (statuses.length > 0) {
+    where.push(`l.status IN (${statuses.map(() => '?').join(', ')})`);
+    params.push(...statuses);
+  }
+  // ITEM-05 시세 필터 — 그레이딩사·등급은 각각 하나만, 정확히 일치 (검색 화면의 grades 묶음과 별개)
+  if (gradingService) {
+    where.push('l.grading_service = ?');
+    params.push(gradingService);
+  }
+  if (grade) {
+    where.push('l.grade = ?');
+    params.push(grade);
   }
   // 상태(condition)와 등급(grades)은 검색 화면의 "등급" 체크박스 한 묶음이라 둘 다 오면 OR로 묶는다.
   // 예) grades=PSA-10 & condition=unopened → PSA 10 슬랩 또는 미개봉
@@ -460,6 +502,15 @@ async function updateStatus(connection, listingId, status) {
   await connection.execute('UPDATE listings SET status = ? WHERE id = ?', [status, listingId]);
 }
 
+/** 품목이 있는지 (ITEM-05). 숨긴 품목이라도 이미 달린 판매글은 보여 준다. */
+async function existsItem(itemId) {
+  const [rows] = await pool.execute('SELECT 1 FROM items WHERE id = ? LIMIT 1', [itemId]);
+  return rows.length > 0;
+}
+
+/** 트랜잭션 밖에서 탈퇴하지 않은 회원인지 확인한다 (LISTING-10). */
+const existsActiveUserId = (userId) => existsActiveUser(pool, userId);
+
 /** 탈퇴하지 않은 회원인지. */
 async function existsActiveUser(connection, userId) {
   const [rows] = await connection.execute('SELECT 1 FROM users WHERE id = ? AND deleted_at IS NULL LIMIT 1', [userId]);
@@ -553,6 +604,8 @@ module.exports = {
   softDelete,
   updateStatus,
   existsActiveUser,
+  existsActiveUserId,
+  existsItem,
   markSold,
   findSoldInfo,
   findCategoryIdsByCode,

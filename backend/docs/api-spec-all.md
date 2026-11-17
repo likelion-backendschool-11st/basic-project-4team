@@ -976,8 +976,11 @@ GET /api/v1/items/{itemId}/listings?excludeListingId=882194&sort=priceAsc&size=1
         "grade": "9",
         "thumbnailUrl": "https://cdn.repick.kr/listings/880101/0.jpg",
         "directLocation": "경기 성남시 분당구",
-        "createdAt": "2025-11-07T10:00:00+09:00",
-        "isWished": false
+        "wishCount": 4,
+        "isWished": false,
+        "priceDiffRate": -6.3,
+        "item": { "id": 1, "slug": "charizard-ex-sar", "name": "리자몽 ex SAR", "setName": "151" },
+        "createdAt": "2025-11-07T10:00:00+09:00"
       }
     ],
     "page": 1,
@@ -997,11 +1000,15 @@ GET /api/v1/items/{itemId}/listings?excludeListingId=882194&sort=priceAsc&size=1
 
 | 상태 | code | 상황 |
 |---|---|---|
-| 404 | `ITEM_NOT_FOUND` | 없는 품목 |
+| 400 | `VALIDATION_ERROR` | 허용되지 않은 `status`·`sort`·`condition`·`gradingService`·`grade`, `size` > 50, `condition=graded` 없이 `gradingService`·`grade`를 보냄 |
+| 404 | `ITEM_NOT_FOUND` | 없는 품목 (숫자가 아닌 `itemId` 포함) |
 
 #### 비고
 - `deleted_at`이 있는 판매글은 제외
-- 응답 항목은 **listing API의 목록 응답(ListingSummary)과 같은 형식**으로 맞추면 프론트 카드 컴포넌트를 재사용할 수 있습니다
+- 응답 항목은 **ListingSummary와 같은 형식**이다 (#30). LISTING-01과 같은 쿼리로 만들어 `wishCount`·`priceDiffRate`·`item`도 함께 온다
+- `{itemId}`는 숫자 id만 받는다. 판매글 상세(LISTING-02)의 `item.id`를 넘긴다
+- 같은 가격이면 최근 등록 글(`id` 큰 글)이 먼저 온다
+- 숨김 처리된 품목이어도 이미 달린 판매글은 보여 준다 (품목이 아예 없을 때만 404)
 
 ---
 
@@ -1674,11 +1681,15 @@ GET /api/v1/users/{userId}/listings?status=selling&excludeListingId=882194&size=
 
 LISTING-01과 같은 형식 (`items`는 ListingSummary[], `totalCount`가 "판매자의 다른 상품 (N)"의 N)
 
+- 정렬은 최신 등록순으로 고정 (`created_at DESC, id DESC`)
+- 로그인 시 `isWished`가 내 찜 여부로 채워진다
+
 #### Errors
 
 | 상태 | code | 상황 |
 |---|---|---|
-| 404 | `USER_NOT_FOUND` | 없는 회원 |
+| 400 | `VALIDATION_ERROR` | 허용되지 않은 `status`, `size` > 50 |
+| 404 | `USER_NOT_FOUND` | 없거나 탈퇴한 회원 (숫자가 아닌 `userId` 포함) |
 
 ---
 
@@ -1724,7 +1735,7 @@ ERD 확정 시 맞춰서 수정합니다.
 
 1. **공식 품목 없이 등록 허용 여부** — 지금 명세는 `itemId` 필수(시세 연동 때문). 품목 DB에 없는 물건도 받으려면 `itemId`를 선택으로 바꾸고, 세트명·카드번호 등을 판매글에 직접 저장해야 합니다.
 2. **등록번호 형식** — 목업에 `P-010-882194`, `RPC-2025-08914` 두 가지가 섞여 있습니다. 이 명세는 `RPC-{연도}-{id}`로 가정했습니다.
-3. **ListingSummary 필드 맞추기** — ITEM-05 응답 예시에 `wishCount`, `priceDiffRate`, `item`이 없습니다. 카드 컴포넌트를 함께 쓰려면 ITEM-05에도 추가해야 합니다.
+3. ~~**ListingSummary 필드 맞추기**~~ — **확정 (#30)**: ITEM-05도 ListingSummary 전체 필드(`wishCount`, `priceDiffRate`, `item` 포함)로 응답합니다.
 4. **에러 코드 이름** — 이미 구현된 auth API는 `VALIDATION_ERROR`를 쓰고, item 명세는 `INVALID_PARAMETER`를 씁니다. 이 명세는 구현된 쪽(`VALIDATION_ERROR`)을 따랐습니다. 하나로 통일이 필요합니다.
 5. **운동화·명품 속성** — 검색 화면에 사이즈 필터가 있지만, 사이즈·스타일코드 같은 운동화/명품 속성을 판매글에 저장할 곳이 아직 없습니다. 카드 카테고리부터 구현하고 나중에 `attributes`(JSON) 컬럼 추가를 검토합니다.
 6. ~~**이미지 업로드 방식**~~ — **확정**: 서버 경유 multipart(UPLOAD-01)로 올리고 `imageIds` 방식을 씁니다. 파일은 백엔드 로컬(`backend/uploads/`)에 저장합니다. 배포 시 외부 스토리지(S3 등)로 옮길 때도 API 형식은 그대로 둡니다.

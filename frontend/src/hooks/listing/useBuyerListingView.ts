@@ -154,10 +154,10 @@ export const useBuyerListingView = (listing: ListingDetail) =>
         trades: formatPrice(seller.soldCount),
         rating: copy.ratingEmpty,
         ratingCount: copy.ratingCountEmpty,
-        otherTitle: copy.otherTitle,
-        otherAllTo: `/users/${seller.id}/listings`,
-        // 판매자의 다른 판매글(LISTING-10)은 아직 API가 없다.
-        otherItems: [],
       },
+      // 판매자의 다른 상품(LISTING-10)·같은 품목의 다른 매물(ITEM-05) 요청에 쓴다.
+      sellerId: seller.id,
+      itemId: item.id,
+      itemName: item.setName ? `${item.name} (${item.setName})` : item.name,
     };
   }, [listing]);
