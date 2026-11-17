@@ -627,6 +627,8 @@ CREATE TABLE IF NOT EXISTS refresh_tokens (
 | ITEM-03 | 품목 상세 조회 | GET | `/items/{itemId}` | - | 품목 토론방 헤더, 판매글 상세 |
 | ITEM-04 | 품목 시세 기준가 조회 | GET | `/items/{itemId}/market-price` | - | 판매글 등록·수정 가격 피드백, 판매글 상세 평균가 |
 | ITEM-05 | 같은 품목의 판매글 목록 | GET | `/items/{itemId}/listings` | 선택 | 판매글 상세 "같은 품목의 다른 매물" |
+| ITEM-06 | 품목 등록 요청 | POST | `/item-requests` | 필수 | 판매글 등록 "품목이 없나요? 등록 요청" — **`api-spec.md` 품목 등록 요청(#47)** 참고 |
+| ITEM-07 | 내 품목 등록 요청 목록 | GET | `/users/me/item-requests` | 필수 | 마이페이지 — **`api-spec.md` 품목 등록 요청(#47)** 참고 |
 
 ---
 
