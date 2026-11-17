@@ -1,13 +1,24 @@
 import React, { useCallback } from 'react';
 import type { ListingDetail } from '../../api/types';
 import { ROUTES } from '../../data/layout';
-import { buyerListing, listingCore, listingDetailCopy, ownerActionCopy, sellerListing, toastMessages, wishCopy } from '../../data/listing';
+import {
+  buyerListing,
+  listingCore,
+  listingDetailCopy,
+  ownerActionCopy,
+  relatedListingsCopy,
+  sellerListing,
+  toastMessages,
+  wishCopy,
+} from '../../data/listing';
 import { useChat } from '../../hooks/chat/useChat';
 import { useLoginGate } from '../../hooks/itemcommunity/useLoginGate';
 import { useBuyerListingView } from '../../hooks/listing/useBuyerListingView';
 import { useItemDiscussionCount } from '../../hooks/listing/useItemDiscussionCount';
 import { useSameItemListings, useSellerOtherListings } from '../../hooks/listing/useSameItemListings';
 import { useOwnerListingActions } from '../../hooks/listing/useOwnerListingActions';
+import { useRelatedListings } from '../../hooks/listing/useRelatedListings';
+import { useSellerOtherListings } from '../../hooks/listing/useSellerOtherListings';
 import { useToast } from '../../hooks/listing/useToast';
 import { useWishlist } from '../../hooks/listing/useWishlist';
 import { Icon } from '../common/Icon';
@@ -41,6 +52,8 @@ export const BuyerListingView: React.FC<BuyerListingViewProps> = ({ listing }) =
   // 같은 품목의 다른 매물·판매자의 다른 상품은 LISTING-01(itemId·sellerId 필터)로 DB에서 불러온다.
   const related = useSameItemListings(listing.item.id, listing.id);
   const sellerOthers = useSellerOtherListings(listing.seller.id, listing.id, buyerListing.seller.otherSize);
+  const sellerOthers = useSellerOtherListings(view.sellerId, listing.id);
+  const related = useRelatedListings(view.itemId, listing.id, 'buyer');
 
   const { toast, showToast } = useToast();
   const onCopied = useCallback(
@@ -163,6 +176,22 @@ export const BuyerListingView: React.FC<BuyerListingViewProps> = ({ listing }) =
             title={buyerListing.related.title}
           />
         ) : null}
+            otherEmptyText={sellerOthers.loading ? undefined : relatedListingsCopy.sellerOtherEmpty}
+            otherItems={sellerOthers.items}
+            otherTitle={relatedListingsCopy.sellerOtherTitle(sellerOthers.totalCount)}
+            seller={view.seller}
+          />
+        </div>
+
+        {/* 같은 품목의 다른 매물이 없으면 영역째 숨긴다. */}
+        {related.items.length > 0 && (
+          <RelatedListingsCarousel
+            description={relatedListingsCopy.buyer.description(view.itemName, related.totalCount)}
+            items={related.items}
+            subtitle={relatedListingsCopy.buyer.subtitle}
+            title={relatedListingsCopy.buyer.title}
+          />
+        )}
       </div>
 
       {listing.isOwner && (

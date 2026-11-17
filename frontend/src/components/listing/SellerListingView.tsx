@@ -15,11 +15,12 @@ import { SellerDescriptionSection } from './SellerDescriptionSection';
 import { SellerManagementPanel } from './SellerManagementPanel';
 import { StatusDropdown } from './StatusDropdown';
 import type { ListingDetail } from '../../api/types';
-import { listingCore, sellerDetailCopy, sellerListing, toastMessages } from '../../data/listing';
+import { listingCore, relatedListingsCopy, sellerDetailCopy, sellerListing, toastMessages } from '../../data/listing';
 import { useDeleteListing } from '../../hooks/listing-form/useDeleteListing';
 import { useItemDiscussionCount } from '../../hooks/listing/useItemDiscussionCount';
 import { useSameItemListings } from '../../hooks/listing/useSameItemListings';
 import { useListingStatus } from '../../hooks/listing/useListingStatus';
+import { useRelatedListings } from '../../hooks/listing/useRelatedListings';
 import { useSellerListingView } from '../../hooks/listing/useSellerListingView';
 import { useToast } from '../../hooks/listing/useToast';
 
@@ -38,6 +39,7 @@ export const SellerListingView: React.FC<SellerListingViewProps> = ({ listing })
   // 품목 토론방 글 수(GET /posts?itemId=)와 같은 품목의 다른 매물(GET /listings?itemId=)은 DB에서 불러온다.
   const discussionCount = useItemDiscussionCount(view.itemSlug);
   const related = useSameItemListings(listing.item.id, listing.id);
+  const related = useRelatedListings(listing.item.id, listing.id, 'seller');
 
   const { toast, showToast } = useToast(3000);
   const onCopied = useCallback(
@@ -117,6 +119,15 @@ export const SellerListingView: React.FC<SellerListingViewProps> = ({ listing })
           variant="seller"
         />
       ) : null}
+      {/* 같은 품목의 다른 매물(ITEM-05). 경쟁 매물이 없으면 영역째 숨긴다. */}
+      {related.items.length > 0 && (
+        <RelatedListingsCarousel
+          description={relatedListingsCopy.seller.description(listing.item.name, related.totalCount)}
+          items={related.items}
+          title={relatedListingsCopy.seller.title}
+          variant="seller"
+        />
+      )}
 
       <DeleteConfirmModal
         labels={{ ...data.deleteModal, warning: data.deleteModal.warning(listing.wishCount, listing.viewCount) }}

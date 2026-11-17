@@ -4,6 +4,21 @@ import { Icon } from '../common/Icon';
 import { ROUTES } from '../../data/layout';
 import type { RelatedListing } from '../../data/listing';
 
+interface ListingThumbProps {
+  readonly src: string;
+  readonly alt: string;
+}
+
+/** 카드 썸네일. 사진이 없으면 아이콘으로 대신한다. */
+const ListingThumb: React.FC<ListingThumbProps> = ({ src, alt }) =>
+  src ? (
+    <img alt={alt} className="w-full h-full object-cover" loading="lazy" src={src} />
+  ) : (
+    <div aria-label={alt} className="w-full h-full flex items-center justify-center text-muted" role="img">
+      <Icon className="text-[32px]" name="image_not_supported" />
+    </div>
+  );
+
 interface RelatedListingCardProps {
   readonly item: RelatedListing;
   readonly currency?: string;
@@ -28,6 +43,7 @@ export const RelatedListingCard: React.FC<RelatedListingCardProps> = ({ item, cu
               <Icon className="text-[32px]" name="image_not_supported" />
             </span>
           )}
+          <ListingThumb alt={item.imageAlt} src={item.imageSrc} />
         </div>
         <div className="p-space-sm flex flex-col gap-1">
           <span className="font-caption text-caption text-muted truncate">{item.category}</span>
@@ -58,6 +74,7 @@ export const RelatedListingCard: React.FC<RelatedListingCardProps> = ({ item, cu
               <Icon className="text-[32px]" name="image_not_supported" />
             </span>
           )}
+        <ListingThumb alt={item.imageAlt} src={item.imageSrc} />
       </div>
       <div className="p-space-sm flex flex-col justify-between flex-1">
         <div>

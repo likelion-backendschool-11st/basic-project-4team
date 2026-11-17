@@ -13,14 +13,33 @@ interface SellerProfile {
   readonly otherTitle: string;
   readonly otherEmpty: string;
   readonly otherItems: readonly SellerOtherItem[];
+  readonly ratingLabel: string;
+  readonly reviewsLabel: string;
+  readonly rating: string;
+  readonly ratingCount: string;
 }
 
 interface SellerProfileCardProps {
   readonly seller: SellerProfile;
+  /** "판매자의 다른 상품 (N)". */
+  readonly otherTitle: string;
+  readonly otherItems: readonly SellerOtherItem[];
+  /** 다른 상품이 없을 때 문구. 불러오는 중에는 넘기지 않아 빈칸으로 둔다. */
+  readonly otherEmptyText?: string;
+  /** 전체보기 링크. 판매자 판매글 목록 화면이 생기기 전까지는 넘기지 않는다. */
+  readonly otherAll?: { readonly label: string; readonly to: string };
 }
 
 /** 판매자 닉네임·누적 거래 횟수와 판매자의 다른 상품 (모두 DB 값). */
 export const SellerProfileCard: React.FC<SellerProfileCardProps> = ({ seller }) => (
+/** Seller header, trade stats/review score and other items grid. */
+export const SellerProfileCard: React.FC<SellerProfileCardProps> = ({
+  seller,
+  otherTitle,
+  otherItems,
+  otherEmptyText,
+  otherAll,
+}) => (
   /* data-component="SellerProfileCard" */
   <div className="lg:col-span-5 flex flex-col">
     <div className="border border-hairline rounded p-space-md bg-canvas">
@@ -57,6 +76,26 @@ export const SellerProfileCard: React.FC<SellerProfileCardProps> = ({ seller }) 
               <SellerOtherItemCard item={item} key={item.id} />
             ))}
           </div>
+        <div className="flex items-center justify-between mb-space-xs">
+          <span className="font-ui-label text-ui-label text-ink">{otherTitle}</span>
+          {otherAll && (
+            <Link className="font-caption text-caption text-muted hover:text-ink" to={otherAll.to}>
+              {otherAll.label}
+            </Link>
+          )}
+        </div>
+        {otherItems.length > 0 ? (
+          <div className="grid grid-cols-3 gap-space-xs">
+            {otherItems.map((item) => (
+              <SellerOtherItemCard key={item.id} item={item} />
+            ))}
+          </div>
+        ) : (
+          otherEmptyText && (
+            <p className="font-caption text-caption text-muted bg-canvas-soft rounded py-space-sm text-center">
+              {otherEmptyText}
+            </p>
+          )
         )}
       </div>
     </div>

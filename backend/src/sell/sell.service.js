@@ -50,11 +50,52 @@ async function listListings({ category, ...filter }, { sort, page, size, viewerI
     { ...filter, categoryIds },
     { sort, limit: size, offset: (page - 1) * size, viewerId },
   );
-  const items = listings.map(({ marketAveragePrice, ...listing }) => ({
+  return { items: listings.map(withPriceDiffRate), page, size, totalCount };
+}
+
+/** findMany 행의 30일 평균 체결가를 시세 대비 차이율(priceDiffRate)로 바꾼다. */
+function withPriceDiffRate({ marketAveragePrice, ...listing }) {
+  return {
     ...listing,
     priceDiffRate: toPriceDiffRate(listing.price, marketAveragePrice === null ? null : { averagePrice: marketAveragePrice }),
-  }));
-  return { items, page, size, totalCount };
+  };
+}
+
+/** ListingSummary 한 페이지 — ITEM-05·LISTING-10 공통. */
+async function findSummaryPage(filter, { sort, page, size, viewerId }) {
+  const { listings, totalCount } = await sellRepository.findMany(filter, {
+    sort,
+    limit: size,
+    offset: (page - 1) * size,
+    viewerId,
+  });
+  return { items: listings.map(withPriceDiffRate), page, size, totalCount };
+}
+
+/** ITEM-05 같은 품목의 판매글 목록. 판매글 상세의 "같은 품목의 다른 매물"에 쓴다. */
+async function listItemListings(itemId, { excludeListingId, status, market, sort, page, size, viewerId }) {
+  if (!(await sellRepository.existsItem(itemId))) {
+    throw new HttpError(404, 'ITEM_NOT_FOUND', '품목을 찾을 수 없습니다.');
+  }
+  return findSummaryPage(
+    {
+      itemId,
+      excludeListingId,
+      statuses: [status],
+      conditions: market.condition ? [market.condition] : [],
+      gradingService: market.gradingService,
+      grade: market.grade,
+    },
+    { sort, page, size, viewerId },
+  );
+}
+
+/** LISTING-10 판매자의 다른 판매글 (최신순). totalCount가 "판매자의 다른 상품 (N)"의 N이다. */
+async function listSellerListings(sellerId, { excludeListingId, status, page, size, viewerId }) {
+  if (!(await sellRepository.existsActiveUserId(sellerId))) {
+    throw new HttpError(404, 'USER_NOT_FOUND', '회원을 찾을 수 없습니다.');
+  }
+  return findSummaryPage({ sellerId, excludeListingId, statuses: [status] }, { sort: 'latest', page, size, viewerId });
 }
 
 /**
@@ -383,6 +424,8 @@ async function searchItems({ q, tokens, category }, { page, size }) {
 
 module.exports = {
   listListings,
+  listItemListings,
+  listSellerListings,
   getListingDetail,
   uploadImage,
   createListing,

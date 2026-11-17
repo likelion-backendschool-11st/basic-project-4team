@@ -645,6 +645,117 @@ REQ-BOARD-010 (#39). 로그인 없이 조회 가능. 품목 토론방 사이드�
 | `sort` | `volume` | `volume`(30일 거래순) · `priceDesc` · `priceAsc` · `rising`(`change1d` 높은순) · `falling`. 변동률 정렬에서 `null`은 맨 뒤. 같으면 최근 거래 → 이름순 |
 | `page` | `1` | 1~1000 |
 | `size` | `9` | 1~30 |
+# 품목 등록 요청 (#47)
+
+REQ-POST-005. 판매글 등록 화면(P-014)에서 품목을 검색했는데 결과가 없으면 '품목이 없나요? 등록 요청'으로 관리자에게 새 품목을 요청한다.
+요청은 `item_requests`에 `pending`으로 쌓이고, 관리자가 승인하면 `items`에 품목이 생긴다. **이 이슈 범위는 요청 등록과 내 요청 목록까지**이고, 관리자 처리 API는 아래 [확인이 필요한 사항](#확인이-필요한-사항-47)에 남긴다.
+
+| ID | 기능 | Method | URI | 인증 |
+|---|---|---|---|---|
+| ITEM-06 | 품목 등록 요청 | POST | `/item-requests` | 🔒 |
+| ITEM-07 | 내 품목 등록 요청 목록 | GET | `/users/me/item-requests` | 🔒 |
+
+> `/items/requests`가 아닌 `/item-requests`를 쓴다. `GET /items/:itemId`가 slug를 받으므로 `requests`가 slug로 해석되는 것을 피한다.
+
+## ItemRequest 객체
+
+```json
+{
+  "id": 7,
+  "status": "pending",
+  "category": { "id": 2, "code": "pokemon", "name": "포켓몬 카드" },
+  "name": "피카츄 ex SAR",
+  "setName": "초전브레이커 (SV8)",
+  "cardNo": "132/106",
+  "language": "ko",
+  "rarity": "SAR",
+  "referenceUrl": "https://www.pokemoncard.co.kr/...",
+  "memo": "한글판 정발 카드입니다.",
+  "rejectReason": null,
+  "item": null,
+  "createdAt": "2026-11-17T05:00:00.000Z",
+  "processedAt": null
+}
+```
+
+| 필드 | 타입 | 설명 |
+|---|---|---|
+| `status` | string | `pending` 검토 중 · `approved` 등록됨 · `rejected` 반려 |
+| `category` | `{ id, code, name }` | 요청한 소분류 카테고리 |
+| `setName`, `cardNo`, `language`, `rarity` | string \| null | 카드 카테고리만. 운동화·명품은 `null` |
+| `referenceUrl` | string \| null | 공식 이미지·정보 링크 |
+| `memo` | string \| null | 관리자에게 남기는 말 |
+| `rejectReason` | string \| null | `rejected`일 때 관리자가 남긴 사유 |
+| `item` | `{ id, slug, name }` \| null | `approved`일 때 만들어진(또는 연결된) 품목. 그 외 `null` |
+| `processedAt` | string \| null | 승인·반려 시각. `pending`이면 `null` |
+
+## POST /item-requests — 품목 등록 요청 🔒
+
+요청
+
+```json
+{
+  "categoryId": 2,
+  "name": "피카츄 ex SAR",
+  "setName": "초전브레이커 (SV8)",
+  "cardNo": "132/106",
+  "language": "ko",
+  "rarity": "SAR",
+  "referenceUrl": "https://www.pokemoncard.co.kr/...",
+  "memo": "한글판 정발 카드입니다."
+}
+```
+
+| 필드 | 필수 | 규칙 |
+|---|---|---|
+| `categoryId` | O | **소분류** 카테고리 id (`parentId`가 있는 카테고리). 대분류 id면 `400 VALIDATION_ERROR` |
+| `name` | O | 앞뒤 공백 제거 후 1~100자 (`items.name`과 같은 길이) |
+| `setName` | X | ≤ 100자. 카드 카테고리만 |
+| `cardNo` | X | ≤ 30자. 앞의 `#`은 지우고 저장. 카드 카테고리만 |
+| `language` | X | `ko` / `ja` / `en` / `zh`. 카드 카테고리만 |
+| `rarity` | X | `SAR` / `UR` / `SR` / `AR` / `etc`. 카드 카테고리만 |
+| `referenceUrl` | X | `http://` 또는 `https://`로 시작, ≤ 500자 |
+| `memo` | X | 앞뒤 공백 제거 후 ≤ 500자. 욕설은 COMMON-006처럼 `*`로 가려 저장 |
+
+- 문자열 필드의 빈 문자열(`""`)은 `null`로 저장한다.
+- "카드 카테고리" = 대분류 `code`가 `card`인 카테고리의 하위. 그 밖의 카테고리에 `setName`·`cardNo`·`language`·`rarity`를 보내면 `400 VALIDATION_ERROR`.
+
+응답 `201`
+
+```json
+{ "data": { "itemRequest": { "id": 7, "status": "pending", "...": "ItemRequest 객체" } } }
+```
+
+**중복 검사** (순서대로)
+
+1. **이미 있는 품목** — 숨기지 않은(`is_active = 1`) 품목 중 아래에 해당하면 `409 ITEM_ALREADY_EXISTS`. 에러 응답에 그 품목을 실어 프론트가 바로 선택할 수 있게 한다.
+   - 카드: `categoryId`·`setName`·`cardNo`·`language`가 모두 같음 (`uk_items_card`와 같은 기준, 4개 모두 값이 있을 때만)
+   - 그 외: 같은 카테고리에 `name`이 같음 (대소문자·앞뒤 공백 무시)
+2. **같은 요청 대기 중** — 내 `pending` 요청 중 같은 `categoryId` + `name`(대소문자·공백 무시)이 있으면 `409 ITEM_REQUEST_DUPLICATE`. 다른 사람이 같은 품목을 요청한 것은 막지 않는다(관리자가 묶어서 처리).
+
+```json
+{
+  "error": {
+    "code": "ITEM_ALREADY_EXISTS",
+    "message": "이미 등록된 품목이에요. 검색 결과에서 선택해 주세요.",
+    "item": { "id": 101, "slug": "pikachu-ex-sar-sv8-132", "name": "피카츄 ex SAR" }
+  }
+}
+```
+
+에러: `400 VALIDATION_ERROR`, `401 UNAUTHORIZED` / `INVALID_TOKEN`, `404 CATEGORY_NOT_FOUND`, `409 ITEM_ALREADY_EXISTS` / `ITEM_REQUEST_DUPLICATE`
+
+## GET /users/me/item-requests — 내 품목 등록 요청 목록 🔒
+
+내가 보낸 요청을 최신순(`createdAt` 내림차순, 같으면 `id` 내림차순)으로 돌려준다. 마이페이지 목록 API와 같은 페이지 규칙.
+
+| 쿼리 | 기본값 | 설명 |
+|---|---|---|
+| `status` | (전체) | `pending` / `approved` / `rejected` |
+| `page` | `1` | 1부터 |
+| `size` | `10` | 1~50 |
+
+응답 `200`
 
 ```json
 {
@@ -667,3 +778,42 @@ REQ-BOARD-010 (#39). 로그인 없이 조회 가능. 품목 토론방 사이드�
 `sparkline`은 최근 30일 거래일별 시세(날짜 오름차순).
 
 에러(공통): `400 VALIDATION_ERROR`(`category`·`grade`·`sort`·`page`·`size`·`limit`·`q` 형식), `404 CATEGORY_NOT_FOUND`
+    "items": [ { "id": 7, "status": "pending", "...": "ItemRequest 객체" } ],
+    "page": 1,
+    "size": 10,
+    "totalCount": 1
+  }
+}
+```
+
+에러: `400 VALIDATION_ERROR`(잘못된 `status`·`page`·`size`), `401 UNAUTHORIZED` / `INVALID_TOKEN`
+
+## DB — `item_requests` 테이블 (추가 예정)
+
+| 컬럼 | 타입 | 설명 |
+|---|---|---|
+| `id` | BIGINT PK AUTO_INCREMENT | |
+| `user_id` | BIGINT NOT NULL | 요청자. FK `users(id)` |
+| `category_id` | BIGINT NOT NULL | 소분류. FK `categories(id)` |
+| `name` | VARCHAR(100) NOT NULL | |
+| `set_name` | VARCHAR(100) NULL | |
+| `card_no` | VARCHAR(30) NULL | |
+| `language` | VARCHAR(5) NULL | CHECK `ko`·`ja`·`en`·`zh` |
+| `rarity` | VARCHAR(10) NULL | CHECK `SAR`·`UR`·`SR`·`AR`·`etc` |
+| `reference_url` | VARCHAR(500) NULL | |
+| `memo` | VARCHAR(500) NULL | |
+| `status` | VARCHAR(10) NOT NULL DEFAULT `'pending'` | CHECK `pending`·`approved`·`rejected` |
+| `reject_reason` | VARCHAR(500) NULL | |
+| `item_id` | BIGINT NULL | 승인 시 연결된 품목. FK `items(id)` |
+| `processed_by` | BIGINT NULL | 처리한 관리자. FK `users(id)` |
+| `processed_at` | DATETIME NULL | |
+| `created_at`, `updated_at` | DATETIME | |
+
+인덱스: `(user_id, created_at)` — 내 요청 목록, `(status, created_at)` — 관리자 대기 목록.
+
+## 확인이 필요한 사항 (#47)
+
+1. **관리자 처리 API** — 관리자 화면이 미설계(REQ-POST-005 비고)라 이번 범위에서 뺐다. 만든다면 `GET /admin/item-requests`(대기 목록), `PATCH /admin/item-requests/:id`(`approve` + 품목 정보 / `reject` + 사유)이고, `users.role = 'admin'` 확인 미들웨어가 새로 필요하다. 그전까지는 DB에서 직접 처리한다.
+2. **처리 결과 알림** — 승인·반려 시 요청자에게 알릴지. 알린다면 `notifications.type`에 `item_request`를 추가해야 한다(현재 CHECK는 `comment`·`reply`·`price_change`).
+3. **요청 횟수 제한** — 도배 방지로 1인 하루 N건 제한(`429`)이 필요한지.
+4. **판매글 등록 흐름** — 요청 후 승인 전까지는 판매글을 등록할 수 없다(LISTING-03은 품목 필수). 요청 후 "검토 후 알려드릴게요" 안내만 하고 등록 화면은 그대로 둘지 확인.

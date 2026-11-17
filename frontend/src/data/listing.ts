@@ -172,6 +172,8 @@ export const listingDetailCopy = {
   setLabel: (setName: string) => `세트: ${setName}`,
   sellerGrade: '판매자',
   sellerBadge: 'RE:PICK 회원',
+  ratingEmpty: '-',
+  ratingCountEmpty: '(리뷰 준비중)',
   timeAgo: {
     justNow: '방금 전',
     minutes: (n: number) => `${n}분 전`,
@@ -180,6 +182,26 @@ export const listingDetailCopy = {
     months: (n: number) => `${n}개월 전`,
     years: (n: number) => `${n}년 전`,
   },
+};
+
+/** 판매자의 다른 상품(LISTING-10)·같은 품목의 다른 매물(ITEM-05) 문구 (#30). */
+export const relatedListingsCopy = {
+  sellerOtherTitle: (count: number) => `판매자의 다른 상품 (${count})`,
+  sellerOtherEmpty: '판매 중인 다른 상품이 없습니다.',
+  buyer: {
+    title: '같은 품목의 다른 매물',
+    subtitle: '(판매중 · 낮은 가격순)',
+    description: (itemName: string, count: number) => `[${itemName}] 판매중인 다른 매물 ${count}건`,
+  },
+  seller: {
+    title: '같은 품목의 다른 매물 실시간 시세',
+    description: (itemName: string, count: number) =>
+      `[${itemName}] 경쟁 판매자 ${count}건의 등록 가격을 비교해 판매 전략을 세워 보세요.`,
+  },
+  deliveryOnly: '택배거래',
+  conditions: { unopened: '미개봉', opened_raw: '개봉', graded: '그레이딩' },
+  graded: (service: string, grade: string) => `${service} ${grade}`,
+  priceWithCurrency: (price: string) => `${price}원`,
 };
 
 /** P-010 상세에서 작성자 본인에게만 보이는 관리 버튼 문구 (isOwner = true). */
@@ -248,6 +270,10 @@ export const buyerListing = {
     title: '같은 품목의 다른 매물',
     subtitle: '(판매중 · 최신 등록순)',
     description: (itemName: string) => `동일 품목 [${itemName}]의 판매중 매물입니다.`,
+    ratingLabel: '구매자 만족도 (리뷰)',
+    reviewsLabel: '리뷰 보기',
+    rating: '4.9',
+    ratingCount: '(39개 평가)',
   },
 };
 
@@ -294,6 +320,15 @@ export const sellerListing = {
     /** 불러올 최대 개수 (현재 판매글은 빼고 보여준다). */
     size: 12,
     deliveryOnly: '택배 거래',
+  inspection: {
+    title: '전문 검수 센터 기준 실물 상태 체결 보증표',
+    badge: '100% 정품 인증 통과',
+    points: [
+      { label: '모서리 마모 (Edges)', value: '결점 없음 (0 Pt)' },
+      { label: '표면 인쇄선 (Print Line)', value: '발견되지 않음' },
+      { label: '좌우 밸런스 (Centering)', value: '55/45 표준 부합' },
+      { label: '슬랩 케이스 스크래치', value: '미세 흠집 무결' },
+    ] as readonly InspectionPoint[],
   },
   deleteModal: {
     title: '판매글 삭제 확인',
