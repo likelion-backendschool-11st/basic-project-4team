@@ -12,6 +12,8 @@ export const itemSummaryCopy = {
   imageAlt: (name: string) => `${name} 대표 이미지`,
   price: (n: number) => `${n.toLocaleString('ko-KR')}원`,
   noPrice: '거래 이력 없음',
+  noAverage: '최근 30일 거래 없음',
+  tradeCount: (n: number) => `거래 ${n.toLocaleString('ko-KR')}건`,
   changePct: (rate: number) => `${Math.abs(rate).toFixed(1)}%`,
   changeAmount: (n: number) => `(전일 대비 ${n > 0 ? '+' : n < 0 ? '-' : ''}${Math.abs(n).toLocaleString('ko-KR')}원)`,
   /** 등급 칩 — 카드는 레어도, 그 외는 카테고리 이름. */

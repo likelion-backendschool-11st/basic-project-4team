@@ -541,7 +541,7 @@ REQ-BOARD-010 (#39). 로그인 없이 조회 가능. 품목 토론방 사이드�
         "postCount": 3,
         "commentCount": 9,
         "mentionCount": 12,
-        "marketSummary": { "latestPrice": 285000, "changeAmount": -15000, "changeRate": -5, "tradeCount30d": 3 }
+        "marketSummary": { "latestPrice": 285000, "changeAmount": -15000, "changeRate": -5, "averagePrice30d": 291000, "tradeCount30d": 3 }
       }
     ]
   }

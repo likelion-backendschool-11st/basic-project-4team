@@ -133,6 +133,8 @@ export interface MarketSummary {
   readonly changeAmount: number;
   /** 전일 대비 변동률(%, 소수 1자리). */
   readonly changeRate: number;
+  /** 최근 30일 평균 체결가(원). 30일 안에 거래가 없으면 null. */
+  readonly averagePrice30d: number | null;
   readonly tradeCount30d: number;
 }
 

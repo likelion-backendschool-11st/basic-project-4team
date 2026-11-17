@@ -74,16 +74,20 @@ async function findLastTrade(itemId, filter, before = null) {
   return rows.length === 0 ? null : { price: rows[0].sold_price, soldAt: rows[0].sold_at };
 }
 
-/** 최근 30일 거래완료 건수. */
-async function countRecentTrades(itemId, filter) {
+/** 최근 30일 거래완료 건수와 평균 체결가(원 단위 반올림, 거래가 없으면 null). */
+async function findRecentTradeStats(itemId, filter) {
   const { sql, params } = buildFilter(filter);
-  const [[{ tradeCount }]] = await pool.execute(
-    `SELECT COUNT(*) AS tradeCount FROM listings
+  const [[row]] = await pool.execute(
+    `SELECT COUNT(*) AS tradeCount, AVG(sold_price) AS averagePrice FROM listings
      WHERE item_id = ? AND status = 'sold' AND deleted_at IS NULL${sql}
        AND sold_at >= UTC_TIMESTAMP() - INTERVAL ${TRADE_COUNT_DAYS} DAY`,
     [itemId, ...params],
   );
-  return tradeCount;
+  // AVG 결과는 DECIMAL이라 문자열로 온다.
+  return {
+    tradeCount: row.tradeCount,
+    averagePrice: row.averagePrice === null ? null : Math.round(Number(row.averagePrice)),
+  };
 }
 
 /** 현재 판매중(status = selling)인 판매글 수. */
@@ -140,4 +144,4 @@ async function findTrending({ days, limit }) {
   }));
 }
 
-module.exports = { findByIdOrSlug, findLastTrade, countRecentTrades, countSelling, findTrending };
+module.exports = { findByIdOrSlug, findLastTrade, findRecentTradeStats, countSelling, findTrending };

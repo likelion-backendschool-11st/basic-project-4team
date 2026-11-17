@@ -270,6 +270,10 @@ export interface DiscussionItem {
   readonly latestPrice: number | null;
   readonly changePct: string;
   readonly changeAmount: string;
+  /** "30일 평균 시세" 값 문구 (거래가 없으면 안내 문구). */
+  readonly average30d: string;
+  /** "거래 12건" — 30일 거래 건수. */
+  readonly tradeCount30d: string;
   /** 소분류 카테고리 code (API 품목만). 토론글 등록 시 게시판(board)을 정하는 데 쓴다. */
   readonly categoryCode?: string;
   /** 전일 대비 방향 — 화살표·색상 선택용. */
@@ -280,6 +284,9 @@ export interface DiscussionItem {
 }
 
 export const itemHeaderCopy = {
+  latestLabel: '최근 거래가',
+  averageLabel: '30일 평균 시세',
+  referenceNote: '거래완료 체결가 기준 · 참고용',
   listingIcon: 'storefront',
   listingLabel: (n: number) => `현재 매물 (${n})`,
   listingTo: (name: string) => `${ROUTES.search}?q=${encodeURIComponent(name)}`,
@@ -454,6 +461,8 @@ export interface TrendingItem {
   readonly rank: number;
   readonly name: string;
   readonly detail: string;
+  /** 30일 평균 시세 문구. 30일 안에 거래가 없으면 null. */
+  readonly average: string | null;
   /** 언급 수 표시 문구 ("12회"). */
   readonly count: string;
   /** 언급 수 내역 ("토론글 3개 · 댓글 9개"). */
@@ -475,12 +484,14 @@ export const trendingSidebar = {
   loading: '순위를 불러오는 중...',
   empty: '최근 24시간 동안 언급된 품목이 없습니다.',
   error: '순위를 불러오지 못했습니다.',
-  /** "SAR · 320,000원 (+18.1%)" — 거래 이력이 없으면 "거래 이력 없음". */
+  /** "SAR · 최근 320,000원 (+18.1%)" — 거래 이력이 없으면 "거래 이력 없음". */
   detail: (label: string, price: number | null, rate: number) => {
     if (price === null) return `${label} · 거래 이력 없음`;
     const change = rate === 0 ? '보합' : `${rate > 0 ? '+' : ''}${rate.toFixed(1)}%`;
-    return `${label} · ${price.toLocaleString('ko-KR')}원 (${change})`;
+    return `${label} · 최근 ${price.toLocaleString('ko-KR')}원 (${change})`;
   },
+  /** "30일 평균 306,000원" — 30일 안에 거래가 없으면 null(줄을 숨긴다). */
+  average: (price: number | null) => (price === null ? null : `30일 평균 ${price.toLocaleString('ko-KR')}원`),
   /** 언급 수(글 + 댓글). */
   count: (n: number) => `${n.toLocaleString('ko-KR')}회`,
   /** 숫자에 마우스를 올리면 보이는 내역. */

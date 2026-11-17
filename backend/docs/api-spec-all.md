@@ -819,6 +819,7 @@ GET /api/v1/items/{itemId}?condition=graded&gradingService=PSA&grade=10
       "latestPrice": 320000,
       "changeAmount": 49000,
       "changeRate": 18.2,
+      "averagePrice30d": 306000,
       "tradeCount30d": 42
     },
     "sellingCount": 42
@@ -833,6 +834,7 @@ GET /api/v1/items/{itemId}?condition=graded&gradingService=PSA&grade=10
 | `marketSummary.latestPrice` | number | 최근 체결가 (원) |
 | `marketSummary.changeAmount` | number | 전일 대비 변동액 (원, 음수 가능) |
 | `marketSummary.changeRate` | number | 전일 대비 변동률 (%, 소수 1자리) |
+| `marketSummary.averagePrice30d` | number \| null | 최근 30일 평균 체결가 (원, 반올림). 30일 안에 거래가 없으면 `null` (#48) |
 | `marketSummary.tradeCount30d` | number | 최근 30일 거래완료 건수 |
 | `sellingCount` | number | 현재 `status = selling`인 판매글 수 |
 
