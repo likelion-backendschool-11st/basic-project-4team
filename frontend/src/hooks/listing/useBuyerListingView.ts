@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { toAssetUrl } from '../../api/client';
 import type { ListingDetail } from '../../api/types';
 import { ROUTES } from '../../data/layout';
 import {
@@ -41,18 +42,21 @@ const toBreadcrumbs = (listing: ListingDetail): readonly BreadcrumbItem[] => [
   { label: listing.item.setName ?? listing.item.name },
 ];
 
-/** 상품 사진(sortOrder 순) + 실물 인증 사진. 사진이 하나도 없으면 품목 대표 이미지를 쓴다. */
+/**
+ * 상품 사진(sortOrder 순) + 실물 인증 사진. 상품 사진이 없으면 품목 대표 이미지를 대표 사진으로 앞에 둔다
+ * (인증 사진이 있어도 — 검색 카드 썸네일과 같은 규칙).
+ */
 const toGallery = (listing: ListingDetail): readonly GalleryImage[] => {
   const photos: GalleryImage[] = listing.images.map((img, i) => ({
-    src: img.url,
+    src: toAssetUrl(img.url),
     alt: `${listing.title} ${copy.photoLabel(i + 1)}`,
     label: i === 0 ? copy.photoMain : copy.photoLabel(i + 1),
   }));
-  if (listing.authImage) {
-    photos.push({ src: listing.authImage.url, alt: `${listing.title} ${copy.authPhoto}`, label: copy.authPhoto, verified: true });
-  }
   if (photos.length === 0 && listing.item.imageUrl) {
-    photos.push({ src: listing.item.imageUrl, alt: listing.item.name, label: copy.photoMain });
+    photos.push({ src: toAssetUrl(listing.item.imageUrl), alt: listing.item.name, label: copy.photoMain });
+  }
+  if (listing.authImage) {
+    photos.push({ src: toAssetUrl(listing.authImage.url), alt: `${listing.title} ${copy.authPhoto}`, label: copy.authPhoto, verified: true });
   }
   return photos;
 };

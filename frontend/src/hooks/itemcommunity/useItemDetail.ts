@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ApiError } from '../../api/client';
+import { ApiError, toAssetUrl } from '../../api/client';
 import { getItemDetail } from '../../api/itemcommunity';
 import type { ItemDetail } from '../../api/types';
 import type { DiscussionItem } from '../../data/community';
@@ -17,7 +17,7 @@ const toDiscussionItem = (detail: ItemDetail, routeId: string): DiscussionItem =
     name: detail.name,
     grade: itemSummaryCopy.gradeChip(detail.rarity, detail.category.name),
     certNo: itemSummaryCopy.subLabel(detail.setName, detail.cardNo),
-    image: { src: detail.imageUrl ?? '', alt: itemSummaryCopy.imageAlt(detail.name) },
+    image: { src: detail.imageUrl ? toAssetUrl(detail.imageUrl) : '', alt: itemSummaryCopy.imageAlt(detail.name) },
     price: summary ? itemSummaryCopy.price(summary.latestPrice) : itemSummaryCopy.noPrice,
     latestPrice: summary?.latestPrice ?? null,
     changePct: summary ? itemSummaryCopy.changePct(summary.changeRate) : '',

@@ -1,5 +1,6 @@
 import React from 'react';
 import type { ItemSearchResult } from '../../api/types';
+import { toAssetUrl } from '../../api/client';
 import { feedComposer, feedCopy } from '../../data/community';
 import type { ItemTagSearchStatus } from '../../hooks/community/useItemTagSearch';
 import { Icon } from '../common/Icon';
@@ -67,7 +68,7 @@ export const ComposerItemTagPicker: React.FC<ComposerItemTagPickerProps> = ({
               >
                 <span className="w-9 h-9 rounded bg-surface-container-lowest overflow-hidden shrink-0 flex items-center justify-center">
                   {item.imageUrl ? (
-                    <img alt={item.name} className="w-full h-full object-contain" loading="lazy" src={item.imageUrl} />
+                    <img alt={item.name} className="w-full h-full object-contain" loading="lazy" src={toAssetUrl(item.imageUrl)} />
                   ) : (
                     <Icon className="text-[18px] text-muted" name="image" />
                   )}

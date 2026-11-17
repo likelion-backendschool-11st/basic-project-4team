@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ApiError } from '../../api/client';
+import { ApiError, toAssetUrl } from '../../api/client';
 import { getListings, type ListingSearchParams } from '../../api/listingSearch';
 import type { ListingSummary } from '../../api/types';
 import { toastMessages, wishCopy } from '../../data/listing';
@@ -60,7 +60,8 @@ const toCard = (listing: ListingSummary): Listing => {
     status: listing.status,
     likes: listing.wishCount,
     wished: listing.isWished,
-    imageUrl: listing.thumbnailUrl,
+    // 업로드 사진은 /uploads/... 상대 경로라 API 서버 주소를 붙인다.
+    imageUrl: listing.thumbnailUrl ? toAssetUrl(listing.thumbnailUrl) : null,
     imageAlt: listing.title,
   };
 };
