@@ -25,15 +25,34 @@ export interface ListingPhoto {
 
 export type ItemCondition = 'unopened' | 'opened_raw' | 'graded';
 
+/**
+ * 카테고리별 필수 속성 (#33, REQ-POST-006).
+ * - setName·cardNo·language·rarity: 선택한 품목(items)에서 채우는 읽기 전용 값. 판매글에 저장하지 않는다.
+ * - condition·gradingService·grade: 판매자가 고르는 값. 빈 문자열 = 아직 고르지 않음.
+ */
 export interface ListingAttributes {
   readonly setName: string;
   readonly cardNo: string;
   readonly language: string;
   readonly rarity: string;
-  readonly condition: ItemCondition;
+  readonly condition: ItemCondition | '';
   readonly gradingService: string;
   readonly grade: string;
 }
+
+/** 카드 필수 속성 입력란을 보여주는 대분류 code (ITEM-01). 운동화·명품 속성은 아직 미구현. */
+export const CARD_MAIN_CATEGORY = 'cards';
+
+/** 아무것도 고르지 않은 속성 — 등록 화면 시작값, 대분류를 바꿀 때 초기화 값. */
+export const emptyAttributes: ListingAttributes = {
+  setName: '',
+  cardNo: '',
+  language: '',
+  rarity: '',
+  condition: '',
+  gradingService: '',
+  grade: '',
+};
 
 export interface ListingFormValues {
   readonly photos: readonly ListingPhoto[];
@@ -231,15 +250,7 @@ export const emptyListingValues: ListingFormValues = {
   itemId: null,
   catalogQuery: '',
   catalogMatch: null,
-  attributes: {
-    setName: '',
-    cardNo: '',
-    language: 'ko',
-    rarity: 'SAR',
-    condition: 'graded',
-    gradingService: 'PSA',
-    grade: '10',
-  },
+  attributes: emptyAttributes,
   title: '',
   price: 0,
   description: '',
@@ -434,6 +445,12 @@ export const attributesCopy = {
     title: '카테고리별 필수 속성 입력',
     badge: '카드 카테고리 기준',
     hint: '모든 항목 필수 기재',
+    otherBadge: '공통 속성',
+    otherHint: '상품 상태만 입력',
+    otherNotice: '이 카테고리의 세부 속성(사이즈·모델명 등) 입력은 준비 중입니다. 상품 상태만 선택해 주세요.',
+    otherCondition: '상품 상태',
+    itemLocked: '선택한 품목 정보로 자동 입력됩니다.',
+    itemPending: '4단계에서 품목을 선택하면 자동 입력됩니다.',
     setName: '세트명 (Set Name)',
     cardNo: '카드 고유 번호 (Card No.)',
     language: '언어 (Language)',
@@ -454,6 +471,9 @@ export const attributesCopy = {
   },
   setNamePlaceholder: 'SV2a 151',
   cardNoPlaceholder: '201/165',
+  /** 품목 정보에 값이 없을 때 (예: 언어 미등록 품목). */
+  emptyValue: '-',
+  selectPlaceholder: '선택해주세요',
 } as const;
 
 export const lockedCategoryCopy = {
@@ -606,6 +626,8 @@ export const validationMessages = {
   tradeMethod: '거래 방식을 하나 이상 선택해주세요.',
   directLocation: '직거래 가능 지역을 입력해주세요.',
   agreed: '판매 정보 확인 및 책임 동의 항목에 체크해주세요.',
+  condition: '상품 상태(미개봉/개봉/그레이딩)를 선택해주세요.',
+  grading: '그레이딩 슬랩은 감정 회사와 등급을 모두 선택해주세요.',
 } as const;
 
 // ---------------------------------------------------------------------------

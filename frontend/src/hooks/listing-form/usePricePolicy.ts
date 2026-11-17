@@ -31,10 +31,13 @@ interface MarketState {
 }
 
 /** 폼 속성 → ITEM-04 시세 필터. 그레이딩은 그레이딩사·등급을 모두 골랐을 때만 함께 보낸다. */
-const toFilter = ({ condition, gradingService, grade }: ListingAttributes): MarketPriceFilter =>
-  condition === 'graded' && gradingService && grade
+const toFilter = ({ condition, gradingService, grade }: ListingAttributes): MarketPriceFilter => {
+  // 상태를 아직 고르지 않았으면 전체 시세를 본다.
+  if (!condition) return {};
+  return condition === 'graded' && gradingService && grade
     ? { condition, gradingService: gradingService as GradingService, grade: grade as Grade }
     : { condition };
+};
 
 /**
  * 판매글 등록·수정의 가격 기준 (#54).

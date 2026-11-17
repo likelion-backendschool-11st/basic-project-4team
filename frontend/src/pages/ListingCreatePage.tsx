@@ -79,7 +79,14 @@ export const ListingCreatePage: React.FC<ListingCreatePageProps> = ({ className 
                 step={4}
                 totalCount={mapping.catalog.totalCount}
               />
-              <AttributesSection onChange={form.setAttribute} step={5} value={values.attributes} />
+              <AttributesSection
+                error={errors.condition ?? errors.grading}
+                hasItem={values.itemId !== null}
+                mainCategory={values.mainCategory}
+                onChange={form.setAttribute}
+                step={5}
+                value={values.attributes}
+              />
               <PricingSection
                 onAddPrice={form.addPrice}
                 onPriceChange={(v) => setField('price', v)}

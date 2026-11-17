@@ -6,8 +6,7 @@ import { ROUTES } from '../../data/layout';
 import {
   MAX_DESCRIPTION,
   NEW_LISTING_ID,
-  languageOptions,
-  rarityOptions,
+  emptyAttributes,
   validationMessages,
   type FormVariant,
   type ListingAttributes,
@@ -63,6 +62,10 @@ export const validateListing = (v: ListingFormValues, variant: FormVariant = 'cr
   if (!v.delivery && !v.direct) e.tradeMethod = validationMessages.tradeMethod;
   if (v.direct && !v.directLocation.trim()) e.directLocation = validationMessages.directLocation;
   if (!v.agreed) e.agreed = validationMessages.agreed;
+  // 필수 속성 (REQ-POST-010). 상태는 모든 카테고리에서 필수(LISTING-03 condition), 그레이딩이면 업체·등급까지.
+  const { condition, gradingService, grade } = v.attributes;
+  if (!condition) e.condition = validationMessages.condition;
+  else if (condition === 'graded' && (!gradingService || !grade)) e.grading = validationMessages.grading;
   return e;
 };
 
@@ -71,13 +74,6 @@ const toCatalogLabel = (item: ItemSummary): string => {
   const detail = [item.setName, item.cardNo ? `#${item.cardNo}` : null].filter(Boolean).join(' ');
   return detail ? `${item.name} (${detail})` : item.name;
 };
-
-/** DB 값이 선택지에 있으면 그 값, 없으면(null 포함) 기존 값을 유지한다. */
-const pickOption = (
-  options: readonly { readonly value: string }[],
-  value: string | null,
-  fallback: string,
-): string => (value && options.some((o) => o.value === value) ? value : fallback);
 
 /**
  * Controlled state + validation + submit for the listing form.
@@ -115,12 +111,21 @@ export const useListingForm = (
     setValues((prev) => {
       if (prev.mainCategory === main && prev.subCategory === sub) return prev;
       const keepItem = prev.subCategory === sub;
+      // 대분류가 바뀌면 입력란 구성이 달라지므로 속성을 모두 비운다 (REQ-POST-003).
+      // 소분류만 바뀌면 고른 상태는 두고, 품목에서 온 값만 비운다.
+      const attributes =
+        prev.mainCategory !== main
+          ? emptyAttributes
+          : keepItem
+            ? prev.attributes
+            : { ...prev.attributes, setName: '', cardNo: '', language: '', rarity: '' };
       return {
         ...prev,
         mainCategory: main,
         subCategory: sub,
         itemId: keepItem ? prev.itemId : null,
         catalogMatch: keepItem ? prev.catalogMatch : null,
+        attributes,
       };
     });
   }, []);
@@ -133,11 +138,13 @@ export const useListingForm = (
       mainCategory,
       subCategory: item.category.code,
       attributes: {
-        ...prev.attributes,
+        // 다른 대분류의 품목을 고르면 그 대분류 기준으로 속성을 다시 고른다.
+        ...(prev.mainCategory === mainCategory ? prev.attributes : emptyAttributes),
+        // 품목 속성은 items 값을 그대로 보여준다 (읽기 전용, 판매글에 저장하지 않음).
         setName: item.setName ?? '',
         cardNo: item.cardNo ?? '',
-        language: pickOption(languageOptions, item.language, prev.attributes.language),
-        rarity: pickOption(rarityOptions, item.rarity, prev.attributes.rarity),
+        language: item.language ?? '',
+        rarity: item.rarity ?? '',
       },
     }));
   }, []);
