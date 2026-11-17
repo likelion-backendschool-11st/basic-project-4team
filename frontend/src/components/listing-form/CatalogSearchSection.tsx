@@ -1,8 +1,9 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Icon } from '../common/Icon';
+import { ItemRequestPrompt } from './ItemRequestPrompt';
 import { SectionCard } from './SectionCard';
-import { catalogCopy } from '../../data/listingForm';
+import { catalogCopy, itemRequestCopy } from '../../data/listingForm';
 import type { ItemSummary } from '../../api/types';
 import type { CatalogSearchStatus } from '../../hooks/listing-form/useCatalogSearch';
 
@@ -19,6 +20,10 @@ interface CatalogSearchSectionProps {
   readonly onQueryChange: (value: string) => void;
   readonly onSearch: () => void;
   readonly onSelect: (item: ItemSummary) => void;
+  /** 검색 후 "품목 등록 요청"을 누르면 호출. 없으면 요청 줄을 숨긴다. */
+  readonly onRequestItem?: () => void;
+  /** 등록 요청 대신 기존 품목 검색으로 돌려보냈을 때의 안내. */
+  readonly requestNotice?: string | null;
 }
 
 interface CatalogResultRowProps {
@@ -75,6 +80,8 @@ export const CatalogSearchSection: React.FC<CatalogSearchSectionProps> = ({
   onQueryChange,
   onSearch,
   onSelect,
+  onRequestItem,
+  requestNotice,
 }) => (
   // data-component="ProductSearchAndLink"
   <SectionCard
@@ -142,6 +149,19 @@ export const CatalogSearchSection: React.FC<CatalogSearchSectionProps> = ({
             <p className="px-space-sm pb-2 font-caption text-caption text-muted">{catalogCopy.moreHint}</p>
           )}
         </div>
+      )}
+      {status === 'ready' && onRequestItem && (
+        <ItemRequestPrompt
+          className="mt-space-xs px-space-sm py-2 rounded bg-canvas-soft"
+          label={itemRequestCopy.promptLabel}
+          onRequest={onRequestItem}
+          text={itemRequestCopy.promptText}
+        />
+      )}
+      {requestNotice && !match && (
+        <p className="mt-space-xs font-caption text-caption text-forest" role="status">
+          {requestNotice}
+        </p>
       )}
 
       {match ? (

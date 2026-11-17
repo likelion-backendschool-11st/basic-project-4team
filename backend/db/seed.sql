@@ -28,6 +28,7 @@ SET NAMES utf8mb4;
 SET time_zone = '+00:00';
 
 SET FOREIGN_KEY_CHECKS = 0;
+TRUNCATE TABLE item_requests;
 TRUNCATE TABLE chat_messages;
 TRUNCATE TABLE chat_images;
 TRUNCATE TABLE chat_rooms;

@@ -11,12 +11,15 @@ export const toAssetUrl = (url: string): string => (/^https?:\/\//.test(url) ? u
 export class ApiError extends Error {
   readonly status: number;
   readonly code: string;
+  /** 서버 error.details (예: ITEM_ALREADY_EXISTS의 { item }). 없으면 undefined. */
+  readonly details: unknown;
 
-  constructor(status: number, code: string, message: string) {
+  constructor(status: number, code: string, message: string, details?: unknown) {
     super(message);
     this.name = 'ApiError';
     this.status = status;
     this.code = code;
+    this.details = details;
   }
 }
 
@@ -45,7 +48,7 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
   const body: unknown = await response.json().catch(() => null);
   if (!response.ok) {
     if (isApiErrorBody(body)) {
-      throw new ApiError(response.status, body.error.code, body.error.message);
+      throw new ApiError(response.status, body.error.code, body.error.message, body.error.details);
     }
     throw new ApiError(response.status, 'UNKNOWN_ERROR', `HTTP ${response.status}`);
   }

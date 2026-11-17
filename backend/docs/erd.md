@@ -13,7 +13,7 @@
 
 ## 0. 범위와 공통 규칙
 
-**만드는 테이블 (26개)**: `users`, `refresh_tokens`, `verification_codes`, `categories`, `items`, `listings`, `listing_images`, `listing_wishes`, `listing_views`, `posts`, `post_images`, `post_price_tags`, `post_polls`, `post_poll_options`, `post_poll_votes`, `post_reactions`, `comments`, `comment_likes`, `item_votes`, `reports`, `notifications`, `settings`, `chat_rooms`, `chat_messages`, `chat_images`, `item_price_daily`
+**만드는 테이블 (27개)**: `users`, `refresh_tokens`, `verification_codes`, `categories`, `items`, `listings`, `listing_images`, `listing_wishes`, `listing_views`, `posts`, `post_images`, `post_price_tags`, `post_polls`, `post_poll_options`, `post_poll_votes`, `post_reactions`, `comments`, `comment_likes`, `item_votes`, `reports`, `notifications`, `settings`, `chat_rooms`, `chat_messages`, `chat_images`, `item_price_daily`, `item_requests`
 
 **만들지 않는 것**
 
@@ -56,6 +56,9 @@ erDiagram
     users ||--o{ notifications : "받는 알림"
     users ||--o{ listing_images : "업로드"
     users ||--o{ post_images : "업로드"
+    users ||--o{ item_requests : "품목 등록 요청"
+    categories ||--o{ item_requests : "요청 분류"
+    items |o--o{ item_requests : "승인된 품목"
 
     categories |o--o{ categories : "대분류-소분류"
     categories ||--o{ items : "분류"
@@ -548,6 +551,32 @@ CHECK: `text`면 `body`만, `image`면 `image_id`만 있어야 한다.
 
 > 갱신: 거래완료 처리(LISTING-07)와 **같은 트랜잭션**에서 그 품목·등급·날짜 칸을 `listings`로부터 다시 계산한다(증감이 아니라 재계산이라 어긋나지 않음). 거래완료 판매글은 수정·삭제가 막혀 있어 다른 갱신 경로는 없다.
 > 전체 재생성: `npm run db:market` (`db:init`·`db:seed`도 마지막에 실행). SQL로 직접 거래완료를 넣었다면 이 명령을 실행한다.
+
+### 2.22 `item_requests` — 품목 등록 요청 (#47, REQ-POST-005)
+
+판매글 등록에서 원하는 품목이 없을 때 관리자에게 쓰는 요청 글. 글쓰기 형식(제목·본문), 사진 없음. API는 `api-spec.md` "품목 등록 요청 (#47)".
+
+| 컬럼 | 타입 | 제약 | 설명 |
+|---|---|---|---|
+| `id` | BIGINT | PK | |
+| `user_id` | BIGINT | NOT NULL, FK → `users` ON DELETE CASCADE | 요청한 사람 |
+| `category_id` | BIGINT | NOT NULL, FK → `categories` ON DELETE RESTRICT | 소분류(앱에서 검사) |
+| `title` | VARCHAR(100) | NOT NULL | 원하는 품목명. 욕설은 `*`로 가려 저장 |
+| `body` | VARCHAR(1000) | NOT NULL | 품목 설명. 욕설은 `*`로 가려 저장 |
+| `reference_url` | VARCHAR(500) | NULL | 참고 링크 |
+| `status` | VARCHAR(10) | NOT NULL DEFAULT `'pending'`, CHECK (`pending`, `approved`, `rejected`) | 검토 중 / 등록됨 / 반려 |
+| `reject_reason` | VARCHAR(500) | NULL | 반려 사유 |
+| `item_id` | BIGINT | NULL, FK → `items` ON DELETE RESTRICT | 승인 시 등록(연결)된 품목 |
+| `processed_by` | BIGINT | NULL, FK → `users` ON DELETE SET NULL | 처리한 관리자 |
+| `processed_at` | DATETIME | NULL | 승인·반려 시각 |
+
+| 인덱스 | 컬럼 | 이유 |
+|---|---|---|
+| `idx_item_requests_user_created` | `user_id, created_at` | 내 요청 목록(ITEM-07) 최신순. FK 자동 인덱스를 대신함 |
+| `idx_item_requests_status_created` | `status, created_at` | 관리자가 DB에서 대기 요청을 오래된 순으로 확인 |
+
+> 관리자 화면·API는 아직 없다. 관리자는 DB에서 직접 `status`·`item_id`·`processed_at`을 바꾼다(api-spec.md "관리자 처리 (DB)").
+> 같은 사람의 같은 대기 요청(소분류 + 제목)은 앱에서 409로 막는다. `pending`일 때만 막아야 해서 UNIQUE로는 걸지 않는다.
 
 ## 3. 확인이 필요한 사항(확인완료)
 
