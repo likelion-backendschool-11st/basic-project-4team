@@ -22,6 +22,7 @@
 --   /community/items/rolex-submariner          거래 이력·매물 없음
 --   test1~3 은 오늘 시세 전망 투표를 하지 않은 상태 → 바로 투표해 볼 수 있다
 --   newbie 로 로그인 → /sell 신규 가입 회원 안내, 1,000,000원 이상 등록 차단 (시드 후 7일 동안. 시드 없이 계정만: npm run db:newbie)
+--   test2 는 관리자 → /my?tab=itemReview 품목 등록 요청 승인·반려 (#34). test1·test3·newbie → /my?tab=itemRequests 내 요청 목록
 -- ═════════════════════════════════════════════════════════════════════════════
 
 SET NAMES utf8mb4;
@@ -71,6 +72,8 @@ INSERT INTO users (id, login_id, password_hash, nickname, email, created_at) VAL
 -- 신규 가입자 확인용 (#54): 하루 전 가입 → 시드 후 7일(settings.new_user_limit_days) 동안 신규 가입자 제한·안내가 보인다.
 -- 판매글·글·댓글이 없는 빈 계정이라 다른 화면 데이터에 영향이 없다. 7일이 지나면 npm run db:newbie (다른 데이터는 안 지움).
 (11, 'newbie', '$2b$10$IOhC/QGFUV/94i/UGluqqOCdvMcWFTfxqJHoi2MV/Cg0fd.QVZcdq', '새내기', 'newbie@repick.dev', UTC_TIMESTAMP() - INTERVAL 1440 MINUTE);
+-- 관리자 확인용 (#34): test2는 관리자 → 마이페이지 "품목 요청 관리" 탭. 권한은 로그인할 때 토큰에 담긴다.
+UPDATE users SET role = 'admin' WHERE login_id = 'test2';
 
 -- ───────────── 카테고리 (code는 프론트 메뉴와 같음) ─────────────
 INSERT INTO categories (id, parent_id, code, name, sort_order) VALUES
@@ -3241,6 +3244,16 @@ JOIN categories c ON c.id = l.category_id
 JOIN categories pc ON pc.id = c.parent_id AND pc.code = 'sneakers'
 SET l.attributes = JSON_OBJECT('sizeMm', CAST(REPLACE(REGEXP_SUBSTR(l.title, '[0-9]{3}mm'), 'mm', '') AS UNSIGNED))
 WHERE REGEXP_SUBSTR(l.title, '[0-9]{3}mm') IS NOT NULL;
+
+-- ───────────── 품목 등록 요청 (#47·#34) ─────────────
+-- 회원(test1·test3·newbie)의 대기 요청 → test2(관리자)가 마이페이지에서 승인하면 items에 추가되어 품목 검색에 나온다.
+-- test1·test3의 "메가 루카리오 ex SAR"은 같은 제목이라 한 번 승인하면 함께 승인된다.
+INSERT INTO item_requests (user_id, category_id, title, body, reference_url, status, reject_reason, processed_by, processed_at, created_at) VALUES
+(1, 4, '메가 루카리오 ex SAR', '메가브레이브 090/063 한글판입니다. 2026년 10월 발매 확장팩인데 검색이 안 돼요.', NULL, 'pending', NULL, NULL, NULL, UTC_TIMESTAMP() - INTERVAL 2880 MINUTE),
+(3, 4, '메가 루카리오 ex SAR', '메가브레이브 확장팩 SAR 카드 등록 부탁드립니다.', NULL, 'pending', NULL, NULL, NULL, UTC_TIMESTAMP() - INTERVAL 2000 MINUTE),
+(3, 8, '조던 1 레트로 하이 OG 블랙 토 2026', '2026년 재발매 모델입니다. 품번 DZ5485-106', 'https://www.nike.com/kr/', 'pending', NULL, NULL, NULL, UTC_TIMESTAMP() - INTERVAL 1440 MINUTE),
+(11, 5, '몽키 D. 루피 SEC', 'OP-13 OP13-118 시크릿 레어입니다.', NULL, 'pending', NULL, NULL, NULL, UTC_TIMESTAMP() - INTERVAL 600 MINUTE),
+(1, 11, '테스트 시계 모델', '정보가 부족한 예시 요청', NULL, 'rejected', '모델명·레퍼런스 번호를 확인할 수 없어 반려합니다. 정보를 보완해 다시 요청해 주세요.', 2, UTC_TIMESTAMP() - INTERVAL 4000 MINUTE, UTC_TIMESTAMP() - INTERVAL 5000 MINUTE);
 
 -- ───────────── 집계 컬럼을 실제 행 수로 맞춘다 ─────────────
 UPDATE listings l SET wish_count = (SELECT COUNT(*) FROM wishes w WHERE w.listing_id = l.id);

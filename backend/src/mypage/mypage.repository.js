@@ -7,7 +7,7 @@ const THUMBNAIL_SQL = `COALESCE((SELECT li.url FROM listing_images li
 /** 프로필 + 닉네임 변경 시각. */
 async function findProfile(userId) {
   const [rows] = await pool.execute(
-    `SELECT id, login_id, nickname, email, profile_image_url, nickname_changed_at, created_at
+    `SELECT id, login_id, nickname, email, profile_image_url, role, nickname_changed_at, created_at
        FROM users WHERE id = ? AND deleted_at IS NULL`,
     [userId],
   );
@@ -19,6 +19,7 @@ async function findProfile(userId) {
     nickname: r.nickname,
     email: r.email,
     profileImageUrl: r.profile_image_url,
+    role: r.role,
     createdAt: r.created_at,
     nicknameChangedAt: r.nickname_changed_at,
   };

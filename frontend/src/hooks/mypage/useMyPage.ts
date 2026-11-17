@@ -2,10 +2,11 @@ import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { getMySummary } from '../../api/mypage';
 import type { MyProfile, MySummary } from '../../api/types';
-import { DEFAULT_MY_PAGE_TAB, MY_PAGE_TABS, type MyPageTab } from '../../data/mypage';
+import { ADMIN_MY_PAGE_TABS, DEFAULT_MY_PAGE_TAB, MY_PAGE_TABS, type MyPageTab } from '../../data/mypage';
 import { useAuth } from '../auth/useAuth';
 
-const isTab = (value: string | null): value is MyPageTab => MY_PAGE_TABS.includes(value as MyPageTab);
+const isTab = (value: string | null, tabs: readonly MyPageTab[]): value is MyPageTab =>
+  tabs.includes(value as MyPageTab);
 
 /** 마이페이지 전체 상태: 로그인 확인, 프로필·활동 숫자, 현재 탭(?tab=). */
 export const useMyPage = () => {
@@ -15,8 +16,10 @@ export const useMyPage = () => {
   const [summaryError, setSummaryError] = useState(false);
   const [reloadToken, setReloadToken] = useState(0);
 
+  // 관리자가 아니면 ?tab=itemReview로 들어와도 기본 탭을 보여준다 (서버도 403으로 막는다).
+  const tabs = summary?.profile.role === 'admin' ? ADMIN_MY_PAGE_TABS : MY_PAGE_TABS;
   const tabParam = searchParams.get('tab');
-  const tab: MyPageTab = isTab(tabParam) ? tabParam : DEFAULT_MY_PAGE_TAB;
+  const tab: MyPageTab = isTab(tabParam, tabs) ? tabParam : DEFAULT_MY_PAGE_TAB;
 
   useEffect(() => {
     if (authStatus !== 'authenticated') return undefined;
@@ -59,6 +62,7 @@ export const useMyPage = () => {
     summary,
     summaryError,
     reloadSummary,
+    tabs,
     tab,
     selectTab,
     onProfileUpdated,
