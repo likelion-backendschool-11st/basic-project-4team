@@ -172,7 +172,6 @@ async function findCategoryIdsByCode(code) {
   return rows.length === 0 ? null : rows.map((row) => row.id);
 }
 
-function buildListWhere({ q, categoryIds, itemId, sellerId, conditions, grades, minPrice, maxPrice, tradeMethods, itemStates = [], sizes = [], excludeSold }) {
 /**
  * 목록 WHERE 절. LISTING-01(검색)은 검색 조건을, ITEM-05·LISTING-10은 itemId·sellerId·excludeListingId·statuses를 쓴다.
  * 넘기지 않은 조건은 제한하지 않는다.
